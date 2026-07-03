@@ -20,6 +20,7 @@ void effectsTick()
     if (ONflag && (millis() - effTimer >= ((currentMode >= EFF_MATRIX ) ? 256U - modes[currentMode].Speed : (currentMode <= EFF_OCEAN ) ? 50 : 15)))
     {
       effTimer = millis();
+      bool frameRedrawn = loadingFlag;                      // запоминаем до вызова эффекта: эффект сбрасывает loadingFlag после перерисовки
       switch (currentMode)
       {
         case EFF_WHITE_COLOR:         whiteColorStripeRoutine();          break;  // ( 0U) Бeлый cвeт
@@ -119,7 +120,16 @@ void effectsTick()
         if (!timeSynched)
           noTimeWarning();
       #endif
-      FastLED.show();
+
+      // Белый свет - статичная картинка: лента обновляется только при изменениях
+      // (перерисовка или смена яркости). Каждый лишний FastLED.show() - это шанс
+      // для WiFi-прерывания испортить кадр (мигание первого пикселя цветным).
+      static uint8_t lastShownBrightness = 0U;
+      if (currentMode != EFF_WHITE_COLOR || frameRedrawn || lastShownBrightness != FastLED.getBrightness())
+      {
+        lastShownBrightness = FastLED.getBrightness();
+        FastLED.show();
+      }
     }
     #ifdef WARNING_IF_NO_TIME
     else if (!timeSynched && !ONflag && !((uint8_t)millis())){
