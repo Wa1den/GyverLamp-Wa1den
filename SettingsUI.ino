@@ -1,11 +1,12 @@
-// Веб-интерфейс настроек лампы (библиотека Settings, вариант SettingsAsyncWS:
-// ESPAsyncWebServer + WebSocket, страница доступна по IP лампы на порту 80).
+// Веб-интерфейс настроек лампы (библиотека Settings, вариант SettingsGyverWS:
+// синхронный вебсервер GyverHTTP + WebSocket на порту 81, страница доступна
+// по IP лампы на порту 80; обработка запросов выполняется в loop()).
 //
 // Виджеты с ключами kk::* читают и пишут значения напрямую в базу настроек (Storage.h).
 // Виджеты состояния лампы (питание/эффект/яркость/...) показывают текущие значения
 // глобалов и применяют изменения через слой LampControl (LampControl.ino).
 
-SettingsAsyncWS sett("GyverLamp", &db);
+SettingsGyverWS sett("GyverLamp", &db);
 
 // стабильные id виджетов, не привязанных к базе настроек (0xFA00xx - зона id избранных эффектов)
 #define UI_ID_POWER        ("ui_pwr"_h)
@@ -54,6 +55,7 @@ void settingsBuild(sets::Builder& b)
     if (b.Select(UI_ID_EFFECT, "Эффект", FPSTR(effectNamesList), &effect))
     {
       lampSetEffect(effect);
+      b.reload();                                           // перестроить страницу, чтобы ползунки подтянули яркость/скорость/масштаб нового эффекта
     }
 
     uint8_t brightness = modes[currentMode].Brightness;
@@ -257,13 +259,25 @@ void settingsBuild(sets::Builder& b)
 
     b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
 
+    #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+    char timeBuf[9];
+    getFormattedTime(timeBuf);
+    b.Label("Время лампы", timeBuf);
+    #ifdef USE_NTP
+    b.Label("Синхронизация времени", timeSynched ? (ntpServerAddressResolved ? "выполнена (NTP)" : "выполнена (вручную)") : "не выполнена");
+    #else
+    b.Label("Синхронизация времени", timeSynched ? "выполнена (вручную)" : "не выполнена");
+    #endif //USE_NTP
+    #endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+
     #ifdef USE_MANUAL_TIME_SETTING
-    uint32_t unixTime = 0;
+    uint32_t unixTime = (uint32_t)getCurrentLocalTime();    // в поле подставляется текущее время лампы
     if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
     {
       if (unixTime > 0)
       {
         lampSetManualTime(unixTime);
+        b.reload();                                         // обновить "Время лампы" и статус синхронизации
       }
     }
     #endif //USE_MANUAL_TIME_SETTING
@@ -274,6 +288,7 @@ void settingsBuild(sets::Builder& b)
       {
         restoreSettings();                                  // настройки всех эффектов на значения по умолчанию
         updateSets();
+        b.reload();                                         // ползунки должны подтянуть новые значения
       }
       if (b.Button(UI_ID_WIFI_RESET, "Сброс WiFi"))
       {

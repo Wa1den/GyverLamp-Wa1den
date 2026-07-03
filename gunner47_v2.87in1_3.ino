@@ -315,7 +315,10 @@
 #include <FastLED.h>
 #include <ESP8266WiFi.h>
 #include <WiFiConnector.h>                                  // подключение к WiFi сети с fallback в режим точки доступа (замена WiFiManager)
-#include <SettingsAsyncWS.h>                                // веб-интерфейс настроек (ESPAsyncWebServer + WebSocket)
+#include <SettingsGyverWS.h>                                // веб-интерфейс настроек (синхронный GyverHTTP + WebSocket);
+                                                            // синхронный вариант выбран сознательно: все действия страницы обрабатываются
+                                                            // в loop(), а не в контексте асинхронного TCP с маленьким системным стеком
+                                                            // (в async-варианте ловили самопроизвольные перезагрузки при смене эффекта)
 #include <WiFiUdp.h>
 #include "Types.h"
 #include "timerMinim.h"
