@@ -7,7 +7,8 @@
 // Аппаратному UART прерывания безразличны. FastLED остаётся для всей математики
 // эффектов (leds[], палитры, глобальная яркость).
 
-// вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току
+// вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току;
+// если итоговый кадр не отличается от уже показанного, передача пропускается
 void ledsShow()
 {
   uint8_t brightness = FastLED.getBrightness();
@@ -15,11 +16,21 @@ void ledsShow()
   brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА)
   #endif
 
+  bool frameChanged = false;
   for (uint16_t i = 0; i < NUM_LEDS; i++)
   {
-    ledStrip.SetPixelColor(i, RgbColor(scale8(leds[i].r, brightness), scale8(leds[i].g, brightness), scale8(leds[i].b, brightness)));
+    RgbColor color(scale8(leds[i].r, brightness), scale8(leds[i].g, brightness), scale8(leds[i].b, brightness));
+    if (ledStrip.GetPixelColor(i) != color)
+    {
+      ledStrip.SetPixelColor(i, color);
+      frameChanged = true;
+    }
   }
-  ledStrip.Show();                                          // если кадр не изменился с прошлого вывода, NeoPixelBus сам пропустит передачу
+
+  if (frameChanged)
+  {
+    ledStrip.Show();
+  }
 }
 
 // очистка кадра
