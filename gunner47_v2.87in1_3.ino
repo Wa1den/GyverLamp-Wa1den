@@ -315,11 +315,11 @@
 #include <FastLED.h>
 #include <NeoPixelBus.h>                                    // вывод кадров на ленту через аппаратный UART1 (см. ledsShow в utility.ino)
 #include <ESP8266WiFi.h>
-#include <WiFiConnector.h>                                  // подключение к WiFi сети с fallback в режим точки доступа (замена WiFiManager)
+#include <WiFiConnector.h>                                  // подключение к WiFi сети с fallback в режим точки доступа
 #include <SettingsGyverWS.h>                                // веб-интерфейс настроек (синхронный GyverHTTP + WebSocket);
                                                             // синхронный вариант выбран сознательно: все действия страницы обрабатываются
-                                                            // в loop(), а не в контексте асинхронного TCP с маленьким системным стеком
-                                                            // (в async-варианте ловили самопроизвольные перезагрузки при смене эффекта)
+                                                            // в loop(), а не в контексте асинхронного TCP - у того маленький системный стек,
+                                                            // и тяжёлые обработчики приводят к самопроизвольным перезагрузкам
 sets::Logger uiLog(400);                                    // журнал событий для веб-интерфейса (кольцевой буфер; объявлен до MqttManager.h, который в него пишет)
 #include <WiFiUdp.h>
 #include "Types.h"
@@ -344,7 +344,7 @@ void ledsClear();                                           // очистка к
 #include "MqttManager.h"
 #endif
 #include "TimerManager.h"
-#include "Storage.h"                                        // хранилище настроек на LittleFS/GyverDB (замена EepromManager)
+#include "Storage.h"                                        // хранилище настроек на LittleFS/GyverDB
 #include "FavoritesManager.h"
 
 
@@ -444,7 +444,7 @@ uint8_t FavoritesManager::UseSavedFavoritesRunning = 0;
 uint8_t FavoritesManager::FavoriteModes[MODE_AMOUNT] = {0};
 uint32_t FavoritesManager::nextModeAt = 0UL;
 
-char TextTicker[MAX_UDP_BUFFER_SIZE + 1];                   // текст эффекта Бегущая строка (раньше был указателем на строковый литерал, в который писали - UB)
+char TextTicker[CMD_BUFFER_SIZE + 1];                   // текст эффекта Бегущая строка
 bool pendingRestart = false;                                // запрошена перезагрузка из веб-интерфейса (выполняется из loop, не из контекста вебсервера)
 bool pendingWifiReset = false;                              // запрошен сброс настроек WiFi из веб-интерфейса (выполняется из loop)
 #ifdef USE_NTP

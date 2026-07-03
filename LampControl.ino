@@ -1,15 +1,13 @@
 // LampControl — единый слой команд управления лампой.
 //
 // Все каналы управления (веб-интерфейс Settings, MQTT, кнопка) вызывают эти функции,
-// а не меняют состояние лампы напрямую — одна точка правды вместо трёх независимых
-// путей, как было со старым текстовым парсером команд (parsing.ino).
+// а не меняют состояние лампы напрямую — одна точка правды для всех каналов.
 //
-// Функции работают с существующими глобалами прошивки: ONflag, currentMode, modes[],
+// Функции работают с глобалами прошивки: ONflag, currentMode, modes[],
 // loadingFlag, settChanged/eepromTimeout (отложенное сохранение), dawnFlag/manualOff
 // (рассвет) — и выставляют флаг публикации состояния в MQTT.
 
 // пометить настройки изменёнными: перезапустить эффект, взвести отложенное сохранение, запросить публикацию состояния в MQTT
-// (перенесено из parsing.ino без изменений)
 void updateSets()
 {
       loadingFlag = true;
@@ -24,7 +22,7 @@ void updateSets()
       #endif
 }
 
-// включить/выключить лампу; во время работающего "рассвета" любая команда питания гасит рассвет (как P_ON/P_OFF раньше)
+// включить/выключить лампу; во время работающего "рассвета" любая команда питания гасит рассвет
 void lampSetPower(bool on)
 {
   if (dawnFlag)
@@ -49,12 +47,12 @@ void lampSetPower(bool on)
 // установить текущий эффект (0..MODE_AMOUNT-1)
 void lampSetEffect(uint8_t effectId)
 {
-  if (effectId >= MODE_AMOUNT)                              // старый парсер не проверял диапазон и уходил в "чёрный" несуществующий режим
+  if (effectId >= MODE_AMOUNT)                              // защита от несуществующего номера эффекта
   {
     effectId = MODE_AMOUNT - 1U;
   }
 
-  Storage::SaveModesSettings(&currentMode, modes);          // сохранение настроек эффектов перед переключением (как в старом обработчике EFF)
+  Storage::SaveModesSettings(&currentMode, modes);          // сохранение настроек эффектов перед переключением
   currentMode = effectId;
   updateSets();
 
@@ -73,7 +71,7 @@ void lampSetBrightness(uint8_t value)
 {
   modes[currentMode].Brightness = constrain(value, 1, 255);
   FastLED.setBrightness(modes[currentMode].Brightness);
-  // без loadingFlag: перезапуск эффекта при изменении яркости не нужен (как в старом обработчике BRI)
+  // без loadingFlag: перезапуск эффекта при изменении яркости не нужен
   settChanged = true;
   eepromTimeout = millis();
 
@@ -133,7 +131,7 @@ void mqttRequestPublish()
   #endif
 }
 
-// разблокировать/заблокировать кнопку на лампе (как BTN ON/OFF раньше)
+// разблокировать/заблокировать кнопку на лампе
 void lampSetButtonEnabled(bool enabled)
 {
   buttonEnabled = enabled;
@@ -173,7 +171,7 @@ void lampSetSleepTimer(uint16_t minutes)
   }
 
   #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
-  button_sleep_time = constrain(minutes, 1, 255);           // запоминаем последнее время для быстрого взвода двойным кликом кнопки (как TMR_SET раньше)
+  button_sleep_time = constrain(minutes, 1, 255);           // запоминаем последнее время для быстрого взвода двойным кликом кнопки
   Storage::Save_button_sleep_time(&button_sleep_time);
   #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
@@ -199,8 +197,8 @@ void lampSetRunningText(const char* text)
     return;
   }
 
-  strncpy(TextTicker, text, MAX_UDP_BUFFER_SIZE);
-  TextTicker[MAX_UDP_BUFFER_SIZE] = '\0';
+  strncpy(TextTicker, text, CMD_BUFFER_SIZE);
+  TextTicker[CMD_BUFFER_SIZE] = '\0';
   db.set(kk::running_text, TextTicker);
 
   if (currentMode == EFF_TEXT)                              // если бегущая строка сейчас на экране - перезапустить эффект с новым текстом

@@ -7,12 +7,12 @@
 // Аппаратному UART прерывания безразличны. FastLED остаётся для всей математики
 // эффектов (leds[], палитры, глобальная яркость).
 
-// вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току (замена FastLED.show())
+// вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току
 void ledsShow()
 {
   uint8_t brightness = FastLED.getBrightness();
   #if (CURRENT_LIMIT > 0)
-  brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА), как делал FastLED.show()
+  brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА)
   #endif
 
   for (uint16_t i = 0; i < NUM_LEDS; i++)
@@ -22,7 +22,7 @@ void ledsShow()
   ledStrip.Show();                                          // если кадр не изменился с прошлого вывода, NeoPixelBus сам пропустит передачу
 }
 
-// очистка кадра (замена FastLED.clear())
+// очистка кадра
 void ledsClear()
 {
   fill_solid(leds, NUM_LEDS, CRGB::Black);

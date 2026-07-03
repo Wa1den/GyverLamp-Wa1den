@@ -1,12 +1,19 @@
 #ifdef USE_MQTT
 /*
- * MqttManager — управление лампой по MQTT (библиотека AsyncMqttClient).
- * Переписан поверх слоя LampControl; формат топиков и payload'ов сохранён 1:1
- * со старой версией:
+ * MqttManager — управление лампой по MQTT (библиотека AsyncMqttClient)
+ * поверх слоя команд LampControl.
  *
  * Топики команд (входящие; <id> = LedLamp_XXXXXXXX, где XXXXXXXX - ESP.getChipId() в hex):
- *   LedLamp/<id>/cmnd            - легаси-команды текстом: P_ON, P_OFF, EFFn, BRIn, SPDn, SCAn, BTN ON/OFF
- *                                  (прочие старые команды передаются старому парсеру parsing.ino, пока он жив)
+ *   LedLamp/<id>/cmnd            - текстовые команды (формат совместим с прошивками 2.x):
+ *                                    P_ON / P_OFF        - включить/выключить лампу
+ *                                    EFFn                - выбрать эффект №n (нумерация с нуля)
+ *                                    BRIn / SPDn / SCAn  - яркость/скорость/масштаб (1-255, масштаб 1-100)
+ *                                    BTN ON|OFF          - разблокировать/заблокировать кнопку
+ *                                    TEXT текст          - задать текст бегущей строки
+ *                                    ALM_SETd ON|OFF|мин - будильник дня d (1-7): вкл/выкл или время в минутах от начала суток
+ *                                    DAWNn               - опция "рассвет за ... минут" (номер в списке, с единицы)
+ *                                    TMR_SET 1 o sec     - таймер выключения: вкл, опция, секунд до выключения (TMR_SET 0 - отключить)
+ *                                    FAV_SET ...         - настройки режима Цикл (формат см. FavoritesManager)
  *   LedLamp/<id>/cmnd/power      - true/1/on | false/0/off - включить/выключить лампу
  *   LedLamp/<id>/cmnd/effect     - номер эффекта (0..MODE_AMOUNT-1)
  *   LedLamp/<id>/cmnd/brightness - яркость: 1-100 масштабируется в 1-255, значения >100 применяются как есть
@@ -14,7 +21,7 @@
  *   LedLamp/<id>/cmnd/scale      - масштаб (как есть)
  *   LedLamp/<id>/cmnd/button     - true/1/on | false/0/off - разблокировать/заблокировать кнопку
  *
- * Топик состояния (исходящий, retained):
+ * Топик состояния (исходящий, retained; публикуется после каждого изменения состояния лампы):
  *   LedLamp/<id>/state - JSON: {"effect":N,"brightness":1-100,"speed":1-100,"scale":N,
  *                               "power":bool,"espMode":N,"useNtp":bool,"timerRunning":bool,
  *                               "buttonEnabled":bool,"time":"HH:MM:SS"}
@@ -98,6 +105,7 @@ class MqttManager
       mqttPass = (String)db[kk::mqtt_pass];
       if (!mqttHost.length())
       {
+        uiLog.println(F("MQTT: адрес брокера не задан (настраивается на этой странице)"));
         return;
       }
 
@@ -166,7 +174,7 @@ class MqttManager
     static inline uint32_t lastConnectingAttempt = 0;
     static inline volatile uint8_t pendingType = PT_NONE;
     static inline volatile int32_t pendingValue = 0;
-    static inline char pendingRaw[MAX_UDP_BUFFER_SIZE] = {0};
+    static inline char pendingRaw[CMD_BUFFER_SIZE] = {0};
     static const uint8_t qos = 0U;                          // MQTT quality of service для публикаций
 
     static void connect()
@@ -216,8 +224,8 @@ class MqttManager
         return;
       }
 
-      char buf[MAX_UDP_BUFFER_SIZE];
-      size_t n = len < (MAX_UDP_BUFFER_SIZE - 1U) ? len : (MAX_UDP_BUFFER_SIZE - 1U);
+      char buf[CMD_BUFFER_SIZE];
+      size_t n = len < (CMD_BUFFER_SIZE - 1U) ? len : (CMD_BUFFER_SIZE - 1U);
       memcpy(buf, payload, n);
       buf[n] = '\0';
 
@@ -257,8 +265,8 @@ class MqttManager
       }
       else                                                  // базовый командный топик - легаси-команда текстом
       {
-        strncpy(pendingRaw, buf, MAX_UDP_BUFFER_SIZE - 1U);
-        pendingRaw[MAX_UDP_BUFFER_SIZE - 1U] = '\0';
+        strncpy(pendingRaw, buf, CMD_BUFFER_SIZE - 1U);
+        pendingRaw[CMD_BUFFER_SIZE - 1U] = '\0';
         pendingType = PT_RAW;
       }
     }
@@ -372,7 +380,7 @@ class MqttManager
           lampClearSleepTimer();
         }
       }
-      else if (!strncmp_P(cmd, PSTR("FAV_SET"), 7))         // формат: "FAV_SET 1 60 120 0 0 1 0 ..." (как раньше, см. FavoritesManager)
+      else if (!strncmp_P(cmd, PSTR("FAV_SET"), 7))         // формат: "FAV_SET 1 60 120 0 0 1 0 ..." (см. FavoritesManager::ConfigureFavorites)
       {
         FavoritesManager::ConfigureFavorites(cmd);
         FavoritesManager::SaveFavoritesToStorage();
@@ -402,12 +410,12 @@ class MqttManager
       sprintf_P(timeBuf, PSTR("%02u:%02u:%02u"), hour(currentTicks), minute(currentTicks), second(currentTicks));
       #endif
 
-      char json[MAX_UDP_BUFFER_SIZE];
+      char json[CMD_BUFFER_SIZE];
       snprintf_P(json, sizeof(json),
         PSTR("{\"effect\":%u,\"brightness\":%d,\"speed\":%d,\"scale\":%u,\"power\":%s,\"espMode\":%u,\"useNtp\":%s,\"timerRunning\":%s,\"buttonEnabled\":%s,\"time\":\"%s\"}"),
         currentMode,
-        (int)map(constrain(modes[currentMode].Brightness, 1, 255), 1, 255, 1, 100), // яркость наружу в диапазоне 1-100 (как раньше)
-        (int)map(constrain(modes[currentMode].Speed, 1, 255), 1, 255, 1, 100),      // скорость наружу в диапазоне 1-100 (как раньше)
+        (int)map(constrain(modes[currentMode].Brightness, 1, 255), 1, 255, 1, 100), // яркость наружу в диапазоне 1-100
+        (int)map(constrain(modes[currentMode].Speed, 1, 255), 1, 255, 1, 100),      // скорость наружу в диапазоне 1-100
         modes[currentMode].Scale,
         ONflag ? "true" : "false",
         espMode,
@@ -428,13 +436,13 @@ class MqttManager
       needToPublish = false;
     }
 
-    // разбор булевых payload'ов: true/1/on - включено, всё остальное - выключено (как раньше)
+    // разбор булевых payload'ов: true/1/on - включено, всё остальное - выключено
     static int32_t parseBoolPayload(const char* buf)
     {
       return (strncmp(buf, "true", 4) == 0 || strncmp(buf, "1", 1) == 0 || strncmp(buf, "on", 2) == 0) ? 1 : 0;
     }
 
-    // разбор процентных payload'ов: 1-100 масштабируется в 1-255, значения вне диапазона применяются как есть (как раньше)
+    // разбор процентных payload'ов: 1-100 масштабируется в 1-255, значения вне диапазона применяются как есть
     static int32_t scalePercentPayload(const char* buf)
     {
       int value = atoi(buf);

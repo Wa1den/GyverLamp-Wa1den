@@ -2,7 +2,6 @@
 
 /*
  * Storage.h — хранилище настроек лампы в файле на LittleFS (библиотека GyverDB).
- * Замена EepromManager.h (сырые байты EEPROM с ручной адресацией).
  *
  * Устройство:
  *  - все настройки лежат в базе GyverDBFile в файле /lamp.db;
@@ -12,9 +11,6 @@
  *    поэтому виджеты сами читают/пишут значения из этой же базы;
  *  - запись на флеш отложенная: изменения копятся в RAM, файл переписывается
  *    через 10 секунд после последнего изменения (тикер GyverDBFile в Storage::Tick()).
- *
- * API класса Storage повторяет EepromManager, чтобы перевод остального кода
- * свёлся к замене "EepromManager::" на "Storage::".
  */
 
 #include <LittleFS.h>
@@ -61,7 +57,7 @@ DB_KEYS(kk,
     mqtt_pass                                               // пароль пользователя MQTT брокера
 );
 
-#define STORAGE_WRITE_DELAY   (30000UL)                     // отсрочка записи настроек эффектов после последнего изменения (как EEPROM_WRITE_DELAY раньше)
+#define STORAGE_WRITE_DELAY   (30000UL)                     // отсрочка записи настроек эффектов после последнего изменения (чтобы не изнашивать флеш при регулировке ползунками)
 
 class Storage
 {
@@ -183,7 +179,7 @@ class Storage
       db.set(kk::modes_blob, gdb::AnyType((const void*)modes, sizeof(ModeType) * MODE_AMOUNT));
     }
 
-    // отложенная запись изменённых настроек (замена HandleEepromTick)
+    // отложенная запись изменённых настроек; вызывается в каждом цикле loop()
     static void HandleTick(bool* settChanged, uint32_t* eepromTimeout, bool* onFlag, uint8_t* currentMode, ModeType modes[], void (*saveFavoritesSettings)())
     {
       if (*settChanged && millis() - *eepromTimeout > STORAGE_WRITE_DELAY)

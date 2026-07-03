@@ -167,7 +167,7 @@ class FavoritesManager
     
     static bool isStatusTextCorrect(const char* statusText) // валидирует statusText (проверяет, правильное ли количество компонентов он содержит)
     {
-      char buff[MAX_UDP_BUFFER_SIZE];
+      char buff[CMD_BUFFER_SIZE];
       strcpy(buff, statusText);
 
       uint8_t lexCount = 0;
@@ -250,7 +250,7 @@ class FavoritesManager
         return NULL;
       }
 
-      const uint8_t buffSize = MAX_UDP_BUFFER_SIZE;
+      const uint8_t buffSize = CMD_BUFFER_SIZE;
       char buff[buffSize];
       memset(buff, 0, buffSize);
       strcpy(buff, statusText);
