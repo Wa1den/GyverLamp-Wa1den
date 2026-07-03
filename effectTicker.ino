@@ -121,13 +121,16 @@ void effectsTick()
           noTimeWarning();
       #endif
 
-      // Белый свет - статичная картинка: лента обновляется только при изменениях
-      // (перерисовка или смена яркости). Каждый лишний FastLED.show() - это шанс
-      // для WiFi-прерывания испортить кадр (мигание первого пикселя цветным).
+      // Белый свет - статичная картинка: лента обновляется при изменениях (перерисовка
+      // или смена яркости) и раз в секунду для самолечения от возможных помех, а не
+      // 20 раз в секунду впустую, как остальные (динамичные) эффекты.
       static uint8_t lastShownBrightness = 0U;
-      if (currentMode != EFF_WHITE_COLOR || frameRedrawn || lastShownBrightness != FastLED.getBrightness())
+      static uint32_t lastShowTime = 0U;
+      if (currentMode != EFF_WHITE_COLOR || frameRedrawn ||
+          lastShownBrightness != FastLED.getBrightness() || millis() - lastShowTime >= 1000U)
       {
         lastShownBrightness = FastLED.getBrightness();
+        lastShowTime = millis();
         FastLED.show();
       }
     }
