@@ -121,17 +121,17 @@ void effectsTick()
           noTimeWarning();
       #endif
 
-      // Белый свет - статичная картинка: лента обновляется при изменениях (перерисовка
-      // или смена яркости) и раз в секунду для самолечения от возможных помех, а не
-      // 20 раз в секунду впустую, как остальные (динамичные) эффекты.
+      // Белый свет и Цвет - статичные картинки: лента обновляется при изменениях
+      // (перерисовка или смена яркости) и раз в секунду для самолечения от возможных
+      // помех, а не 20 раз в секунду впустую, как остальные (динамичные) эффекты.
       static uint8_t lastShownBrightness = 0U;
       static uint32_t lastShowTime = 0U;
-      if (currentMode != EFF_WHITE_COLOR || frameRedrawn ||
+      if ((currentMode != EFF_WHITE_COLOR && currentMode != EFF_COLOR) || frameRedrawn ||
           lastShownBrightness != FastLED.getBrightness() || millis() - lastShowTime >= 1000U)
       {
         lastShownBrightness = FastLED.getBrightness();
         lastShowTime = millis();
-        FastLED.show();
+        ledsShow();
       }
     }
     #ifdef WARNING_IF_NO_TIME
@@ -151,11 +151,11 @@ void changePower()
     {
       FastLED.setBrightness(i);
       delay(1);
-      FastLED.show();
+      ledsShow();
     }
     FastLED.setBrightness(modes[currentMode].Brightness);
     delay(2);
-    FastLED.show();
+    ledsShow();
   }
   else
   {
@@ -164,11 +164,11 @@ void changePower()
     {
       FastLED.setBrightness(i);
       delay(1);
-      FastLED.show();
+      ledsShow();
     }
-    FastLED.clear();
+    ledsClear();
     delay(2);
-    FastLED.show();
+    ledsShow();
   }
 
   #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)          // установка сигнала в пин, управляющий MOSFET транзистором, соответственно состоянию вкл/выкл матрицы
@@ -213,13 +213,13 @@ void noTimeWarning(){
 void noTimeWarningShow(){
   noTimeWarning();
   FastLED.setBrightness(WARNING_IF_NO_TIME);
-  FastLED.show();
+  ledsShow();
 }
 void noTimeClear(){
   if (!timeSynched){ 
     for (uint8_t i = 0; i < WIDTH; i++) 
        leds[XY(i, 0U)] = CRGB::Black; 
-    FastLED.show();
+    ledsShow();
   }
 }
 #endif //WARNING_IF_NO_TIME

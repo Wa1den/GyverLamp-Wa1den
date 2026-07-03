@@ -64,7 +64,7 @@ void buttonTick()
     loadingFlag = true;
     settChanged = true;
     eepromTimeout = millis();
-    //FastLED.clear();
+    //ledsClear();
     //delay(1);
 
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
@@ -115,7 +115,7 @@ void buttonTick()
     loadingFlag = true;
     settChanged = true;
     eepromTimeout = millis();
-    //FastLED.clear();
+    //ledsClear();
     //delay(1);
 
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
@@ -140,7 +140,7 @@ void buttonTick()
     {
       ONflag = true;
       currentMode = EFF_MATRIX;                             // принудительное включение режима "Матрица" для индикации перехода в режим обновления по воздуху
-      //FastLED.clear();
+      //ledsClear();
       //delay(1);
       changePower();
     }

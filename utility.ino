@@ -1,5 +1,33 @@
 // служебные функции
 
+// ================== ВЫВОД НА ЛЕНТУ ==================
+// Кадр выводится через аппаратный UART1 (NeoPixelBus), а не битбангингом FastLED:
+// WiFi на ESP8266 использует NMI-прерывания, которые нельзя запретить, и они портили
+// кадры при программном выводе (мигание первого пикселя зелёным/красным).
+// Аппаратному UART прерывания безразличны. FastLED остаётся для всей математики
+// эффектов (leds[], палитры, глобальная яркость).
+
+// вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току (замена FastLED.show())
+void ledsShow()
+{
+  uint8_t brightness = FastLED.getBrightness();
+  #if (CURRENT_LIMIT > 0)
+  brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА), как делал FastLED.show()
+  #endif
+
+  for (uint16_t i = 0; i < NUM_LEDS; i++)
+  {
+    ledStrip.SetPixelColor(i, RgbColor(scale8(leds[i].r, brightness), scale8(leds[i].g, brightness), scale8(leds[i].b, brightness)));
+  }
+  ledStrip.Show();                                          // если кадр не изменился с прошлого вывода, NeoPixelBus сам пропустит передачу
+}
+
+// очистка кадра (замена FastLED.clear())
+void ledsClear()
+{
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+}
+
 // залить все
 void fillAll(CRGB color)
 {

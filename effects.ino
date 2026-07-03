@@ -464,7 +464,7 @@ void fireRoutine(bool isColored) // <- ******* для оригинальной �
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    //FastLED.clear();
+    //ledsClear();
     generateLine();
     //memset(matrixValue, 0, sizeof(matrixValue)); без очистки
     pcnt = 0;
@@ -615,7 +615,7 @@ void rainbowDiagonalRoutine()
   if (loadingFlag)
   {
     loadingFlag = false;
-    //FastLED.clear();
+    //ledsClear();
   }
 
   hue += 8;
@@ -1780,7 +1780,7 @@ void colorRoutine()
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    //FastLED.clear(); нафига тут это было?!
+    //ledsClear(); нафига тут это было?!
 
     //for (int16_t i = 0U; i < NUM_LEDS; i++)
     //  leds[i] = CHSV(modes[currentMode].Scale * 2.55, modes[currentMode].Speed, 255U);
@@ -1993,7 +1993,7 @@ void butterflysRoutine(bool isColored)
   if (isWings && isColored)
     dimAll(35U); // для крылышков
   else
-    FastLED.clear();
+    ledsClear();
 
   float maxspeed;
   uint8_t tmp;
@@ -2166,7 +2166,7 @@ void lightersRoutine()
       trackingObjectHue[i] = random8();
     }
   }
-  FastLED.clear();
+  ledsClear();
   if (++step > 20U) step = 0U;
   for (uint8_t i = 0U; i < modes[currentMode].Scale; i++)
   {
@@ -2238,7 +2238,7 @@ void ballsRoutine()
 
   if (!BALL_TRACK)                                          // режим без следов шариков
   {
-    FastLED.clear();
+    ledsClear();
   }
   else                                                      // режим со следами
   {
@@ -2329,7 +2329,7 @@ void ballRoutine()
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    //FastLED.clear();
+    //ledsClear();
 
     for (uint8_t i = 0U; i < 2U; i++)
     {
@@ -2383,7 +2383,7 @@ void ballRoutine()
 //    dimAll(135U);
 //    dimAll(255U - (modes[currentMode].Scale - 1U) % 11U * 24U);
 //  else
-    FastLED.clear();
+    ledsClear();
      
   for (uint8_t i = 0U; i < deltaValue; i++)
     for (uint8_t j = 0U; j < deltaValue; j++)
@@ -2397,7 +2397,7 @@ void ballRoutine()
 //////  if (loadingFlag)
 //////  {
 //////    loadingFlag = false;
-//////    FastLED.clear();
+//////    ledsClear();
 //////
 //////    for (uint16_t i = 0U; i < NUM_LEDS; i++)
 //////    {
@@ -2413,7 +2413,7 @@ void ballRoutine()
   if (loadingFlag)
   {
     loadingFlag = false;
-    FastLED.clear();
+    ledsClear();
     //delay(1);
 
     uint8_t centerY =  (uint8_t)round(HEIGHT / 2.0F) - 1U;// max((uint8_t)round(HEIGHT / 2.0F) - 1, 0); нахрена тут максимум было вычислять? для ленты?!
@@ -2455,7 +2455,7 @@ void whiteColorStripeRoutine()
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    FastLED.clear();
+    ledsClear();
 
     uint8_t thisSize = HEIGHT;
     uint8_t halfScale = modes[currentMode].Scale;
@@ -2511,9 +2511,9 @@ void showWarning(
   uint32_t blinkTimer = millis();
   enum BlinkState { OFF = 0, ON = 1 } blinkState = BlinkState::OFF;
   FastLED.setBrightness(WARNING_BRIGHTNESS);                // установка яркости для предупреждения
-  FastLED.clear();
+  ledsClear();
   delay(2);
-  FastLED.show();
+  ledsShow();
 
   //for (uint16_t i = 0U; i < NUM_LEDS; i++)                  // установка цвета всех диодов в WARNING_COLOR
   //  leds[i] = color;
@@ -2528,15 +2528,15 @@ void showWarning(
       blinkState = (BlinkState)!blinkState;
       FastLED.setBrightness(blinkState == BlinkState::OFF ? 0 : WARNING_BRIGHTNESS);
       delay(1);
-      FastLED.show();
+      ledsShow();
     }
     delay(50);
   }
 
-  FastLED.clear();
+  ledsClear();
   FastLED.setBrightness(ONflag ? modes[currentMode].Brightness : 0);  // установка яркости, которая была выставлена до вызова предупреждения
   delay(1);
-  FastLED.show();
+  ledsShow();
   
   #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)      // установка сигнала в пин, управляющий MOSFET транзистором, соответственно состоянию вкл/выкл матрицы или будильника
   digitalWrite(MOSFET_PIN, ONflag || (dawnFlag && !manualOff) ? MOSFET_LEVEL : !MOSFET_LEVEL);
@@ -2987,7 +2987,7 @@ void BBallsRoutine() {
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    //FastLED.clear();
+    //ledsClear();
     enlargedObjectNUM = (modes[currentMode].Scale - 1U) / 99.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     if (enlargedObjectNUM > enlargedOBJECT_MAX_COUNT) enlargedObjectNUM = enlargedOBJECT_MAX_COUNT;
     for (uint8_t i = 0 ; i < enlargedObjectNUM ; i++) {             // Initialize variables
@@ -5181,7 +5181,7 @@ void cube2dRoutine(){
 
       loadingFlag = false;
       setCurrentPalette();
-      FastLED.clear();
+      ledsClear();
 
       razmerX = (modes[currentMode].Scale - 1U) % 11U + 1U; // размер ячейки от 1 до 11 пикселей для каждой из 9 палитр
       razmerY = razmerX;
@@ -5563,7 +5563,7 @@ void clockRoutine(){
     //uint8_t bri = (CLOCK_REFRESH_DELAY - step) * 255.0 / CLOCK_REFRESH_DELAY;
     uint8_t sat = (modes[currentMode].Scale == 100) ? 0U : 255U;
 
-    FastLED.clear();
+    ledsClear();
     // рисуем цифры
     #ifdef CLOCK_BLINKING
       drawDig3x5(   poleX,               (poleY + 8U), hue  / 10U % 10U, CHSV(deltaValue, sat, 255U));
@@ -5626,7 +5626,7 @@ void clockRoutine(){ // чтобы цифры были не в столбик, �
     //uint8_t bri = (CLOCK_REFRESH_DELAY - step) * 255.0 / CLOCK_REFRESH_DELAY;
     uint8_t sat = (modes[currentMode].Scale == 100) ? 0U : 255U;
 
-    FastLED.clear();
+    ledsClear();
     // рисуем цифры
     drawDig3x5( poleX               , poleY, hue  / 10U % 10U, CHSV(deltaValue, sat, 255U));
     drawDig3x5((poleX +  4U) % WIDTH, poleY, hue        % 10U, CHSV(deltaValue, sat, 255U));
@@ -5666,7 +5666,7 @@ void MultipleStreamSmoke(bool isColored){
   }
 //if (modes[currentMode].Brightness & 0x01) // для проверки движения источника дыма можно включить
   dimAll(254U);//(255U - modes[currentMode].Scale * 2);
-//else     FastLED.clear();
+//else     ledsClear();
 
   deltaHue++;
   CRGB color;//, color2;
@@ -5752,7 +5752,7 @@ void PicassoGenerate(bool reset){
   {
     loadingFlag = false;
     //setCurrentPalette();    
-    //FastLED.clear();
+    //ledsClear();
 // not for 3in1
 //    enlargedObjectNUM = (modes[currentMode].Scale - 1U) / 99.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     //enlargedObjectNUM = (modes[currentMode].Scale - 1U) % 11U / 10.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
@@ -6004,7 +6004,7 @@ void LeapersRoutine(){
 
     loadingFlag = false;
     setCurrentPalette();    
-    //FastLED.clear();
+    //ledsClear();
     //enlargedObjectNUM = (modes[currentMode].Scale - 1U) / 99.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     enlargedObjectNUM = (modes[currentMode].Scale - 1U) % 11U / 10.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     if (enlargedObjectNUM > enlargedOBJECT_MAX_COUNT) enlargedObjectNUM = enlargedOBJECT_MAX_COUNT;
@@ -6020,7 +6020,7 @@ void LeapersRoutine(){
   }
 
   //myLamp.dimAll(0); накой хрен делать затухание на 100%?
-  FastLED.clear();
+  ledsClear();
 
   for (uint8_t i = 0; i < enlargedObjectNUM; i++) {
     LeapersMove_leaper(i);
@@ -6098,7 +6098,7 @@ void LavaLampRoutine(){
   CRGB color = CHSV(hue, (modes[currentMode].Scale < 100U) ? 255U : 0U, 255U);
   //CRGB halfcolor = CHSV(hue, 255U, 1275U);
  
-  FastLED.clear();
+  ledsClear();
 
   for (uint8_t i = 0; i < enlargedObjectNUM; i++) { //двигаем по аналогии с https://jiwonk.im/lavalamp/
     //LavaLampMove_leaper(i);
@@ -6338,7 +6338,7 @@ void snakesRoutine(){
   }
   //hue++;
   //dimAll(220);
-  FastLED.clear();
+  ledsClear();
 
   int8_t dx, dy;
   for (uint8_t i = 0; i < enlargedObjectNUM; i++){
@@ -6973,7 +6973,7 @@ void LiquidLampRoutine(bool isColored){
     speedfactor = modes[currentMode].Speed / 64.0 + 0.1; // 127 БЫЛО
     
     //setCurrentPalette();    
-    //FastLED.clear();
+    //ledsClear();
     if (isColored){
       fillMyPal16((modes[currentMode].Scale - 1U) * 2.55, !(modes[currentMode].Scale & 0x01));
       enlargedObjectNUM = enlargedOBJECT_MAX_COUNT / 2U - 2U; //14U;
@@ -7101,7 +7101,7 @@ void popcornRoutine() {
   float popcornGravity = 0.1 * speedfactor;
   //if (modes[currentMode].Speed & 0x01) // теперь чётностью скорости определяется белый/цветной попкорн, а чётностью яркости больше ничего
     fadeToBlackBy(leds, NUM_LEDS, 60);
-  //else FastLED.clear();// fadeToBlackBy(leds, NUM_LEDS, 250);
+  //else ledsClear();// fadeToBlackBy(leds, NUM_LEDS, 250);
 
 //void popcornMove(float popcornGravity) {
   for (uint8_t r = 0; r < enlargedObjectNUM; r++) {
@@ -7262,7 +7262,7 @@ void oscillatingRoutine() {
   else
     for (uint8_t c = 0; c < 3; c++)
       currColors[c] = ColorFromPalette(*curPalette, c * 85U + hue);
-  FastLED.clear();
+  ledsClear();
   
   // расчёт химической реакции и отрисовка мира
   uint16_t colorCount[3] = {0U, 0U, 0U};  
@@ -7501,7 +7501,7 @@ void attractRoutine() {
       }
   } 
   dimAll(220);
-  //FastLED.clear();
+  //ledsClear();
 
   PVector attractLocation = PVector(WIDTH * 0.5, HEIGHT * 0.5);
   //float attractMass = 10;
@@ -8067,7 +8067,7 @@ void fairyRoutine(){
   //dimAll(255-128/.25*speedfactor); очередной эффект, к которому нужно будет "подобрать коэффициенты"
   //if (modes[currentMode].Speed & 0x01)
     dimAll(127);
-  //else FastLED.clear();    
+  //else ledsClear();    
 
   //go over particles and update matrix cells on the way
   for(int i = 0; i<enlargedObjectNUM; i++) {
@@ -8169,7 +8169,7 @@ void starwarsRoutine(){
   pcnt = 1U;
 if (modes[currentMode].Speed & 0x01)
   dimAll(127);
-else FastLED.clear();    
+else ledsClear();    
 
   //go over particles and update matrix cells on the way
   for(int i = 0; i<enlargedObjectNUM; i++) {
@@ -8677,7 +8677,7 @@ void magmaRoutine(){
       shiftHue[j] = (HEIGHT - 1 - j) * 255 / (HEIGHT - 1); // init colorfade table
     }
     
-    //FastLED.clear();
+    //ledsClear();
     //enlargedObjectNUM = (modes[currentMode].Scale - 1U) / 99.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     enlargedObjectNUM = (modes[currentMode].Scale - 1U) % 11U / 10.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
     if (enlargedObjectNUM > enlargedOBJECT_MAX_COUNT) enlargedObjectNUM = enlargedOBJECT_MAX_COUNT;
@@ -8693,7 +8693,7 @@ void magmaRoutine(){
   }
 
   //myLamp.dimAll(0); накой хрен делать затухание на 100%?
-  //FastLED.clear();
+  //ledsClear();
   //dimAll(255U - modes[currentMode].Scale * 2);
   //dimAll(255U - 44U * 2);
   dimAll(181);

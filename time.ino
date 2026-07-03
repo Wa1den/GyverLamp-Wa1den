@@ -149,7 +149,7 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
             leds[i] = dawnColor[i % 6U];
           FastLED.setBrightness(255);
           delay(1);
-          FastLED.show();
+          ledsShow();
           dawnFlag = true;
         }
 
@@ -170,9 +170,9 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
         if (dawnFlag)
         {
           dawnFlag = false;
-          FastLED.clear();
+          ledsClear();
           delay(2);
-          FastLED.show();
+          ledsShow();
           changePower();                                                  // выключение матрицы или установка яркости текущего эффекта в засисимости от того, была ли включена лампа до срабатывания будильника
         }
         manualOff = false;

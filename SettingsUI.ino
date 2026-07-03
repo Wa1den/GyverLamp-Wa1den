@@ -332,7 +332,8 @@ void settingsSetup()
 
   sett.begin();                                             // запускается после WiFiConnector.connect, иначе не подхватится captive DNS
   sett.onBuild(settingsBuild);
-  sett.setUpdatePeriod(5000);                               // страница опрашивает лампу пореже (по умолчанию 2500 мс) - меньше WiFi-трафика, реже помехи выводу на ленту
+  sett.setUpdatePeriod(5000);                               // страница опрашивает лампу пореже (по умолчанию 2500 мс) - меньше WiFi-трафика
+  sett.setVersion("GyverLamp 3.0");                         // строка Firmware в инфо-панели веб-интерфейса
 }
 
 void settingsTick()

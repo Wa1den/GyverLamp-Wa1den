@@ -30,7 +30,7 @@ boolean fillString(const char* text, CRGB letterColor, boolean itsText)
   if (millis() - scrollTimer >= modes[EFF_TEXT].Speed)
   {
     scrollTimer = millis();
-    FastLED.clear();
+    ledsClear();
     uint8_t i = 0, j = 0;
     while (text[i] != '\0')
     {
@@ -52,7 +52,7 @@ boolean fillString(const char* text, CRGB letterColor, boolean itsText)
       offset = WIDTH + 3;
       return true;
     }
-    FastLED.show();    
+    ledsShow();    
   }
 
   return false;

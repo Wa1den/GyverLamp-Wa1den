@@ -313,6 +313,7 @@
 #include "pgmspace.h"
 #include "Constants.h"
 #include <FastLED.h>
+#include <NeoPixelBus.h>                                    // вывод кадров на ленту через аппаратный UART1 (см. ledsShow в utility.ino)
 #include <ESP8266WiFi.h>
 #include <WiFiConnector.h>                                  // подключение к WiFi сети с fallback в режим точки доступа (замена WiFiManager)
 #include <SettingsGyverWS.h>                                // веб-интерфейс настроек (синхронный GyverHTTP + WebSocket);
@@ -322,6 +323,10 @@
 sets::Logger uiLog(400);                                    // журнал событий для веб-интерфейса (кольцевой буфер; объявлен до MqttManager.h, который в него пишет)
 #include <WiFiUdp.h>
 #include "Types.h"
+
+void ledsShow();                                            // вывод кадра на ленту (utility.ino); прототипы объявлены до заголовков (TimerManager.h и др.), которые их вызывают
+void ledsClear();                                           // очистка кадра
+
 #include "timerMinim.h"
 #ifdef ESP_USE_BUTTON
 #include <GyverButton.h>
@@ -345,6 +350,10 @@ sets::Logger uiLog(400);                                    // журнал со
 
 // --- ИНИЦИАЛИЗАЦИЯ ОБЪЕКТОВ ----------
 CRGB leds[NUM_LEDS];
+#if (LED_PIN != 2U)
+#error "Вывод на ленту идёт через аппаратный UART1, его TX жёстко закреплён за GPIO2 (D4). Для другого пина нужен другой метод NeoPixelBus."
+#endif
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // аппаратный вывод на ленту: UART1 TX = GPIO2 = LED_PIN; порядок цветов GRB = COLOR_ORDER
 
 #ifdef USE_NTP
 WiFiUDP ntpUDP;
@@ -501,15 +510,10 @@ void setup()
 
 
   // ЛЕНТА/МАТРИЦА
-  FastLED.addLeds<WS2812B, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS)/*.setCorrection(TypicalLEDStrip)*/;
-  //FastLED.addLeds<WS2812B, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0xFFB0F0); // по предложению @kostyamat добавлена такая цветокоррекция "теперь можно получить практически чистый желтый цвет" и получилось плохо
-  FastLED.setBrightness(BRIGHTNESS);
-  if (CURRENT_LIMIT > 0)
-  {
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, CURRENT_LIMIT);
-  }
-  FastLED.clear();
-  FastLED.show();
+  ledStrip.Begin();                                         // вывод на ленту через аппаратный UART1 (GPIO2); FastLED остаётся для математики эффектов
+  FastLED.setBrightness(BRIGHTNESS);                        // глобальная яркость хранится в FastLED и применяется в ledsShow (вместе с лимитом по току CURRENT_LIMIT)
+  ledsClear();
+  ledsShow();
 
 #ifdef USE_SHUFFLE_FAVORITES // первоначальная очередь избранного до перемешивания
     for (uint8_t i = 0; i < MODE_AMOUNT; i++)
@@ -632,7 +636,7 @@ void loop()
       ))
   {
     FastLED.setBrightness(modes[currentMode].Brightness);
-    //FastLED.clear(); из-за этой странной строчки между эффектами лампа полностью тухла. зачем так делать?!
+    //ledsClear(); из-за этой странной строчки между эффектами лампа полностью тухла. зачем так делать?!
     //delay(1); и из-за этой ещё
   }
 

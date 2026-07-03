@@ -25,9 +25,9 @@ class TimerManager
 
         TimerManager::TimerRunning = false;
         TimerManager::TimerHasFired = true;
-        FastLED.clear();
+        ledsClear();
         delay(2);
-        FastLED.show();
+        ledsShow();
         *ONflag = !(*ONflag);
         changePower();
         *settChanged = true;
