@@ -1,0 +1,46 @@
+#pragma once
+#include <Arduino.h>
+#include <StringUtilsGyver.h>
+
+namespace sets {
+
+class Build {
+   public:
+    enum class Type {
+        None,
+        Build,
+        Set,
+        Menu,
+    };
+
+    Build(Type type, bool granted, size_t id = 0, Text value = Text()) : type(type), granted(granted), id(id), value(value) {}
+
+    // тип билда
+    const Type type;
+
+    // клиент авторизован
+    const bool granted;
+
+    // id виджета (действие)
+    const size_t id;
+
+    // значение виджета (действие)
+    const Text value;
+
+    // состояние ButtonHold
+    bool pressed() {
+        return value.toBool();
+    }
+
+    // тип - сборка виджетов
+    bool isBuild() {
+        return type == Type::Build;
+    }
+
+    // тип - действие (обработка клика или значения)
+    bool isAction() {
+        return type == Type::Set;
+    }
+};
+
+}  // namespace sets

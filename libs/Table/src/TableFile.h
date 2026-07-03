@@ -1,0 +1,71 @@
+#pragma once
+#include <Arduino.h>
+#include <FS.h>
+
+#include "Table.h"
+
+class TableFile : public Table {
+   public:
+    // указать файловую систему, путь к файлу и таймаут в мс
+    TableFile(fs::FS* nfs = nullptr, const char* path = nullptr, uint32_t tout = 10000) {
+        setFS(nfs, path);
+        _tout = tout;
+    }
+
+    ~TableFile() {
+        update();
+    }
+
+    // установить файловую систему и имя файла
+    void setFS(fs::FS* nfs, const char* path) {
+        _fs = nfs;
+        _path = path;
+    }
+
+    // установить таймаут записи, мс (умолч. 10000)
+    void setTimeout(uint32_t tout = 10000) {
+        _tout = tout;
+    }
+
+    // прочитать данные
+    bool begin() {
+        if (!_fs || !_path) return false;
+
+        bool res = false;
+        if (_fs->exists(_path)) {
+            File file = _fs->open(_path, "r");
+            if (file) res = readFrom(file, file.size());
+            if (res) _update = false;
+        } else {
+            File file = _fs->open(_path, "w");
+            res = file;
+        }
+        return res;
+    }
+
+    // обновить данные в файле
+    bool update() {
+        _tmr = 0;
+        if (!_update || !_fs || !_path) return false;
+        File file = _fs->open(_path, "w");
+        if (!file || !writeTo(file)) return false;
+        _update = false;
+        return true;
+    }
+
+    // тикер, вызывать в loop. Сам обновит данные при изменении и выходе таймаута, вернёт true
+    bool tick() {
+        if (_update && !_tmr) {
+            _tmr = millis();
+        }
+        if (_tmr && millis() - _tmr >= _tout) {
+            return update();
+        }
+        return 0;
+    }
+
+   private:
+    fs::FS* _fs;
+    const char* _path;
+    uint32_t _tmr = 0, _tout = 10000;
+};

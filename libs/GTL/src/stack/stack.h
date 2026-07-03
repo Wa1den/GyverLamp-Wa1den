@@ -1,0 +1,519 @@
+#pragma once
+#include "../array/array.h"
+
+namespace gtl {
+
+template <typename T>
+struct bsearch_t {
+    // индекс в стеке. Если ptr == nullptr - позиция для вставки
+    size_t idx;
+
+    // указатель на данные в стеке, не найдены - nullptr
+    T* ptr;
+
+    // данные найдены
+    explicit operator bool() const {
+        return ptr != nullptr;
+    }
+
+    operator T*() {
+        return ptr;
+    }
+    operator const T*() const {
+        return ptr;
+    }
+};
+
+// Base Stack
+template <typename T, typename AR>
+class stackT : protected AR {
+   public:
+    T* begin() {
+        return _buf;
+    }
+
+    T* end() {
+        return _buf + _len;
+    }
+
+    const T* begin() const {
+        return _buf;
+    }
+
+    const T* end() const {
+        return _buf + _len;
+    }
+
+    const T* cbegin() const {
+        return begin();
+    }
+
+    const T* cend() const {
+        return end();
+    }
+
+    // экспортировать в файл
+    template <typename FS>
+    bool writeToFile(FS& fs, const char* path) {
+        auto f = fs.open(path, "w");
+        return f ? writeTo(f) : false;
+    }
+
+    // импортировать из файла
+    template <typename FS>
+    bool readFromFile(FS& fs, const char* path) {
+        auto f = fs.open(path, "r");
+        return f ? readFrom(f) : false;
+    }
+
+    // экспортировать в Stream (напр. файл)
+    template <typename TS>
+    bool writeTo(TS& stream) {
+        return stream.write((uint8_t*)_buf, size()) == size();
+    }
+
+    // импортировать из Stream (напр. файл)
+    template <typename TS>
+    bool readFrom(TS& stream) {
+        clear();
+        while (stream.available()) {
+            size_t rlen = stream.available() / sizeof(T);
+            if (!rlen ||
+                !_fit(_len + rlen) ||
+                stream.readBytes((char*)end(), rlen * sizeof(T)) != rlen * sizeof(T)) {
+                clear();
+                return false;
+            }
+            _len += rlen;
+        }
+        return true;
+    }
+
+    // добавить в конец
+    bool push(const T& val) {
+        if (!_fit(_len + 1)) return false;
+
+        _buf[_len++] = val;
+        return true;
+    }
+
+    // добавить в конец
+    template <typename... Rest>
+    bool push(const T& first, const Rest&... rest) {
+        if (!push(first)) return false;
+        return push(rest...);
+    }
+    bool push() {
+        return true;
+    }
+
+    // добавить, если нет элемента с таким значением
+    bool pushUniq(const T& val) {
+        return has(val) ? false : push(val);
+    }
+
+    // добавить в конец
+    inline bool operator+=(const T& val) {
+        return push(val);
+    }
+
+    // получить с конца и удалить
+    T& pop() {
+        return _buf[_len ? --_len : 0];
+    }
+
+    // прочитать с конца не удаляя
+    T& last() {
+        return _buf[_len ? _len - 1 : 0];
+    }
+
+    // прочитать с начала не удаляя
+    inline T& first() {
+        return _buf[0];
+    }
+
+    // добавить в начало
+    bool shift(const T& val) {
+        if (!_fit(_len + 1)) return false;
+
+        memmove((void*)(_buf + 1), (const void*)(_buf), size());
+        _buf[0] = val;
+        ++_len;
+        return true;
+    }
+
+    // получить с начала и удалить
+    T unshift() {
+        if (!_len) return T();
+
+        T t = _buf[0];
+        --_len;
+        memmove((void*)(_buf), (const void*)(_buf + 1), size());
+        return t;
+    }
+
+    // бинарный поиск в отсортированном стеке
+    bsearch_t<T> searchSort(const T& val) {
+        size_t low = 0, high = _len;
+
+        while (low < high) {
+            size_t mid = low + ((high - low) >> 1);
+            if (_buf[mid] < val) low = mid + 1;
+            else high = mid;
+        }
+
+        return {low, (low < _len && _buf[low] == val) ? &_buf[low] : nullptr};
+    }
+
+    // добавить с сортировкой. Флаг uniq - не добавлять если элемент уже есть
+    bool addSort(const T& val, bool uniq = false) {
+        bsearch_t<T> pos = searchSort(val);
+        if (uniq && pos) return false;
+
+        return insert(pos.idx, val);
+    }
+
+    // добавить с сортировкой в bsearch_t из searchSort
+    bool addSort(const T& val, bsearch_t<T>& pos) {
+        return insert(pos.idx, val);
+    }
+
+    // сортировать стек
+    void sort() {
+        for (size_t i = 1; i < _len; ++i) {
+            T key = _buf[i];
+            size_t j = i;
+
+            while (j > 0 && _buf[j - 1] > key) {
+                _buf[j] = _buf[j - 1];
+                --j;
+            }
+
+            _buf[j] = key;
+        }
+    }
+
+    // удалить элемент по индексу
+    bool remove(size_t idx) {
+        if (!_len || idx >= _len) return false;
+
+        memmove((void*)(_buf + idx), (const void*)(_buf + idx + 1), (_len - idx - 1) * sizeof(T));
+        --_len;
+        return true;
+    }
+
+    // удалить элемент. Отрицательный - с конца
+    bool remove(int idx) {
+        if (!_len || idx >= (int)_len || idx < -(int)_len) return false;
+
+        if (idx < 0) idx += _len;
+        return remove((size_t)idx);
+    }
+
+    // удалить по позиции поиска
+    bool remove(const bsearch_t<T>& pos) {
+        return pos ? remove(pos.idx) : false;
+    }
+
+    // удалить несколько элементов, начиная с индекса
+    bool remove(size_t from, size_t amount) {
+        if (!_len || !amount || from >= _len) return false;
+
+        if (amount >= _len - from) {
+            _len = from;
+            return true;
+        }
+
+        size_t to = from + amount;
+        memmove((void*)(_buf + from), (const void*)(_buf + to), (_len - to) * sizeof(T));
+        _len -= amount;
+        return true;
+    }
+
+    // вставить элемент на индекс (слишком большой - будет push)
+    bool insert(size_t idx, const T& val) {
+        if (idx == 0) return shift(val);
+        else if (idx >= _len) return push(val);
+
+        if (!_fit(_len + 1)) return false;
+
+        memmove((void*)(_buf + idx + 1), (const void*)(_buf + idx), (_len - idx) * sizeof(T));
+        _buf[idx] = val;
+        ++_len;
+        return true;
+    }
+
+    // вставить элемент на индекс (отрицательный индекс - с конца, слишком большой - будет push)
+    bool insert(int idx, const T& val) {
+        if (idx < 0) idx += _len;
+        if (idx < 0) return false;
+        return insert((size_t)idx, val);
+    }
+
+    // прибавить другой массив того же типа в конец
+    bool concat(const stackT& st) {
+        return concat(st._buf, st._len);
+    }
+
+    // прибавить другой массив в конец
+    inline bool operator+=(const stackT& st) {
+        return concat(st);
+    }
+
+    // прибавить другой массив того же типа в конец
+    bool concat(const T* buf, size_t len, bool pgm = false) {
+        if (!buf || !_fit(_len + len)) return false;
+
+#ifdef ARDUINO
+        if (pgm) memcpy_P((void*)end(), (const void*)(buf), len * sizeof(T));
+        else
+#endif
+            memcpy((void*)end(), (const void*)(buf), len * sizeof(T));
+
+        _len += len;
+        return true;
+    }
+
+    // прибавить бинарные данные, вернёт количество записанных байт
+    size_t write(const void* buf, size_t len, bool pgm = false) {
+        if (!len || !buf) return 0;
+
+        if (len == sizeof(T) && !pgm) {
+            return push(*(const T*)buf) ? len : 0;
+        }
+
+        size_t wlen = (len + sizeof(T) - 1) / sizeof(T);
+        if (!_fit(_len + wlen)) return 0;
+
+#ifdef ARDUINO
+        if (pgm) memcpy_P((void*)end(), buf, len);
+        else
+#endif
+            memcpy((void*)end(), buf, len);
+
+        _len += wlen;
+        return len;
+    }
+
+    // заполнить значением (на capacity)
+    void fill(const T& val) {
+        for (size_t i = 0; i < capacity(); i++) _buf[i] = val;
+        _len = _size;
+    }
+
+    // инициализировать, вызвать конструкторы (на capacity)
+    inline void init() {
+        fill(T());
+    }
+
+    // очистить (установить длину 0)
+    inline void clear() {
+        _len = 0;
+    }
+
+    // количество элементов
+    inline size_t length() const {
+        return _len;
+    }
+
+    // текущий размер в байтах
+    size_t size() const {
+        return _len * sizeof(T);
+    }
+
+    // осталось свободного места, элементов
+    size_t left() const {
+        return AR::size() - _len;
+    }
+
+    // установить количество элементов (само вызовет reserve)
+    bool setLength(size_t len) {
+        if (!_fit(len)) return false;
+
+        _len = len;
+        return true;
+    }
+
+    // добавить количество элементов (само вызовет reserve)
+    bool addLength(size_t len) {
+        return setLength(_len + len);
+    }
+
+    // есть место для добавления
+    bool canAdd() const {
+        return _len < _size;
+    }
+
+    // вместимость, элементов
+    inline size_t capacity() const {
+        return AR::size();
+    }
+
+    // вместимость, байт
+    size_t capacityBytes() const {
+        return capacity() * sizeof(T);
+    }
+
+    // позиция элемента (-1 если не найден)
+    int indexOf(const T& val) const {
+        for (size_t i = 0; i < _len; i++) {
+            if (_buf[i] == val) return i;
+        }
+        return -1;
+    }
+
+    // содержит элемент
+    bool has(const T& val) const {
+        return indexOf(val) != -1;
+    }
+
+    // удалить по значению (true если элемента нет)
+    bool removeByVal(const T& val) {
+        int i = indexOf(val);
+        return (i >= 0) ? remove(i) : true;
+    }
+
+    // получить элемент под индексом. Отрицательный - с конца
+    T& get(int i) {
+        return const_cast<T&>(static_cast<const stackT&>(*this).get(i));
+    }
+    const T& get(int i) const {
+        return (i >= int(_len) || i < -int(_len)) ? _buf[0] : (*this)[i];
+    }
+
+    // получить элемент под индексом без проверок. Отрицательный - с конца
+    T& operator[](int i) {
+        return const_cast<T&>(static_cast<const stackT&>(*this)[i]);
+    }
+    const T& operator[](int i) const {
+        return at(i);
+    }
+
+    T& at(int i) {
+        return const_cast<T&>(at(i));
+    }
+    const T& at(int i) const {
+        return _buf[i < 0 ? i + int(_len) : i];
+    }
+
+    // итерировать все элементы
+    void loop(void (*cb)(T& el)) {
+        for (size_t i = 0; i < _len; i++) cb(_buf[i]);
+    }
+
+    void loop(void (*cb)(const T& el)) const {
+        for (size_t i = 0; i < _len; i++) cb(_buf[i]);
+    }
+
+    // буфер существует
+    inline bool valid() const {
+        return _buf;
+    }
+
+    // буфер существует
+    explicit inline operator bool() const {
+        return _buf;
+    }
+
+    // буфер
+    using AR::buf;
+
+    // legacy
+    bool includes(const T& val) const __attribute__((deprecated)) {
+        return has(val);
+    }
+    T& peek() __attribute__((deprecated)) {
+        return last();
+    }
+    T& unpeek() __attribute__((deprecated)) {
+        return first();
+    }
+    T& _get(int idx) {
+        return _buf[idx];
+    }
+    const T& _get(int idx) const {
+        return _buf[idx];
+    }
+
+   protected:
+    using AR::_buf;
+    using AR::_size;
+    size_t _len = 0;
+    uint8_t _oversize = 8;
+
+    // зарезервировать, элементов (установить новый размер буфера)
+    inline bool reserve(size_t nsize) {
+        return nsize > _size ? AR::resize(nsize) : true;
+    }
+
+    // освободить незанятое зарезервированное место
+    inline void shrink() {
+        AR::resize(_len);
+    }
+
+    // зарезервировать, элементов (добавить к текущей длине)
+    inline bool addCapacity(size_t add) {
+        return _fit(_len + add);
+    }
+
+    // установить увеличение размера для уменьшения количества мелких реаллокаций. Умолч. 8
+    inline void setOversize(uint8_t oversize) {
+        _oversize = oversize;
+    }
+
+   private:
+    bool _fit(size_t nsize) {
+        return nsize <= _size || AR::resize(nsize + _oversize);
+    }
+};
+
+// Dynamic Stack
+template <typename T>
+class stack : public stackT<T, array<T>> {
+    typedef stackT<T, array<T>> ST;
+
+   public:
+    using ST::addCapacity;
+    using ST::reserve;
+    using ST::setOversize;
+    using ST::shrink;
+
+    // освободить память
+    void reset() {
+        ST::reset();
+        ST::_len = 0;
+    }
+
+    // есть место для добавления
+    bool canAdd() const {
+        return true;
+    }
+
+    stack() {}
+
+    stack(const stack& st) : ST(st) {}
+
+    stack(stack&& st) noexcept {
+        move(st);
+    }
+
+    stack& operator=(stack st) {
+        move(st);
+        return *this;
+    }
+
+    void move(stack& st) noexcept {
+        ST::move(st);
+        swap(ST::_len, st._len);
+        swap(ST::_oversize, st._oversize);
+    }
+};
+
+// legacy
+template <typename T>
+using stack_uniq = stack<T>;
+
+template <typename T>
+using stack_copy = stack<T>;
+
+}  // namespace gtl
