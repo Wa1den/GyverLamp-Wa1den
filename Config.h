@@ -47,7 +47,9 @@
 
 // если у вас не обычная матрица, а сборка из ленты/гирлянда с артефактами, попробуйте менять следующие три строчки
 //#define FASTLED_ALLOW_INTERRUPTS      (1)                 // 1 - разрешить прерывания в clockless чипсетах, 0 - запретить
-#define FASTLED_INTERRUPT_RETRY_COUNT   (0)                 // сколько раз FastLED попытается повторно передать кадр, если его прервали
+#define FASTLED_INTERRUPT_RETRY_COUNT   (2)                 // сколько раз FastLED попытается повторно передать кадр, если его прервали
+                                                            // 2 - испорченный WiFi-прерыванием кадр перепосылается, иначе моргает первый пиксель (зелёным - первый байт GRB)
+                                                            // если эффекты начнут заметно подтормаживать при открытой странице настроек, верните (0)
 #define FASTLED_ESP8266_RAW_PIN_ORDER                       // FASTLED_ESP8266_RAW_PIN_ORDER, FASTLED_ESP8266_D1_PIN_ORDER или FASTLED_ESP8266_NODEMCU_PIN_ORDER
 
 #define NUM_LEDS                (uint16_t)(WIDTH * HEIGHT)

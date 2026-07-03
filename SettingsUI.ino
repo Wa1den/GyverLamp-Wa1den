@@ -271,7 +271,15 @@ void settingsBuild(sets::Builder& b)
     #endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
     #ifdef USE_MANUAL_TIME_SETTING
-    uint32_t unixTime = (uint32_t)getCurrentLocalTime();    // в поле подставляется текущее время лампы
+    // в поле подставляется текущее время лампы; виджет показывает время с поправкой
+    // на часовой пояс браузера, поэтому ему передаётся UTC (иначе время задваивает пояс)
+    #ifdef USE_NTP
+    uint32_t unixTime = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime());
+    #elif !defined(SUMMER_WINTER_TIME)
+    uint32_t unixTime = (uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL;
+    #else
+    uint32_t unixTime = (uint32_t)getCurrentLocalTime();
+    #endif
     if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
     {
       if (unixTime > 0)
@@ -310,6 +318,7 @@ void settingsSetup()
 
   sett.begin();                                             // запускается после WiFiConnector.connect, иначе не подхватится captive DNS
   sett.onBuild(settingsBuild);
+  sett.setUpdatePeriod(5000);                               // страница опрашивает лампу пореже (по умолчанию 2500 мс) - меньше WiFi-трафика, реже помехи выводу на ленту
 }
 
 void settingsTick()
