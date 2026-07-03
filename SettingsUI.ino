@@ -339,4 +339,48 @@ void settingsSetup()
 void settingsTick()
 {
   sett.tick();
+  settingsSyncTick();
+}
+
+// живая синхронизация открытой страницы: если состояние лампы изменили другим каналом
+// (MQTT, кнопка, режим Цикл, таймер), новые значения виджетов отправляются в браузер
+// через WebSocket. Если страница не открыта, updater ничего не отправляет.
+void settingsSyncTick()
+{
+  static uint32_t lastCheckTime = 0U;
+  if (millis() - lastCheckTime < 1000U)                     // проверка раз в секунду
+  {
+    return;
+  }
+  lastCheckTime = millis();
+
+  static bool lastPower = false;
+  static uint8_t lastEffect = 255U;
+  static uint8_t lastBrightness = 0U;
+  static uint8_t lastSpeed = 0U;
+  static uint8_t lastScale = 0U;
+  static bool lastFavOn = false;
+
+  bool favOn = FavoritesManager::FavoritesRunning != 0;
+  if (lastPower != ONflag || lastEffect != currentMode ||
+      lastBrightness != modes[currentMode].Brightness ||
+      lastSpeed != modes[currentMode].Speed ||
+      lastScale != modes[currentMode].Scale ||
+      lastFavOn != favOn)
+  {
+    lastPower = ONflag;
+    lastEffect = currentMode;
+    lastBrightness = modes[currentMode].Brightness;
+    lastSpeed = modes[currentMode].Speed;
+    lastScale = modes[currentMode].Scale;
+    lastFavOn = favOn;
+
+    sett.updater()
+        .update(UI_ID_POWER, ONflag)
+        .update(UI_ID_EFFECT, currentMode)
+        .update(UI_ID_BRIGHTNESS, modes[currentMode].Brightness)
+        .update(UI_ID_SPEED, modes[currentMode].Speed)
+        .update(UI_ID_SCALE, modes[currentMode].Scale)
+        .update(UI_ID_FAV_ON, favOn);
+  }
 }
