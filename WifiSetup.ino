@@ -18,11 +18,13 @@ void wifiSetup()
   WiFiConnector.onConnect([]() {
     LOG.print(F("Подключено к WiFi сети. IP адрес: "));
     LOG.println(WiFi.localIP());
+    uiLog.printf_P(PSTR("WiFi: подключено, IP %s\n"), WiFi.localIP().toString().c_str());
   });
 
   WiFiConnector.onError([]() {
     LOG.print(F("Подключение к WiFi сети не выполнено, работает точка доступа. IP адрес: "));
     LOG.println(WiFi.softAPIP());
+    uiLog.println(F("WiFi: не подключено, работает точка доступа"));
   });
 
   if (espMode == 1U)

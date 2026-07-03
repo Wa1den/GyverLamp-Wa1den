@@ -31,6 +31,8 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
 #define UI_ID_SET_TIME     ("ui_time"_h)
+#define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
+#define UI_ID_LOG          ("ui_log"_h)
 #define UI_ID_FX_RESET     ("ui_fx_rst"_h)
 #define UI_ID_WIFI_RESET   ("ui_wifi_rst"_h)
 #define UI_ID_REBOOT       ("ui_reboot"_h)
@@ -242,8 +244,9 @@ void settingsBuild(sets::Builder& b)
 
     if (MqttManager::getTopicInput().length())
     {
-      b.Label("Топик команд", MqttManager::getTopicInput());
-      b.Label("Топик состояния", MqttManager::getTopicOutput());
+      // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
+      b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
+                            String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
     }
 
     if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
@@ -265,21 +268,30 @@ void settingsBuild(sets::Builder& b)
     b.Label("Время лампы", timeBuf);
     #ifdef USE_NTP
     b.Label("Синхронизация времени", timeSynched ? (ntpServerAddressResolved ? "выполнена (NTP)" : "выполнена (вручную)") : "не выполнена");
+    b.Input(kk::ntp_host, "NTP сервер");
+    if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))
+    {
+      pendingNtpSync = true;                                // синхронизация выполнится в loop (применит и новый адрес сервера), результат - в Журнале
+    }
     #else
     b.Label("Синхронизация времени", timeSynched ? "выполнена (вручную)" : "не выполнена");
     #endif //USE_NTP
     #endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
     #ifdef USE_MANUAL_TIME_SETTING
-    // в поле подставляется текущее время лампы; виджет показывает время с поправкой
-    // на часовой пояс браузера, поэтому ему передаётся UTC (иначе время задваивает пояс)
-    #ifdef USE_NTP
-    uint32_t unixTime = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime());
-    #elif !defined(SUMMER_WINTER_TIME)
-    uint32_t unixTime = (uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL;
-    #else
-    uint32_t unixTime = (uint32_t)getCurrentLocalTime();
-    #endif
+    // в поле подставляется текущее время лампы (если оно синхронизировано); виджет показывает
+    // время с поправкой на часовой пояс браузера, поэтому ему передаётся UTC (иначе время задваивает пояс)
+    uint32_t unixTime = 0;
+    if (timeSynched)
+    {
+      #ifdef USE_NTP
+      unixTime = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime());
+      #elif !defined(SUMMER_WINTER_TIME)
+      unixTime = (uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL;
+      #else
+      unixTime = (uint32_t)getCurrentLocalTime();
+      #endif
+    }
     if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
     {
       if (unixTime > 0)
@@ -307,6 +319,8 @@ void settingsBuild(sets::Builder& b)
         pendingRestart = true;
       }
     }
+
+    b.Log(UI_ID_LOG, uiLog, "Журнал");
   }
 }
 

@@ -233,6 +233,50 @@ void lampSetManualTime(uint32_t utcUnixTime)
 }
 #endif //USE_MANUAL_TIME_SETTING
 
+#ifdef USE_NTP
+// принудительная синхронизация времени с NTP сервером (кнопка в веб-интерфейсе);
+// применяет адрес сервера из хранилища настроек, поэтому работает и как "сменить сервер без перезагрузки"
+void lampForceNtpSync()
+{
+  ntpServerName = (String)db[kk::ntp_host];
+  if (!ntpServerName.length())
+  {
+    ntpServerName = NTP_ADDRESS;
+  }
+  timeClient.setPoolServerName(ntpServerName.c_str());
+  uiLog.printf_P(PSTR("NTP: синхронизация с %s...\n"), ntpServerName.c_str());
+
+  ntpServerAddressResolved = false;
+  resolveNtpServerAddress(ntpServerAddressResolved);        // проверка доступности сервера (DNS) - и диагностика в журнал
+  if (!ntpServerAddressResolved)
+  {
+    uiLog.println(F("NTP: сервер недоступен (ошибка DNS/нет интернета)"));
+    return;
+  }
+
+  if (timeClient.forceUpdate())
+  {
+    timeSynched = true;
+    #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+    manualTimeShift = localTimeZone.toLocal(timeClient.getEpochTime()) - millis() / 1000UL; // резервное время на случай отвалившегося NTP
+    #endif
+    #ifdef PHONE_N_MANUAL_TIME_PRIORITY
+    stillUseNTP = false;
+    #endif
+    #ifdef WARNING_IF_NO_TIME
+    noTimeClear();
+    #endif
+    char timeBuf[9];
+    getFormattedTime(timeBuf);
+    uiLog.printf_P(PSTR("NTP: время получено: %s\n"), timeBuf);
+  }
+  else
+  {
+    uiLog.println(F("NTP: сервер не ответил"));
+  }
+}
+#endif //USE_NTP
+
 // отложенные действия, запрошенные из веб-интерфейса (нельзя выполнять из контекста асинхронного вебсервера)
 void handlePendingActions()
 {
@@ -241,7 +285,16 @@ void handlePendingActions()
     pendingWifiReset = false;
     resetWifiSettings();
     LOG.println(F("Настройки WiFi сброшены (запрос из веб-интерфейса)"));
+    uiLog.println(F("Настройки WiFi сброшены"));
   }
+
+  #ifdef USE_NTP
+  if (pendingNtpSync)
+  {
+    pendingNtpSync = false;
+    lampForceNtpSync();
+  }
+  #endif //USE_NTP
 
   if (pendingRestart)
   {

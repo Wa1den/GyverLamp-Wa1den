@@ -319,6 +319,7 @@
                                                             // синхронный вариант выбран сознательно: все действия страницы обрабатываются
                                                             // в loop(), а не в контексте асинхронного TCP с маленьким системным стеком
                                                             // (в async-варианте ловили самопроизвольные перезагрузки при смене эффекта)
+sets::Logger uiLog(400);                                    // журнал событий для веб-интерфейса (кольцевой буфер; объявлен до MqttManager.h, который в него пишет)
 #include <WiFiUdp.h>
 #include "Types.h"
 #include "timerMinim.h"
@@ -437,6 +438,10 @@ uint32_t FavoritesManager::nextModeAt = 0UL;
 char TextTicker[MAX_UDP_BUFFER_SIZE + 1];                   // текст эффекта Бегущая строка (раньше был указателем на строковый литерал, в который писали - UB)
 bool pendingRestart = false;                                // запрошена перезагрузка из веб-интерфейса (выполняется из loop, не из контекста вебсервера)
 bool pendingWifiReset = false;                              // запрошен сброс настроек WiFi из веб-интерфейса (выполняется из loop)
+#ifdef USE_NTP
+bool pendingNtpSync = false;                                // запрошена принудительная синхронизация времени из веб-интерфейса (выполняется из loop)
+String ntpServerName;                                       // адрес NTP сервера из хранилища настроек; NTPClient хранит указатель, поэтому строка должна жить всё время работы
+#endif //USE_NTP
 
 void setup()
 {
@@ -546,6 +551,12 @@ void setup()
 
   // NTP
   #ifdef USE_NTP
+  ntpServerName = (String)db[kk::ntp_host];                 // адрес NTP сервера из хранилища настроек (по умолчанию NTP_ADDRESS)
+  if (!ntpServerName.length())
+  {
+    ntpServerName = NTP_ADDRESS;
+  }
+  timeClient.setPoolServerName(ntpServerName.c_str());
   timeClient.begin();
   ESP.wdtFeed();
   #endif
@@ -572,6 +583,8 @@ void setup()
   {
     strcpy(TextTicker, RUNNING_TEXT_DEFAULT);
   }
+
+  uiLog.printf_P(PSTR("Старт. Причина перезагрузки: %s\n"), ESP.getResetReason().c_str()); // в журнал веб-интерфейса; помогает заметить самопроизвольные перезагрузки
 }
 
 

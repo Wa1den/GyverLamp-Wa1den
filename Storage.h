@@ -41,6 +41,8 @@ DB_KEYS(kk,
     running_text,                                           // текст эффекта Бегущая строка
 
     // Избранное (режим Цикл)
+    ntp_host,                                               // адрес NTP сервера (сервера точного времени)
+
     fav_running,                                            // вкл/выкл режима избранных эффектов
     fav_interval,                                           // интервал смены эффектов (секунды)
     fav_dispersion,                                         // случайный разброс интервала (секунды)
@@ -95,6 +97,9 @@ class Storage
       db.init(kk::btn_sleep_time, (uint8_t)1);
       #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
+      #ifdef USE_NTP
+      db.init(kk::ntp_host, NTP_ADDRESS);
+      #endif //USE_NTP
       #if USE_MQTT
       db.init(kk::mqtt_enabled, true);
       db.init(kk::mqtt_host, MQTT_DEFAULT_HOST);

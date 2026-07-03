@@ -69,6 +69,10 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
          #ifdef WARNING_IF_NO_TIME
            noTimeClear();
          #endif
+         if (!timeSynched)
+         {
+           uiLog.println(F("NTP: время синхронизировано"));
+         }
          timeSynched = true;
          #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE) // если ручное время тоже поддерживается, сохраняем туда реальное на случай отвалившегося NTP
            manualTimeShift = localTimeZone.toLocal(timeClient.getEpochTime()) - millis() / 1000UL;
@@ -208,12 +212,13 @@ void resolveNtpServerAddress(bool &ntpServerAddressResolved)              // ф�
   //if (ntpServerIp[0] <= 0)
   if (!WiFi.hostByName(NTP_ADDRESS, ntpServerIp, RESOLVE_TIMEOUT) || ntpServerIp[0] == 0 || ntpServerIp == IPAddress(255U, 255U, 255U, 255U))
   {
-    #ifdef GENERAL_DEBUG
-    if (ntpServerAddressResolved)
+    if (ntpServerAddressResolved)                           // переход "интернет был - пропал"
     {
+      #ifdef GENERAL_DEBUG
       LOG.println(F("Подключение к интернету отсутствует"));
+      #endif
+      uiLog.println(F("NTP: сервер недоступен (ошибка DNS/нет интернета)"));
     }
-    #endif
 
     ntpServerAddressResolved = false;
   }

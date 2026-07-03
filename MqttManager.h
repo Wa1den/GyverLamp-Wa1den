@@ -186,6 +186,7 @@ class MqttManager
       #ifdef GENERAL_DEBUG
       LOG.println(F("Подключено к MQTT брокеру"));
       #endif
+      uiLog.println(F("MQTT: подключено к брокеру"));        // запись в кольцевой буфер журнала - безопасно из async-контекста
       lastConnectingAttempt = 0;
 
       client->subscribe(topicInput.c_str(), 1);
@@ -204,6 +205,7 @@ class MqttManager
       #ifdef GENERAL_DEBUG
       LOG.println(F("Отключено от MQTT брокера"));
       #endif
+      uiLog.printf_P(PSTR("MQTT: отключено от брокера (%d)\n"), (int)reason);
     }
 
     // приём сообщения (async-контекст!): только копирование в отложенную команду, никакого управления лампой отсюда
