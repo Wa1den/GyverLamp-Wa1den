@@ -30,6 +30,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
+#define UI_ID_WOL_WAKE     ("ui_wol_wake"_h)
 #define UI_ID_SET_TIME     ("ui_time"_h)
 #define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
 #define UI_ID_LOG          ("ui_log"_h)
@@ -255,6 +256,17 @@ void settingsBuild(sets::Builder& b)
     }
   }
   #endif //USE_MQTT
+
+  // --- WAKE-ON-LAN ---------------------------
+  {
+    sets::Group g(b, "Wake-on-LAN");
+    b.Input(kk::wol_mac, "MAC компьютера");
+
+    if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
+    {
+      pendingWolWake = true;                                // отправка выполнится в loop, результат - в Журнале
+    }
+  }
 
   // --- СЛУЖЕБНОЕ -----------------------------
   {

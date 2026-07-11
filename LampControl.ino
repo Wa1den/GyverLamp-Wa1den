@@ -294,6 +294,12 @@ void handlePendingActions()
   }
   #endif //USE_NTP
 
+  if (pendingWolWake)
+  {
+    pendingWolWake = false;
+    wolWake(NULL);                                          // пробуждение компьютера по MAC из настроек
+  }
+
   if (pendingRestart)
   {
     pendingRestart = false;

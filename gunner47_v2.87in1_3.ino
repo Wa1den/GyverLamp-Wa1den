@@ -447,6 +447,7 @@ uint32_t FavoritesManager::nextModeAt = 0UL;
 char TextTicker[CMD_BUFFER_SIZE + 1];                   // текст эффекта Бегущая строка
 bool pendingRestart = false;                                // запрошена перезагрузка из веб-интерфейса (выполняется из loop, не из контекста вебсервера)
 bool pendingWifiReset = false;                              // запрошен сброс настроек WiFi из веб-интерфейса (выполняется из loop)
+bool pendingWolWake = false;                                // запрошено пробуждение компьютера Wake-on-LAN из веб-интерфейса (выполняется из loop)
 #ifdef USE_NTP
 bool pendingNtpSync = false;                                // запрошена принудительная синхронизация времени из веб-интерфейса (выполняется из loop)
 String ntpServerName;                                       // адрес NTP сервера из хранилища настроек; NTPClient хранит указатель, поэтому строка должна жить всё время работы

@@ -14,12 +14,17 @@
  *                                    DAWNn               - опция "рассвет за ... минут" (номер в списке, с единицы)
  *                                    TMR_SET 1 o sec     - таймер выключения: вкл, опция, секунд до выключения (TMR_SET 0 - отключить)
  *                                    FAV_SET ...         - настройки режима Цикл (формат см. FavoritesManager)
+ *                                    WOL [MAC]           - Wake-on-LAN (без MAC - адрес из настроек)
  *   LedLamp/<id>/cmnd/power      - true/1/on | false/0/off - включить/выключить лампу
  *   LedLamp/<id>/cmnd/effect     - номер эффекта (0..MODE_AMOUNT-1)
  *   LedLamp/<id>/cmnd/brightness - яркость: 1-100 масштабируется в 1-255, значения >100 применяются как есть
  *   LedLamp/<id>/cmnd/speed      - скорость: 1-100 масштабируется в 1-255, значения >100 применяются как есть
  *   LedLamp/<id>/cmnd/scale      - масштаб (как есть)
  *   LedLamp/<id>/cmnd/button     - true/1/on | false/0/off - разблокировать/заблокировать кнопку
+ *   LedLamp/<id>/cmnd/wol        - Wake-on-LAN: разбудить компьютер магическим пакетом;
+ *                                  payload - MAC (AA:BB:CC:DD:EE:FF), пусто - MAC из настроек
+ *
+ * Команды смены эффекта (EFFn и топик effect) на выключенной лампе также включают её.
  *
  * Топик состояния (исходящий, retained; публикуется после каждого изменения состояния лампы):
  *   LedLamp/<id>/state - JSON: {"effect":N,"brightness":1-100,"speed":1-100,"scale":N,
@@ -61,6 +66,7 @@ void lampSetDawnMode(uint8_t mode);
 void lampSetSleepTimer(uint16_t minutes);
 void lampClearSleepTimer();
 void mqttRequestPublish();
+bool wolWake(const char* macStr);
 #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 extern uint8_t button_sleep_time;
 #endif
@@ -77,6 +83,7 @@ static const char MqttTopicBright[]    PROGMEM = "brightness";
 static const char MqttTopicSpeed[]     PROGMEM = "speed";
 static const char MqttTopicScale[]     PROGMEM = "scale";
 static const char MqttTopicButton[]    PROGMEM = "button";
+static const char MqttTopicWol[]       PROGMEM = "wol";
 static const char MqttClientIdPrefix[] PROGMEM = "LedLamp_";
 
 class MqttManager
@@ -122,6 +129,7 @@ class MqttManager
       topicSpeed = topicInput + '/' + FPSTR(MqttTopicSpeed);
       topicScale = topicInput + '/' + FPSTR(MqttTopicScale);
       topicButton = topicInput + '/' + FPSTR(MqttTopicButton);
+      topicWol = topicInput + '/' + FPSTR(MqttTopicWol);
 
       #ifdef GENERAL_DEBUG
       LOG.printf_P(PSTR("MQTT топик для входящих команд: %s\n"), topicInput.c_str());
@@ -170,7 +178,7 @@ class MqttManager
     static inline String mqttHost, mqttUser, mqttPass, clientId;
     static inline uint16_t mqttPort = 0;
     static inline String topicInput, topicOutput;
-    static inline String topicPower, topicEffect, topicBrightness, topicSpeed, topicScale, topicButton;
+    static inline String topicPower, topicEffect, topicBrightness, topicSpeed, topicScale, topicButton, topicWol;
     static inline uint32_t lastConnectingAttempt = 0;
     static inline volatile uint8_t pendingType = PT_NONE;
     static inline volatile int32_t pendingValue = 0;
@@ -204,6 +212,7 @@ class MqttManager
       client->subscribe(topicSpeed.c_str(), 1);
       client->subscribe(topicScale.c_str(), 1);
       client->subscribe(topicButton.c_str(), 1);
+      client->subscribe(topicWol.c_str(), 1);
 
       needToPublish = true;                                 // публикация состояния сразу после подключения (выполнится из tick)
     }
@@ -263,6 +272,11 @@ class MqttManager
         pendingValue = parseBoolPayload(buf);
         pendingType = PT_BUTTON;
       }
+      else if (topicWol == topic)                           // Wake-on-LAN: payload - MAC компьютера (пусто - MAC из настроек)
+      {
+        snprintf_P(pendingRaw, CMD_BUFFER_SIZE, PSTR("WOL %s"), buf);
+        pendingType = PT_RAW;
+      }
       else                                                  // базовый командный топик - легаси-команда текстом
       {
         strncpy(pendingRaw, buf, CMD_BUFFER_SIZE - 1U);
@@ -285,7 +299,10 @@ class MqttManager
       switch (type)
       {
         case PT_POWER:      lampSetPower(value != 0);                            break;
-        case PT_EFFECT:     lampSetEffect(constrain(value, 0, MODE_AMOUNT - 1)); break;
+        case PT_EFFECT:
+          lampSetEffect(constrain(value, 0, MODE_AMOUNT - 1));
+          lampSetPower(true);                               // команда смены эффекта на выключенной лампе также включает её (на включенной lampSetPower ничего не делает)
+          break;
         case PT_BRIGHTNESS: lampSetBrightness(constrain(value, 1, 255));         break;
         case PT_SPEED:      lampSetSpeed(constrain(value, 1, 255));              break;
         case PT_SCALE:      lampSetScale(constrain(value, 0, 255));              break;
@@ -313,6 +330,7 @@ class MqttManager
       else if (!strncmp_P(cmd, PSTR("EFF"), 3))
       {
         lampSetEffect(constrain(atoi(cmd + 3), 0, MODE_AMOUNT - 1));
+        lampSetPower(true);                                 // команда смены эффекта на выключенной лампе также включает её
       }
       else if (!strncmp_P(cmd, PSTR("BRI"), 3))
       {
@@ -333,6 +351,10 @@ class MqttManager
       else if (!strncmp_P(cmd, PSTR("TEXT"), 4))
       {
         lampSetRunningText(cmd + (cmd[4] == ' ' ? 5 : 4));  // формат: "TEXT новый текст бегущей строки"
+      }
+      else if (!strncmp_P(cmd, PSTR("WOL"), 3))             // формат: "WOL" (MAC из настроек) или "WOL AA:BB:CC:DD:EE:FF"
+      {
+        wolWake(cmd + (cmd[3] == ' ' ? 4 : 3));
       }
       else if (!strncmp_P(cmd, PSTR("ALM_SET"), 7))         // формат: "ALM_SET1 ON" / "ALM_SET1 OFF" / "ALM_SET1 390" (номер дня 1-7, время в минутах от начала суток)
       {
