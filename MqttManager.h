@@ -217,12 +217,32 @@ class MqttManager
       needToPublish = true;                                 // публикация состояния сразу после подключения (выполнится из tick)
     }
 
+    // человекочитаемая причина отключения от брокера (для журнала)
+    static PGM_P disconnectReasonText(AsyncMqttClientDisconnectReason reason)
+    {
+      switch (reason)
+      {
+        case AsyncMqttClientDisconnectReason::TCP_DISCONNECTED:                    return PSTR("обрыв соединения");
+        case AsyncMqttClientDisconnectReason::MQTT_UNACCEPTABLE_PROTOCOL_VERSION: return PSTR("версия протокола отклонена");
+        case AsyncMqttClientDisconnectReason::MQTT_IDENTIFIER_REJECTED:           return PSTR("id клиента отклонён");
+        case AsyncMqttClientDisconnectReason::MQTT_SERVER_UNAVAILABLE:            return PSTR("сервер недоступен");
+        case AsyncMqttClientDisconnectReason::MQTT_MALFORMED_CREDENTIALS:         return PSTR("некорректные логин/пароль");
+        case AsyncMqttClientDisconnectReason::MQTT_NOT_AUTHORIZED:                return PSTR("доступ запрещён");
+        case AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE:           return PSTR("не хватает памяти");
+        case AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT:                return PSTR("ошибка TLS");
+      }
+      return PSTR("неизвестная причина");
+    }
+
     static void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
     {
       #ifdef GENERAL_DEBUG
       LOG.println(F("Отключено от MQTT брокера"));
       #endif
-      uiLog.printf_P(PSTR("MQTT: отключено от брокера (%d)\n"), (int)reason);
+      char reasonBuf[64];
+      strncpy_P(reasonBuf, disconnectReasonText(reason), sizeof(reasonBuf) - 1U); // текст копируется из PROGMEM, читать его напрямую по байтам нельзя
+      reasonBuf[sizeof(reasonBuf) - 1U] = '\0';
+      uiLog.printf_P(PSTR("MQTT: отключено от брокера (%s)\n"), reasonBuf);
     }
 
     // приём сообщения (async-контекст!): только копирование в отложенную команду, никакого управления лампой отсюда

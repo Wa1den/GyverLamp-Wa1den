@@ -320,13 +320,30 @@
                                                             // синхронный вариант выбран сознательно: все действия страницы обрабатываются
                                                             // в loop(), а не в контексте асинхронного TCP - у того маленький системный стек,
                                                             // и тяжёлые обработчики приводят к самопроизвольным перезагрузкам
-#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-void getFormattedTime(char *buf);                           // time.ino; прототип нужен классу журнала ниже
+// класс журнала TimedLogger и объект uiLog объявлены ниже, после подключения TimeLib
+#include <WiFiUdp.h>
+#include "Types.h"
+
+void ledsShow();                                            // вывод кадра на ленту (utility.ino); прототипы объявлены до заголовков (TimerManager.h и др.), которые их вызывают
+void ledsClear();                                           // очистка кадра
+
+#include "timerMinim.h"
+#ifdef ESP_USE_BUTTON
+#include <GyverButton.h>
 #endif
+#include "fonts.h"
+#ifdef USE_NTP
+#include <NTPClient.h>
+#include <Timezone.h>
+#endif
+#include <TimeLib.h>
+
+extern bool timeSynched;                                    // определены ниже/в time.ino; нужны классу журнала
+time_t getCurrentLocalTime();
 
 // Журнал событий для веб-интерфейса: кольцевой буфер, в начало каждой строки
-// автоматически добавляется временная метка [ЧЧ:ММ:СС] (время лампы;
-// до синхронизации - время от старта).
+// автоматически добавляется временная метка - [ДД.ММ ЧЧ:ММ:СС] при
+// синхронизированном времени, иначе [ЧЧ:ММ:СС] от старта лампы.
 class TimedLogger : public sets::Logger
 {
   public:
@@ -337,15 +354,19 @@ class TimedLogger : public sets::Logger
       if (_lineStart && v != '\n' && v != '\r')
       {
         _lineStart = false;
-        char stamp[13];
-        #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-        char timeBuf[9];
-        getFormattedTime(timeBuf);
-        snprintf_P(stamp, sizeof(stamp), PSTR("[%s] "), timeBuf);
-        #else
-        uint32_t s = millis() / 1000UL;
-        snprintf_P(stamp, sizeof(stamp), PSTR("[%02u:%02u:%02u] "), (uint8_t)(s / 3600UL % 24UL), (uint8_t)(s / 60UL % 60UL), (uint8_t)(s % 60UL));
-        #endif
+        char stamp[18];
+        if (timeSynched)
+        {
+          time_t t = getCurrentLocalTime();
+          snprintf_P(stamp, sizeof(stamp), PSTR("[%02u.%02u %02u:%02u:%02u] "),
+                     (uint8_t)day(t), (uint8_t)month(t), (uint8_t)hour(t), (uint8_t)minute(t), (uint8_t)second(t));
+        }
+        else
+        {
+          uint32_t s = millis() / 1000UL;
+          snprintf_P(stamp, sizeof(stamp), PSTR("[%02u:%02u:%02u] "),
+                     (uint8_t)(s / 3600UL % 24UL), (uint8_t)(s / 60UL % 60UL), (uint8_t)(s % 60UL));
+        }
         for (const char* p = stamp; *p != '\0'; p++)
         {
           sets::Logger::write(*p);
@@ -363,22 +384,7 @@ class TimedLogger : public sets::Logger
 };
 
 TimedLogger uiLog(1200);                                    // объявлен до MqttManager.h, который в него пишет
-#include <WiFiUdp.h>
-#include "Types.h"
 
-void ledsShow();                                            // вывод кадра на ленту (utility.ino); прототипы объявлены до заголовков (TimerManager.h и др.), которые их вызывают
-void ledsClear();                                           // очистка кадра
-
-#include "timerMinim.h"
-#ifdef ESP_USE_BUTTON
-#include <GyverButton.h>
-#endif
-#include "fonts.h"
-#ifdef USE_NTP
-#include <NTPClient.h>
-#include <Timezone.h>
-#endif
-#include <TimeLib.h>
 #ifdef OTA
 #include "OtaManager.h"
 #endif
