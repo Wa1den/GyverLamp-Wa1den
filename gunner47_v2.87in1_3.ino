@@ -320,7 +320,49 @@
                                                             // синхронный вариант выбран сознательно: все действия страницы обрабатываются
                                                             // в loop(), а не в контексте асинхронного TCP - у того маленький системный стек,
                                                             // и тяжёлые обработчики приводят к самопроизвольным перезагрузкам
-sets::Logger uiLog(400);                                    // журнал событий для веб-интерфейса (кольцевой буфер; объявлен до MqttManager.h, который в него пишет)
+#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+void getFormattedTime(char *buf);                           // time.ino; прототип нужен классу журнала ниже
+#endif
+
+// Журнал событий для веб-интерфейса: кольцевой буфер, в начало каждой строки
+// автоматически добавляется временная метка [ЧЧ:ММ:СС] (время лампы;
+// до синхронизации - время от старта).
+class TimedLogger : public sets::Logger
+{
+  public:
+    using sets::Logger::Logger;
+
+    size_t write(uint8_t v) override
+    {
+      if (_lineStart && v != '\n' && v != '\r')
+      {
+        _lineStart = false;
+        char stamp[13];
+        #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+        char timeBuf[9];
+        getFormattedTime(timeBuf);
+        snprintf_P(stamp, sizeof(stamp), PSTR("[%s] "), timeBuf);
+        #else
+        uint32_t s = millis() / 1000UL;
+        snprintf_P(stamp, sizeof(stamp), PSTR("[%02u:%02u:%02u] "), (uint8_t)(s / 3600UL % 24UL), (uint8_t)(s / 60UL % 60UL), (uint8_t)(s % 60UL));
+        #endif
+        for (const char* p = stamp; *p != '\0'; p++)
+        {
+          sets::Logger::write(*p);
+        }
+      }
+      if (v == '\n')
+      {
+        _lineStart = true;
+      }
+      return sets::Logger::write(v);
+    }
+
+  private:
+    bool _lineStart = true;
+};
+
+TimedLogger uiLog(1200);                                    // объявлен до MqttManager.h, который в него пишет
 #include <WiFiUdp.h>
 #include "Types.h"
 

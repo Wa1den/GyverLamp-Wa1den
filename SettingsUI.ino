@@ -332,7 +332,10 @@ void settingsBuild(sets::Builder& b)
       }
     }
 
-    b.Log(UI_ID_LOG, uiLog, "Журнал");
+    {
+      sets::Menu m(b, "Журнал");                            // вложенное меню - журнал скрыт, пока его не откроют
+      b.Log(UI_ID_LOG, uiLog);
+    }
   }
 }
 
@@ -394,5 +397,10 @@ void settingsSyncTick()
         .update(UI_ID_SPEED, modes[currentMode].Speed)
         .update(UI_ID_SCALE, modes[currentMode].Scale)
         .update(UI_ID_FAV_ON, favOn);
+  }
+
+  if (uiLog._changed())                                     // новые записи журнала - в открытую страницу
+  {
+    sett.updater().update(UI_ID_LOG, static_cast<sets::Logger&>(uiLog)); // приведение к базовому типу, иначе побеждает шаблонная перегрузка update(id, T) по значению
   }
 }
