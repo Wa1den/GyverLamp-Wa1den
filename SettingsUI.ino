@@ -266,6 +266,17 @@ void settingsBuild(sets::Builder& b)
     {
       pendingWolWake = true;                                // отправка выполнится в loop, результат - в Журнале
     }
+
+    #if (USE_MQTT)
+    if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
+    {
+      pendingWolResub = true;                               // подписка обновится в loop
+    }
+    if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
+    {
+      pendingWolResub = true;
+    }
+    #endif //USE_MQTT
   }
 
   // --- СЛУЖЕБНОЕ -----------------------------
@@ -273,6 +284,7 @@ void settingsBuild(sets::Builder& b)
     sets::Group g(b, "Служебное");
 
     b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
+    b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
 
     #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
     char timeBuf[9];

@@ -91,9 +91,23 @@ bool wolSendMagicPacket(const uint8_t mac[6])
   return ok;
 }
 
-// пробуждение по MAC из строки; при пустой строке используется MAC из настроек. Результат - в Журнал
+// пробуждение по MAC из строки; при пустой строке или true/1/on используется MAC из настроек,
+// false/0/off игнорируется (retained-сообщения сценариев не должны будить компьютер повторно).
+// Результат - в Журнал
 bool wolWake(const char* macStr)
 {
+  if (macStr != NULL)
+  {
+    if (!strcmp_P(macStr, PSTR("0")) || !strcmp_P(macStr, PSTR("false")) || !strcmp_P(macStr, PSTR("off")))
+    {
+      return false;
+    }
+    if (!strcmp_P(macStr, PSTR("1")) || !strcmp_P(macStr, PSTR("true")) || !strcmp_P(macStr, PSTR("on")))
+    {
+      macStr = "";                                          // булевое "включить" - используем MAC из настроек
+    }
+  }
+
   String saved;
   if (macStr == NULL || strlen(macStr) == 0)
   {

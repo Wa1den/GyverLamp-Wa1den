@@ -99,7 +99,7 @@
 [TD]LedLamp/<id>/cmnd/button[/TD][TD]true/1/on — разблокировать кнопку, иначе заблокировать[/TD]
 [/TR]
 [TR]
-[TD]LedLamp/<id>/cmnd/wol[/TD][TD]Wake-on-LAN: MAC компьютера (AA:BB:CC:DD:EE:FF) или пусто — MAC из настроек[/TD]
+[TD]LedLamp/<id>/cmnd/wol[/TD][TD]Wake-on-LAN: MAC компьютера (AA:BB:CC:DD:EE:FF), либо пусто/true/1/on — MAC из настроек (false/0/off игнорируется). Можно включить слежение за дополнительным произвольным топиком (настраивается на странице)[/TD]
 [/TR]
 [TR]
 [TD]LedLamp/<id>/cmnd[/TD][TD]текстовые команды, формат совместим с прошивками 2.x: P_ON, P_OFF, EFFn, BRIn, SPDn, SCAn, BTN ON/OFF, TEXT текст, ALM_SETd ON/OFF/минуты, DAWNn, TMR_SET 1 о сек, FAV_SET ..., WOL [MAC][/TD]

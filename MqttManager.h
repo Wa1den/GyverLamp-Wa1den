@@ -22,7 +22,12 @@
  *   LedLamp/<id>/cmnd/scale      - масштаб (как есть)
  *   LedLamp/<id>/cmnd/button     - true/1/on | false/0/off - разблокировать/заблокировать кнопку
  *   LedLamp/<id>/cmnd/wol        - Wake-on-LAN: разбудить компьютер магическим пакетом;
- *                                  payload - MAC (AA:BB:CC:DD:EE:FF), пусто - MAC из настроек
+ *                                  payload - MAC (AA:BB:CC:DD:EE:FF), либо пусто/true/1/on -
+ *                                  MAC из настроек (false/0/off игнорируется)
+ *
+ * Дополнительный WOL-топик: если включён в настройках (группа Wake-on-LAN), лампа
+ * подписывается на произвольный топик вне своего дерева и будит компьютер по тем же
+ * правилам payload - удобно для сценариев умного дома.
  *
  * Команды смены эффекта (EFFn и топик effect) на выключенной лампе также включают её.
  *
@@ -94,6 +99,33 @@ class MqttManager
     // топики для отображения в веб-интерфейсе (пустые, если MQTT не сконфигурирован)
     static const String& getTopicInput() { return topicInput; }
     static const String& getTopicOutput() { return topicOutput; }
+
+    // подписка/отписка на дополнительный WOL-топик (галка и имя топика в настройках);
+    // вызывается при изменении настроек (из loop) и при каждом подключении к брокеру
+    static void applyWolExtSubscription()
+    {
+      if (client == nullptr)
+      {
+        return;
+      }
+
+      String newTopic = (bool)db[kk::wol_ext_on] ? (String)db[kk::wol_ext_topic] : String();
+      newTopic.trim();
+
+      if (client->connected() && topicWolExt != newTopic)
+      {
+        if (topicWolExt.length())
+        {
+          client->unsubscribe(topicWolExt.c_str());
+        }
+        if (newTopic.length())
+        {
+          client->subscribe(newTopic.c_str(), 1);
+          uiLog.printf_P(PSTR("WOL: слежение за топиком %s\n"), newTopic.c_str());
+        }
+      }
+      topicWolExt = newTopic;
+    }
 
     // чтение параметров брокера из хранилища, сборка топиков, создание клиента (вызывается один раз в setup при espMode == 1)
     static void setup()
@@ -179,6 +211,7 @@ class MqttManager
     static inline uint16_t mqttPort = 0;
     static inline String topicInput, topicOutput;
     static inline String topicPower, topicEffect, topicBrightness, topicSpeed, topicScale, topicButton, topicWol;
+    static inline String topicWolExt;                       // дополнительный WOL-топик (пустой - слежение выключено)
     static inline uint32_t lastConnectingAttempt = 0;
     static inline volatile uint8_t pendingType = PT_NONE;
     static inline volatile int32_t pendingValue = 0;
@@ -213,6 +246,9 @@ class MqttManager
       client->subscribe(topicScale.c_str(), 1);
       client->subscribe(topicButton.c_str(), 1);
       client->subscribe(topicWol.c_str(), 1);
+
+      topicWolExt = "";                                     // подписка на дополнительный WOL-топик выполняется заново при каждом подключении
+      applyWolExtSubscription();
 
       needToPublish = true;                                 // публикация состояния сразу после подключения (выполнится из tick)
     }
@@ -292,7 +328,8 @@ class MqttManager
         pendingValue = parseBoolPayload(buf);
         pendingType = PT_BUTTON;
       }
-      else if (topicWol == topic)                           // Wake-on-LAN: payload - MAC компьютера (пусто - MAC из настроек)
+      else if (topicWol == topic ||
+               (topicWolExt.length() && topicWolExt == topic)) // Wake-on-LAN (свой или дополнительный топик): payload - MAC, true/пусто - MAC из настроек
       {
         snprintf_P(pendingRaw, CMD_BUFFER_SIZE, PSTR("WOL %s"), buf);
         pendingType = PT_RAW;

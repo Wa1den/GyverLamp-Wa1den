@@ -300,6 +300,14 @@ void handlePendingActions()
     wolWake(NULL);                                          // пробуждение компьютера по MAC из настроек
   }
 
+  #if (USE_MQTT)
+  if (pendingWolResub)
+  {
+    pendingWolResub = false;
+    MqttManager::applyWolExtSubscription();                 // применение изменённых настроек дополнительного WOL-топика
+  }
+  #endif //USE_MQTT
+
   if (pendingRestart)
   {
     pendingRestart = false;
