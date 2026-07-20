@@ -37,19 +37,27 @@ void autoBrightnessTick()
     return;
   }
 
-  uint16_t level = (bool)db[kk::ab_invert] ? (1023U - autoLightRaw) : autoLightRaw;
   if (firstRead)
   {
     firstRead = false;
-    filtered = level;
+    filtered = autoLightRaw;
   }
-  filtered = filtered - (filtered >> 3) + (level >> 3);     // экспоненциальное сглаживание, постоянная времени ~1 сек
+  filtered = filtered - (filtered >> 3) + (autoLightRaw >> 3); // экспоненциальное сглаживание, постоянная времени ~1 сек
 
-  // чувствительность задаёт диапазон датчика, на котором достигается полная яркость:
-  // выше чувствительность - меньше света нужно для максимума
-  uint16_t range = map((uint8_t)db[kk::ab_sens], 1, 100, 1023, 64);
+  // двухточечная калибровка: яркость линейно растягивается между "темнотой" и "светом"
+  // (кнопки на странице настроек); если точка света меньше точки темноты,
+  // шкала автоматически инвертируется
+  int16_t dark = (uint16_t)db[kk::ab_dark];
+  int16_t light = (uint16_t)db[kk::ab_light];
+  if (dark == light)
+  {
+    autoBriFactor = 255U;                                   // датчик не откалиброван
+    return;
+  }
+  int32_t f = ((int32_t)filtered - dark) * 255 / (light - dark);
+  f = constrain(f, 0, 255);
   uint8_t minFactor = (uint16_t)(uint8_t)db[kk::ab_min_bri] * 255U / 100U;
-  autoBriFactor = minFactor + (uint32_t)constrain(filtered, 0U, range) * (255U - minFactor) / range;
+  autoBriFactor = minFactor + (uint32_t)f * (255U - minFactor) / 255U;
 }
 
 #else //USE_AUTO_BRIGHTNESS

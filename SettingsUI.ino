@@ -32,6 +32,8 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
 #define UI_ID_WOL_WAKE     ("ui_wol_wake"_h)
 #define UI_ID_AB_RAW       ("ui_ab_raw"_h)
+#define UI_ID_AB_SET_DARK  ("ui_ab_sdrk"_h)
+#define UI_ID_AB_SET_LIGHT ("ui_ab_slgt"_h)
 #define UI_ID_AB_D5        ("ui_ab_d5"_h)
 #define UI_ID_AB_FACTOR    ("ui_ab_fct"_h)
 #define UI_ID_SET_TIME     ("ui_time"_h)
@@ -266,8 +268,28 @@ void settingsBuild(sets::Builder& b)
     sets::Group g(b, "Автояркость");
     b.Switch(kk::ab_on, "Использовать датчик освещённости");
     b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
-    b.Slider(kk::ab_sens, "Чувствительность", 1, 100, 1);
-    b.Switch(kk::ab_invert, "Инверсия датчика");
+
+    // двухточечная калибровка под конкретный датчик: рабочий диапазон дешёвых модулей
+    // занимает малую часть шкалы 0-1023, поэтому крайние точки запоминаются по факту
+    {
+      sets::Buttons btns(b);
+      if (b.Button(UI_ID_AB_SET_DARK, "Запомнить темноту"))   // нажать, накрыв датчик
+      {
+        db.set(kk::ab_dark, autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка темноты = %u
+"), autoLightRaw);
+        b.reload();
+      }
+      if (b.Button(UI_ID_AB_SET_LIGHT, "Запомнить свет"))     // нажать при обычном дневном освещении (не с фонариком)
+      {
+        db.set(kk::ab_light, autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка света = %u
+"), autoLightRaw);
+        b.reload();
+      }
+    }
+    b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
+
     b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // живая диагностика: накройте датчик рукой и смотрите, какое число реагирует
     b.LabelNum(UI_ID_AB_D5, "Вход D5 (0/1)", (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN));
     b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);

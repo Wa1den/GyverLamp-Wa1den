@@ -39,8 +39,8 @@ DB_KEYS(kk,
     // Автояркость
     ab_on,                                                  // вкл/выкл автояркости по датчику освещённости
     ab_min_bri,                                             // минимальная яркость в темноте, % (5-100)
-    ab_sens,                                                // чувствительность (1-100): насколько мало света нужно для выхода на полную яркость
-    ab_invert,                                              // инверсия датчика (если при ярком свете значение A0 падает, а не растёт)
+    ab_dark,                                                // калибровка: значение A0 в темноте
+    ab_light,                                               // калибровка: значение A0 при свете (если меньше ab_dark - шкала автоматически инвертируется)
 
     // Избранное (режим Цикл)
     ntp_host,                                               // адрес NTP сервера (сервера точного времени)
@@ -105,8 +105,8 @@ class Storage
       #ifdef USE_AUTO_BRIGHTNESS
       db.init(kk::ab_on, false);
       db.init(kk::ab_min_bri, (uint8_t)20);
-      db.init(kk::ab_sens, (uint8_t)50);
-      db.init(kk::ab_invert, false);
+      db.init(kk::ab_dark, (uint16_t)0);
+      db.init(kk::ab_light, (uint16_t)1023);
       #endif //USE_AUTO_BRIGHTNESS
       #ifdef USE_NTP
       db.init(kk::ntp_host, NTP_ADDRESS);
