@@ -9240,6 +9240,9 @@ static const uint8_t earthMap[16][16] PROGMEM = {
   {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3}   // Антарктида
 };
 static const CRGB earthColors[4] = {CRGB(2U, 10U, 60U), CRGB(14U, 90U, 22U), CRGB(120U, 92U, 26U), CRGB(60U, 70U, 88U)};  // лёд притемнён, чтобы полюса не светили прожектором
+static const CRGB earthNightColors[4] = {CRGB(3U, 10U, 50U), CRGB(12U, 30U, 10U), CRGB(30U, 24U, 8U), CRGB(30U, 34U, 44U)}; // ночная палитра (максимум при Масштабе 100);
+                                                            // пиксель смешивается между стабильными ночным и дневным цветами - без покадрового дрожания
+                                                            // квантования, которое давало светлое мерцание на границах континентов
 
 void earthRoutine()
 {
@@ -9258,9 +9261,9 @@ void earthRoutine()
 
   earthRot += modes[currentMode].Speed;                     // угловая скорость от бегунка Скорость; кадры у эффекта фиксированные 40 мс (см. effectsTick), поэтому вращение плавное на любой скорости
 
-  // освещённость каждой колонки карты: положение Солнца из реального времени (UTC)
-  uint8_t dayF[16];
-  uint8_t nightBri = 3U + (uint16_t)modes[currentMode].Scale * 3U / 4U; // Масштаб = яркость ночной стороны
+  // фактор дня каждой колонки карты (0 - полная ночь, 255 - полный день):
+  // положение Солнца из реального времени (UTC)
+  uint8_t dayFactor[16];
   if (timeSynched)
   {
     uint32_t utcSec;
@@ -9277,13 +9280,20 @@ void earthRoutine()
     {
       uint16_t colA = (uint16_t)c * 4096U + 2048U;
       int32_t cs = cos16((uint16_t)(colA - sunA));          // 32767 - полдень, -32768 - полночь
-      int32_t b = 40 + cs / 128;
-      dayF[c] = constrain(b, (int32_t)nightBri, 255);
+      dayFactor[c] = constrain(40 + cs / 128, 0, 255);
     }
   }
   else
   {
-    memset(dayF, 255, sizeof(dayF));                        // время не синхронизировано - вся планета освещена
+    memset(dayFactor, 255, sizeof(dayFactor));              // время не синхронизировано - вся планета освещена
+  }
+
+  CRGB nightPal[4];                                         // ночная палитра масштабируется Масштабом один раз за кадр (не на каждый пиксель)
+  uint8_t nightScale = (uint16_t)modes[currentMode].Scale * 255U / 100U;
+  for (uint8_t i = 0U; i < 4U; i++)
+  {
+    nightPal[i] = earthNightColors[i];
+    nightPal[i].nscale8_video(nightScale);
   }
 
   for (uint8_t x = 0U; x < WIDTH; x++)
@@ -9296,10 +9306,11 @@ void earthRoutine()
     for (uint8_t y = 0U; y < HEIGHT; y++)
     {
       uint8_t my = 15U - (uint16_t)y * 16U / HEIGHT;        // строка карты; переворот: y=0 у матрицы - нижний ряд, а строка 0 карты - Арктика
-      CRGB col = blend(earthColors[pgm_read_byte(&earthMap[my][c0])],
-                       earthColors[pgm_read_byte(&earthMap[my][c1])], frac);
-      col.nscale8_video(lerp8by8(dayF[c0], dayF[c1], frac)); // день/ночь; _video не даёт ненулевому цвету упасть в полный ноль - без мигающих чёрных точек на ночной стороне
-      drawPixelXY(x, y, col);
+      uint8_t m0 = pgm_read_byte(&earthMap[my][c0]);
+      uint8_t m1 = pgm_read_byte(&earthMap[my][c1]);
+      CRGB day = blend(earthColors[m0], earthColors[m1], frac);
+      CRGB night = blend(nightPal[m0], nightPal[m1], frac);
+      drawPixelXY(x, y, blend(night, day, lerp8by8(dayFactor[c0], dayFactor[c1], frac)));
     }
   }
 }

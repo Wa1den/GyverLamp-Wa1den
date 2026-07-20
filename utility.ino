@@ -19,19 +19,34 @@ void ledsShow()
   #endif
 
   #ifdef BUTTON_PRESS_FEEDBACK
-  uint8_t feedbackGlow[HEIGHT] = {0};                       // добавка белого свечения по строкам (волна сверху вниз)
+  // анимация "нажатия": световая полоса продавливается сверху вниз с разгоном и
+  // торможением у нижней точки (ease-in-out), затем отпускается - трогается медленно
+  // и ускоряется к вылету наверх (квадратичная кривая)
+  uint8_t feedbackGlow[HEIGHT] = {0};                       // добавка белого свечения по строкам
   uint32_t fbElapsed = millis() - buttonFeedbackAt;
   if (buttonFeedbackAt != 0U && fbElapsed < BUTTON_PRESS_FEEDBACK)
   {
-    uint8_t wavePos = fbElapsed * 6U / BUTTON_PRESS_FEEDBACK;               // фронт волны, в строках от верхнего края
-    uint8_t fade = 255U - fbElapsed * 255U / BUTTON_PRESS_FEEDBACK;         // общее затухание к концу анимации
+    const uint8_t waveDepth = 5U;                           // глубина "продавливания" в строках от верхнего края
+    const uint16_t pressTime = BUTTON_PRESS_FEEDBACK * 3U / 5U; // 60% времени - нажатие, 40% - отпускание
+    uint8_t wavePos;
+    if (fbElapsed < pressTime)
+    {
+      uint8_t u = (uint32_t)fbElapsed * 255U / pressTime;
+      wavePos = (uint16_t)waveDepth * ease8InOutQuad(u) / 255U;
+    }
+    else
+    {
+      uint8_t u = (uint32_t)(fbElapsed - pressTime) * 255U / (BUTTON_PRESS_FEEDBACK - pressTime);
+      wavePos = (uint16_t)waveDepth * (255U - scale8(u, u)) / 255U; // u^2: медленно от нижней точки, быстро к вылету
+    }
+
     for (uint8_t y = 0U; y < HEIGHT; y++)
     {
       uint8_t rowFromTop = HEIGHT - 1U - y;
       uint8_t dist = (rowFromTop > wavePos) ? rowFromTop - wavePos : wavePos - rowFromTop;
       if (dist < 3U)
       {
-        feedbackGlow[y] = scale8(140U - dist * 45U, fade);
+        feedbackGlow[y] = 140U - dist * 45U;
       }
     }
   }
