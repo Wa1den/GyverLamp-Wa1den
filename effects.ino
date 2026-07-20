@@ -9298,7 +9298,7 @@ void earthRoutine()
       uint8_t my = 15U - (uint16_t)y * 16U / HEIGHT;        // строка карты; переворот: y=0 у матрицы - нижний ряд, а строка 0 карты - Арктика
       CRGB col = blend(earthColors[pgm_read_byte(&earthMap[my][c0])],
                        earthColors[pgm_read_byte(&earthMap[my][c1])], frac);
-      col.nscale8(lerp8by8(dayF[c0], dayF[c1], frac));      // день/ночь
+      col.nscale8_video(lerp8by8(dayF[c0], dayF[c1], frac)); // день/ночь; _video не даёт ненулевому цвету упасть в полный ноль - без мигающих чёрных точек на ночной стороне
       drawPixelXY(x, y, col);
     }
   }

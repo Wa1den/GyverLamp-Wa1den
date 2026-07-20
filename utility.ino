@@ -8,7 +8,9 @@
 // эффектов (leds[], палитры, глобальная яркость).
 
 // вывод кадра leds[] на ленту с применением глобальной яркости и лимита по току;
-// если итоговый кадр не отличается от уже показанного, передача пропускается
+// если итоговый кадр не отличается от уже показанного, передача пропускается.
+// сюда же подмешивается световая волна-отклик на касание кнопки (BUTTON_PRESS_FEEDBACK):
+// оверлей применяется к копии цветов и не трогает leds[] - состояние эффектов не портится
 void ledsShow()
 {
   uint8_t brightness = FastLED.getBrightness();
@@ -16,14 +18,46 @@ void ledsShow()
   brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА)
   #endif
 
-  bool frameChanged = false;
-  for (uint16_t i = 0; i < NUM_LEDS; i++)
+  #ifdef BUTTON_PRESS_FEEDBACK
+  uint8_t feedbackGlow[HEIGHT] = {0};                       // добавка белого свечения по строкам (волна сверху вниз)
+  uint32_t fbElapsed = millis() - buttonFeedbackAt;
+  if (buttonFeedbackAt != 0U && fbElapsed < BUTTON_PRESS_FEEDBACK)
   {
-    RgbColor color(scale8(leds[i].r, brightness), scale8(leds[i].g, brightness), scale8(leds[i].b, brightness));
-    if (ledStrip.GetPixelColor(i) != color)
+    uint8_t wavePos = fbElapsed * 6U / BUTTON_PRESS_FEEDBACK;               // фронт волны, в строках от верхнего края
+    uint8_t fade = 255U - fbElapsed * 255U / BUTTON_PRESS_FEEDBACK;         // общее затухание к концу анимации
+    for (uint8_t y = 0U; y < HEIGHT; y++)
     {
-      ledStrip.SetPixelColor(i, color);
-      frameChanged = true;
+      uint8_t rowFromTop = HEIGHT - 1U - y;
+      uint8_t dist = (rowFromTop > wavePos) ? rowFromTop - wavePos : wavePos - rowFromTop;
+      if (dist < 3U)
+      {
+        feedbackGlow[y] = scale8(140U - dist * 45U, fade);
+      }
+    }
+  }
+  #endif //BUTTON_PRESS_FEEDBACK
+
+  bool frameChanged = false;
+  for (uint8_t y = 0U; y < HEIGHT; y++)
+  {
+    for (uint8_t x = 0U; x < WIDTH; x++)
+    {
+      uint16_t i = XY(x, y);
+      CRGB c = leds[i];
+      #ifdef BUTTON_PRESS_FEEDBACK
+      if (feedbackGlow[y] > 0U)
+      {
+        c.r = qadd8(c.r, feedbackGlow[y]);
+        c.g = qadd8(c.g, feedbackGlow[y]);
+        c.b = qadd8(c.b, feedbackGlow[y]);
+      }
+      #endif //BUTTON_PRESS_FEEDBACK
+      RgbColor color(scale8(c.r, brightness), scale8(c.g, brightness), scale8(c.b, brightness));
+      if (ledStrip.GetPixelColor(i) != color)
+      {
+        ledStrip.SetPixelColor(i, color);
+        frameChanged = true;
+      }
     }
   }
 
@@ -31,6 +65,32 @@ void ledsShow()
   {
     ledStrip.Show();
   }
+}
+
+// тикер анимации отклика на касание кнопки: обеспечивает кадры волны, когда эффект
+// не перерисовывается сам (выключенная лампа, статичные Белый свет/Цвет)
+void ledsFeedbackTick()
+{
+  #ifdef BUTTON_PRESS_FEEDBACK
+  static uint32_t lastFeedbackShow = 0U;
+  if (buttonFeedbackAt != 0U &&
+      millis() - buttonFeedbackAt < BUTTON_PRESS_FEEDBACK + 60U &&          // +60 мс: финальный кадр уже без волны, чтобы она не "зависла"
+      millis() - lastFeedbackShow >= 25U)
+  {
+    lastFeedbackShow = millis();
+    if (!ONflag)
+    {
+      uint8_t savedBrightness = FastLED.getBrightness();
+      FastLED.setBrightness(BRIGHTNESS);                    // на выключенной лампе (яркость может быть 0 после гашения) волна показывается на стандартной яркости
+      ledsShow();
+      FastLED.setBrightness(savedBrightness);
+    }
+    else
+    {
+      ledsShow();
+    }
+  }
+  #endif //BUTTON_PRESS_FEEDBACK
 }
 
 // очистка кадра

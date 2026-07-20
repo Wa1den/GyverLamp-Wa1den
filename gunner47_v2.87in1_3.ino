@@ -497,6 +497,7 @@ bool pendingRestart = false;                                // запрошен�
 bool pendingWifiReset = false;                              // запрошен сброс настроек WiFi из веб-интерфейса (выполняется из loop)
 bool pendingWolWake = false;                                // запрошено пробуждение компьютера Wake-on-LAN из веб-интерфейса (выполняется из loop)
 bool pendingWolResub = false;                               // изменены настройки дополнительного WOL-топика - нужно обновить MQTT-подписку
+uint32_t buttonFeedbackAt = 0U;                             // момент последнего касания кнопки (для световой волны-отклика, см. ledsShow)
 #ifdef USE_NTP
 bool pendingNtpSync = false;                                // запрошена принудительная синхронизация времени из веб-интерфейса (выполняется из loop)
 String ntpServerName;                                       // адрес NTP сервера из хранилища настроек; NTPClient хранит указатель, поэтому строка должна жить всё время работы
@@ -647,6 +648,7 @@ void loop()
   wifiTick();                                               // обслуживание WiFi подключения (WiFiConnector)
   settingsTick();                                           // обслуживание веб-интерфейса настроек
   handlePendingActions();                                   // отложенные действия из веб-интерфейса (перезагрузка, сброс WiFi)
+  ledsFeedbackTick();                                       // анимация отклика на касание кнопки (работает и на выключенной лампе)
 
   effectsTick();
 

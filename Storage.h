@@ -142,7 +142,9 @@ class Storage
 
       *espMode = (uint8_t)db[kk::esp_mode];
       #ifdef DONT_TURN_ON_AFTER_SHUTDOWN
-      *onFlag = false;
+      // после подачи питания лампа стартует выключенной, но после намеренной программной
+      // перезагрузки (OTA, кнопка "Перезагрузка", смена режима WiFi) состояние восстанавливается
+      *onFlag = (ESP.getResetReason() == F("Software/System restart")) ? (bool)db[kk::lamp_on] : false;
       #else
       *onFlag = (bool)db[kk::lamp_on];
       #endif
@@ -192,9 +194,7 @@ class Storage
       {
         *settChanged = false;
         *eepromTimeout = millis();
-        #ifndef DONT_TURN_ON_AFTER_SHUTDOWN
-        db.set(kk::lamp_on, *onFlag);
-        #endif
+        db.set(kk::lamp_on, *onFlag);                     // сохраняется всегда: нужно для восстановления состояния после OTA/перезагрузки
         db.set(kk::modes_blob, gdb::AnyType((const void*)modes, sizeof(ModeType) * MODE_AMOUNT));
         db.set(kk::current_mode, *currentMode);
         saveFavoritesSettings();

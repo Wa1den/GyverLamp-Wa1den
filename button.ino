@@ -15,6 +15,14 @@ void buttonTick()
   }
 
   touch.tick();
+
+  #ifdef BUTTON_PRESS_FEEDBACK
+  if (touch.isPress())                                      // отклик на само касание - мгновенно, ещё до распознавания одиночного/двойного клика
+  {
+    buttonFeedbackAt = millis();
+  }
+  #endif //BUTTON_PRESS_FEEDBACK
+
   uint8_t clickCount = touch.hasClicks() ? touch.getClicks() : 0U;
 
 

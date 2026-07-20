@@ -178,6 +178,8 @@ void changePower()
   digitalWrite(MOSFET_PIN, ONflag ? MOSFET_LEVEL : !MOSFET_LEVEL);
   #endif
 
+  db.set(kk::lamp_on, ONflag);                              // немедленное сохранение вкл/выкл (файл запишется тикером БД в течение 10 сек) - для восстановления состояния после OTA
+
   TimerManager::TimerRunning = false;
   TimerManager::TimerHasFired = false;
   TimerManager::TimeToFire = 0ULL;
