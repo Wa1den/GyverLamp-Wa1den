@@ -276,15 +276,13 @@ void settingsBuild(sets::Builder& b)
       if (b.Button(UI_ID_AB_SET_DARK, "Запомнить темноту"))   // нажать, накрыв датчик
       {
         db.set(kk::ab_dark, autoLightRaw);
-        uiLog.printf_P(PSTR("Автояркость: точка темноты = %u
-"), autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка темноты = %u\n"), autoLightRaw);
         b.reload();
       }
       if (b.Button(UI_ID_AB_SET_LIGHT, "Запомнить свет"))     // нажать при обычном дневном освещении (не с фонариком)
       {
         db.set(kk::ab_light, autoLightRaw);
-        uiLog.printf_P(PSTR("Автояркость: точка света = %u
-"), autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка света = %u\n"), autoLightRaw);
         b.reload();
       }
     }
