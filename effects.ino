@@ -9021,91 +9021,194 @@ void lumenjerRoutine() {
     leds[XY(hue, hue2)] += ColorFromPalette(*curPalette, step++);
 }
 
-// ============= ЭФФЕКТ ГАЗОВЫЙ ГИГАНТ ===============
-// Эффект написан специально для лампы-цилиндра: атмосферные полосы планеты
-// бесшовно обтекают лампу по кругу. Экваториальные полосы вращаются быстрее
-// полярных (дифференциальное вращение, как у настоящего Юпитера), ось планеты
-// наклонена (полосы идут синусоидой вокруг цилиндра), между полосами
-// турбулентность на шуме Перлина, по атмосфере дрейфует вихрь-пятно.
-// Бегунок Масштаб плавно гонит палитру от Юпитера (тёплая) к Нептуну (ледяная),
-// бегунок Скорость - темп вращения.
+// ============= ЭФФЕКТ ЗМЕЙКА ===============
+// Классическая "змейка" с Nokia: змейка сама охотится за едой (движется к ней
+// кратчайшим путём, повороты только на 90 градусов), после еды растёт на одну
+// точку. Врезалась в себя, некуда ходить или заполнила всю матрицу - мигает
+// пару раз и начинает заново. Зацикленность цилиндра используется по-настоящему:
+// по горизонтали змейка свободно уползает за "край", и путь к еде считается
+// с учётом заворота (иногда короче обползти лампу с другой стороны).
+// Бегунок Масштаб - цвет змейки (еда контрастного цвета), Скорость - темп игры.
 
-const TProgmemRGBPalette16 PlanetJupiter_p FL_PROGMEM = {
-  0xE8D0A8, 0xC89060, 0x986040, 0xE0C8A0,
-  0xF0E8D8, 0xB07040, 0x804828, 0xD8B888,
-  0xE8D0A8, 0xA86038, 0xF0E0C0, 0xC08850,
-  0x905030, 0xE0D0B0, 0xB87848, 0xD8C098
-};
-const TProgmemRGBPalette16 PlanetNeptune_p FL_PROGMEM = {
-  0x0A1450, 0x1E3C96, 0x3C64C8, 0x96BEE6,
-  0x14286E, 0x2850AA, 0x6E96DC, 0xC8DCF0,
-  0x0A1E5A, 0x2346A0, 0x5A82D2, 0xA0C8E6,
-  0x142864, 0x3C5AB4, 0x82AADC, 0x1E326E
-};
-
-void planetRoutine()
+void snakeGameRoutine()
 {
-  static uint16_t planetRowShift[HEIGHT];                   // фаза вращения каждой полосы (строки)
-  static uint8_t planetTiltPhase = 0U;                      // фаза наклона оси (прецессия)
-  static uint16_t planetSpotPhase = 0U;                     // долгота вихря-пятна
-  static uint16_t planetNoiseT = 0U;                        // время для шума турбулентности
+  static uint8_t snakeX[NUM_LEDS];                          // тело змейки, индекс 0 - голова
+  static uint8_t snakeY[NUM_LEDS];
+  static uint16_t snakeLen;
+  static int8_t dirX, dirY;                                 // текущее направление движения
+  static uint8_t foodX, foodY;
+  static uint8_t blinkPhase;                                // >0 - мигание после конца игры/победы
+  static uint8_t framePulse = 0;                            // фаза пульсации еды
 
   if (loadingFlag)
   {
     #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
-        setModeSettings(1U+random8(100U), 140U+random8(100U));
+        setModeSettings(1U+random8(100U), 150U+random8(90U));
       }
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
-    for (uint8_t y = 0U; y < HEIGHT; y++)
-    {
-      planetRowShift[y] = random16();
-    }
-    planetSpotPhase = random16();
+    blinkPhase = 1U;                                        // старт через ветку перезапуска ниже
   }
 
-  planetNoiseT += 3U;                                       // медленная эволюция турбулентности
-  planetTiltPhase += 2U;                                    // прецессия наклона оси
-  planetSpotPhase += 40U;                                   // дрейф вихря
+  framePulse += 12U;
 
-  for (uint8_t y = 0U; y < HEIGHT; y++)                     // дифференциальное вращение: экватор быстрее полюсов
+  // мигание в конце игры и перезапуск
+  if (blinkPhase > 0U)
   {
-    uint8_t lat = (y < HEIGHT / 2U) ? (HEIGHT / 2U - 1U - y) : (y - HEIGHT / 2U); // 0 у экватора
-    planetRowShift[y] += (uint16_t)(HEIGHT / 2U - lat) * 6U + 4U;
-  }
-
-  uint8_t mixAmt = (uint16_t)modes[currentMode].Scale * 255U / 100U; // 0 - Юпитер, 255 - Нептун
-  uint8_t spotCol = planetSpotPhase >> 12;                  // колонка вихря (0..15)
-  uint8_t spotRow = HEIGHT * 5U / 8U;                       // широта вихря - южнее экватора
-  CRGB spotColor = blend(CRGB(170U, 40U, 10U), CRGB(20U, 40U, 130U), mixAmt); // красное пятно на Юпитере, тёмный шторм на Нептуне
-
-  for (uint8_t x = 0U; x < WIDTH; x++)
-  {
-    // наклон оси: смещение полос синусоидой вокруг цилиндра, +-1.5 пикселя (субпиксельно через индекс палитры)
-    int8_t tilt = ((int16_t)sin8((uint8_t)(((uint16_t)x << 8) / WIDTH) + planetTiltPhase) - 128) / 4;
-
-    for (uint8_t y = 0U; y < HEIGHT; y++)
+    blinkPhase--;
+    if (blinkPhase == 0U)                                   // новая партия: змейка из трёх точек в центре
     {
-      uint8_t noise = inoise8(((uint16_t)x << 6) + (planetRowShift[y] >> 2), (uint16_t)y << 6, planetNoiseT);
-      uint8_t idx = (uint8_t)((uint16_t)y * 320U / HEIGHT + tilt + ((int16_t)noise - 128) / 3);
-      CRGB col = blend(ColorFromPalette(PlanetJupiter_p, idx),
-                       ColorFromPalette(PlanetNeptune_p, idx), mixAmt);
-
-      int8_t dxp = (int8_t)x - (int8_t)spotCol;             // овальный вихрь с заворотом по долготе
-      if (dxp > (int8_t)(WIDTH / 2U)) dxp -= WIDTH;
-      if (dxp < -(int8_t)(WIDTH / 2U)) dxp += WIDTH;
-      int8_t dyp = (int8_t)y - (int8_t)spotRow;
-      uint8_t dist2 = dxp * dxp + dyp * dyp * 3;
-      if (dist2 < 12U)
+      snakeLen = 3U;
+      for (uint8_t i = 0U; i < 3U; i++)
       {
-        col = blend(col, spotColor, 255U - dist2 * 20U);
+        snakeX[i] = (WIDTH / 2U - i + WIDTH) % WIDTH;
+        snakeY[i] = HEIGHT / 2U;
       }
+      dirX = 1;
+      dirY = 0;
 
-      drawPixelXY(x, y, col);
+      do                                                    // еда на свободной клетке
+      {
+        foodX = random8(WIDTH);
+        foodY = random8(HEIGHT);
+      } while (foodY == HEIGHT / 2U);                       // не на стартовой строке змейки
+    }
+    else
+    {
+      ledsClear();
+      if (blinkPhase & 0x01)                                // мигаем телом через кадр
+      {
+        uint8_t hue = modes[currentMode].Scale * 2.55;
+        for (uint16_t i = 0U; i < snakeLen; i++)
+        {
+          drawPixelXY(snakeX[i], snakeY[i], CHSV(hue, 255U, 255U));
+        }
+      }
+      return;
     }
   }
+
+  // ---- выбор направления: вперёд / поворот налево / поворот направо (разворот на 180 запрещён)
+  int8_t candX[3] = {dirX, (int8_t)-dirY, dirY};
+  int8_t candY[3] = {dirY, dirX, (int8_t)-dirX};
+  int8_t bestDir = -1;
+  uint8_t bestDist = 255U;
+
+  for (uint8_t c = 0U; c < 3U; c++)
+  {
+    uint8_t nx = (uint8_t)((snakeX[0] + candX[c] + WIDTH) % WIDTH); // горизонталь замкнута (цилиндр)
+    int8_t nyRaw = (int8_t)snakeY[0] + candY[c];
+    if (nyRaw < 0 || nyRaw >= (int8_t)HEIGHT)               // вертикаль - стенки
+    {
+      continue;
+    }
+    uint8_t ny = (uint8_t)nyRaw;
+
+    bool occupied = false;                                  // проверка на столкновение с телом
+    for (uint16_t i = 0U; i < snakeLen; i++)
+    {
+      if (snakeX[i] == nx && snakeY[i] == ny)
+      {
+        occupied = true;
+        break;
+      }
+    }
+    if (occupied)
+    {
+      continue;
+    }
+
+    uint8_t dxRight = (uint8_t)((foodX - nx + WIDTH) % WIDTH); // расстояние до еды с учётом заворота по горизонтали
+    uint8_t dxWrap = min(dxRight, (uint8_t)(WIDTH - dxRight));
+    uint8_t dist = dxWrap + abs((int8_t)foodY - (int8_t)ny);
+    if (dist < bestDist)                                    // строгое "меньше": при равенстве побеждает движение прямо
+    {
+      bestDist = dist;
+      bestDir = c;
+    }
+  }
+
+  if (bestDir < 0)                                          // все направления заняты - врезались, конец партии
+  {
+    blinkPhase = 7U;
+    return;
+  }
+
+  dirX = candX[bestDir];
+  dirY = candY[bestDir];
+  uint8_t newX = (uint8_t)((snakeX[0] + dirX + WIDTH) % WIDTH);
+  uint8_t newY = (uint8_t)((int8_t)snakeY[0] + dirY);
+
+  bool ate = (newX == foodX && newY == foodY);
+  uint16_t shift = ate ? snakeLen : snakeLen - 1U;          // при еде хвост не отбрасывается - змейка растёт
+  for (uint16_t i = shift; i > 0U; i--)
+  {
+    snakeX[i] = snakeX[i - 1U];
+    snakeY[i] = snakeY[i - 1U];
+  }
+  snakeX[0] = newX;
+  snakeY[0] = newY;
+  if (ate)
+  {
+    snakeLen++;
+    if (snakeLen >= NUM_LEDS)                               // вся матрица заполнена - победа
+    {
+      blinkPhase = 7U;
+      return;
+    }
+
+    uint8_t tries = 0U;
+    bool occupied;
+    do                                                      // новая еда на свободной клетке
+    {
+      foodX = random8(WIDTH);
+      foodY = random8(HEIGHT);
+      occupied = false;
+      for (uint16_t i = 0U; i < snakeLen; i++)
+      {
+        if (snakeX[i] == foodX && snakeY[i] == foodY)
+        {
+          occupied = true;
+          break;
+        }
+      }
+    } while (occupied && ++tries < 200U);
+    if (occupied)                                           // не повезло со случайными - берём первую свободную
+    {
+      for (uint8_t yy = 0U; yy < HEIGHT && occupied; yy++)
+      {
+        for (uint8_t xx = 0U; xx < WIDTH && occupied; xx++)
+        {
+          occupied = false;
+          for (uint16_t i = 0U; i < snakeLen; i++)
+          {
+            if (snakeX[i] == xx && snakeY[i] == yy)
+            {
+              occupied = true;
+              break;
+            }
+          }
+          if (!occupied)
+          {
+            foodX = xx;
+            foodY = yy;
+          }
+        }
+      }
+    }
+  }
+
+  // ---- отрисовка
+  ledsClear();
+  uint8_t hue = modes[currentMode].Scale * 2.55;
+  for (uint16_t i = 0U; i < snakeLen; i++)                  // тело с затуханием к хвосту
+  {
+    uint8_t v = 255U - (uint16_t)i * 165U / snakeLen;
+    drawPixelXY(snakeX[i], snakeY[i], CHSV(hue, 255U, v));
+  }
+  drawPixelXY(foodX, foodY, CHSV(hue + 128U, 255U, 170U + (sin8(framePulse) >> 1))); // еда контрастного цвета, пульсирует
 }
 
 // ============= ЭФФЕКТ ЗЕМЛЯ ===============
@@ -9136,7 +9239,7 @@ static const uint8_t earthMap[16][16] PROGMEM = {
   {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},  // Антарктида
   {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3}   // Антарктида
 };
-static const CRGB earthColors[4] = {CRGB(2U, 10U, 60U), CRGB(14U, 90U, 22U), CRGB(120U, 92U, 26U), CRGB(150U, 160U, 175U)};
+static const CRGB earthColors[4] = {CRGB(2U, 10U, 60U), CRGB(14U, 90U, 22U), CRGB(120U, 92U, 26U), CRGB(60U, 70U, 88U)};  // лёд притемнён, чтобы полюса не светили прожектором
 
 void earthRoutine()
 {
@@ -9153,7 +9256,7 @@ void earthRoutine()
     loadingFlag = false;
   }
 
-  earthRot += 256U;                                         // шаг вращения на кадр (темп кадров задаёт бегунок Скорость)
+  earthRot += modes[currentMode].Speed;                     // угловая скорость от бегунка Скорость; кадры у эффекта фиксированные 40 мс (см. effectsTick), поэтому вращение плавное на любой скорости
 
   // освещённость каждой колонки карты: положение Солнца из реального времени (UTC)
   uint8_t dayF[16];
@@ -9192,7 +9295,7 @@ void earthRoutine()
 
     for (uint8_t y = 0U; y < HEIGHT; y++)
     {
-      uint8_t my = (uint16_t)y * 16U / HEIGHT;              // строка карты (на случай матриц выше/ниже 16)
+      uint8_t my = 15U - (uint16_t)y * 16U / HEIGHT;        // строка карты; переворот: y=0 у матрицы - нижний ряд, а строка 0 карты - Арктика
       CRGB col = blend(earthColors[pgm_read_byte(&earthMap[my][c0])],
                        earthColors[pgm_read_byte(&earthMap[my][c1])], frac);
       col.nscale8(lerp8by8(dayF[c0], dayF[c1], frac));      // день/ночь

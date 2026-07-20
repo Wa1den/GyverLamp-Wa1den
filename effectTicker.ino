@@ -17,7 +17,8 @@ void effectsTick()
   if (!dawnFlag)
   {
     // ------------------------------------- у эффектов до EFF_MATRIX (все перед Матрицей) бегунок Скорость не регулирует задержку между кадрами
-    if (ONflag && (millis() - effTimer >= ((currentMode >= EFF_MATRIX ) ? 256U - modes[currentMode].Speed : (currentMode <= EFF_OCEAN ) ? 50 : 15)))
+    if (ONflag && (millis() - effTimer >= ((currentMode == EFF_EARTH) ? 40U :   // у Земли фиксированный темп кадров - Скорость управляет вращением внутри эффекта
+                                           (currentMode >= EFF_MATRIX ) ? 256U - modes[currentMode].Speed : (currentMode <= EFF_OCEAN ) ? 50 : 15)))
     {
       effTimer = millis();
       bool frameRedrawn = loadingFlag;                      // запоминаем до вызова эффекта: эффект сбрасывает loadingFlag после перерисовки
@@ -114,7 +115,7 @@ void effectsTick()
         case EFF_RAINBOW_VER:         rainbowRoutine();                   break;  // (84U) Paдyгa
         case EFF_CLOCK:               clockRoutine();                     break;  // (85U) Чacы
         case EFF_TEXT:                text_running();                     break;  // (86U) Бeгyщaя cтpoкa
-        case EFF_PLANET:              planetRoutine();                    break;  // (87U) Газовый гигант
+        case EFF_SNAKE_GAME:          snakeGameRoutine();                 break;  // (87U) Змейка
         case EFF_EARTH:               earthRoutine();                     break;  // (88U) Земля
 
       }
