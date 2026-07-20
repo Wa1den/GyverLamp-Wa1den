@@ -8871,6 +8871,7 @@ void execStringsFlame(){ // внимание! эффект заточен на �
 #define FIXED_SCALE_FOR_Y 4U // менять нельзя. корректировка скорости ff_x =... подогнана под него
 
 void Fire2021Routine(){
+  static uint16_t f21cx[WIDTH], f21cz[WIDTH];               // координаты окружности в пространстве шума (цилиндрическая выборка, см. ниже)
   if (loadingFlag){ 
     #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
@@ -8908,12 +8909,24 @@ void Fire2021Routine(){
     pcnt = map(step, 1U, 255U, 20U, 128U); // nblend 3th param
     deltaValue = 0.7 * deltaValue * deltaValue + 31.3; // ширина языков пламени (масштаб шума Перлина)
     deltaHue2 = 0.7 * deltaHue2 * deltaHue2 + 31.3; // высота языков пламени (масштаб шума Перлина)
+
+    // бесшовное замыкание по кругу (для лампы-цилиндра): координата x проходит не по прямой,
+    // а по окружности в 3D-пространстве шума - поле периодично по построению, стыка нет нигде.
+    // радиус подобран так, чтобы длина дуги на пиксель равнялась прежнему шагу шума
+    // (ширина языков и смысл бегунка Масштаб сохранены)
+    uint16_t fireR = (uint16_t)(deltaValue * WIDTH / 6.2832F);
+    for (uint8_t xx = 0U; xx < WIDTH; xx++)
+    {
+      uint16_t a = (uint16_t)((uint32_t)xx * 65536UL / WIDTH);
+      f21cx[xx] = fireR + (int32_t)fireR * cos16(a) / 32768;
+      f21cz[xx] = fireR + (int32_t)fireR * sin16(a) / 32768;
+    }
   }
   
   ff_y += step; //static uint32_t t += speed;
   for (byte x = 0; x < WIDTH; x++) {
     for (byte y = 0; y < HEIGHT; y++) {
-      int16_t Bri = inoise8(x * deltaValue, (y * deltaHue2) - ff_y, ff_z) - (y * (255 / HEIGHT));
+      int16_t Bri = inoise8(f21cx[x], (y * deltaHue2) - ff_y, ff_z + f21cz[x]) - (y * (255 / HEIGHT)); // 3D-шум по цилиндру - пламя без шва
       byte Col = Bri;//inoise8(x * deltaValue, (y * deltaValue) - ff_y, ff_z) - (y * (255 / HEIGHT));
       if (Bri < 0) 
         Bri = 0; 
