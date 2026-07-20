@@ -9208,7 +9208,7 @@ void snakeGameRoutine()
     uint8_t v = 255U - (uint16_t)i * 165U / snakeLen;
     drawPixelXY(snakeX[i], snakeY[i], CHSV(hue, 255U, v));
   }
-  drawPixelXY(foodX, foodY, CHSV(hue + 128U, 255U, 170U + (sin8(framePulse) >> 1))); // еда контрастного цвета, пульсирует
+  drawPixelXY(foodX, foodY, CHSV(hue + 128U, 255U, 120U + (sin8(framePulse) >> 1))); // еда контрастного цвета, пульсирует (120..247 - без переполнения байта!)
 }
 
 // ============= ЭФФЕКТ ЗЕМЛЯ ===============
