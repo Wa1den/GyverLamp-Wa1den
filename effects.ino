@@ -9020,3 +9020,183 @@ void lumenjerRoutine() {
   else
     leds[XY(hue, hue2)] += ColorFromPalette(*curPalette, step++);
 }
+
+// ============= ЭФФЕКТ ГАЗОВЫЙ ГИГАНТ ===============
+// Эффект написан специально для лампы-цилиндра: атмосферные полосы планеты
+// бесшовно обтекают лампу по кругу. Экваториальные полосы вращаются быстрее
+// полярных (дифференциальное вращение, как у настоящего Юпитера), ось планеты
+// наклонена (полосы идут синусоидой вокруг цилиндра), между полосами
+// турбулентность на шуме Перлина, по атмосфере дрейфует вихрь-пятно.
+// Бегунок Масштаб плавно гонит палитру от Юпитера (тёплая) к Нептуну (ледяная),
+// бегунок Скорость - темп вращения.
+
+const TProgmemRGBPalette16 PlanetJupiter_p FL_PROGMEM = {
+  0xE8D0A8, 0xC89060, 0x986040, 0xE0C8A0,
+  0xF0E8D8, 0xB07040, 0x804828, 0xD8B888,
+  0xE8D0A8, 0xA86038, 0xF0E0C0, 0xC08850,
+  0x905030, 0xE0D0B0, 0xB87848, 0xD8C098
+};
+const TProgmemRGBPalette16 PlanetNeptune_p FL_PROGMEM = {
+  0x0A1450, 0x1E3C96, 0x3C64C8, 0x96BEE6,
+  0x14286E, 0x2850AA, 0x6E96DC, 0xC8DCF0,
+  0x0A1E5A, 0x2346A0, 0x5A82D2, 0xA0C8E6,
+  0x142864, 0x3C5AB4, 0x82AADC, 0x1E326E
+};
+
+void planetRoutine()
+{
+  static uint16_t planetRowShift[HEIGHT];                   // фаза вращения каждой полосы (строки)
+  static uint8_t planetTiltPhase = 0U;                      // фаза наклона оси (прецессия)
+  static uint16_t planetSpotPhase = 0U;                     // долгота вихря-пятна
+  static uint16_t planetNoiseT = 0U;                        // время для шума турбулентности
+
+  if (loadingFlag)
+  {
+    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+      if (selectedSettings){
+        setModeSettings(1U+random8(100U), 140U+random8(100U));
+      }
+    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+
+    loadingFlag = false;
+    for (uint8_t y = 0U; y < HEIGHT; y++)
+    {
+      planetRowShift[y] = random16();
+    }
+    planetSpotPhase = random16();
+  }
+
+  planetNoiseT += 3U;                                       // медленная эволюция турбулентности
+  planetTiltPhase += 2U;                                    // прецессия наклона оси
+  planetSpotPhase += 40U;                                   // дрейф вихря
+
+  for (uint8_t y = 0U; y < HEIGHT; y++)                     // дифференциальное вращение: экватор быстрее полюсов
+  {
+    uint8_t lat = (y < HEIGHT / 2U) ? (HEIGHT / 2U - 1U - y) : (y - HEIGHT / 2U); // 0 у экватора
+    planetRowShift[y] += (uint16_t)(HEIGHT / 2U - lat) * 6U + 4U;
+  }
+
+  uint8_t mixAmt = (uint16_t)modes[currentMode].Scale * 255U / 100U; // 0 - Юпитер, 255 - Нептун
+  uint8_t spotCol = planetSpotPhase >> 12;                  // колонка вихря (0..15)
+  uint8_t spotRow = HEIGHT * 5U / 8U;                       // широта вихря - южнее экватора
+  CRGB spotColor = blend(CRGB(170U, 40U, 10U), CRGB(20U, 40U, 130U), mixAmt); // красное пятно на Юпитере, тёмный шторм на Нептуне
+
+  for (uint8_t x = 0U; x < WIDTH; x++)
+  {
+    // наклон оси: смещение полос синусоидой вокруг цилиндра, +-1.5 пикселя (субпиксельно через индекс палитры)
+    int8_t tilt = ((int16_t)sin8((uint8_t)(((uint16_t)x << 8) / WIDTH) + planetTiltPhase) - 128) / 4;
+
+    for (uint8_t y = 0U; y < HEIGHT; y++)
+    {
+      uint8_t noise = inoise8(((uint16_t)x << 6) + (planetRowShift[y] >> 2), (uint16_t)y << 6, planetNoiseT);
+      uint8_t idx = (uint8_t)((uint16_t)y * 320U / HEIGHT + tilt + ((int16_t)noise - 128) / 3);
+      CRGB col = blend(ColorFromPalette(PlanetJupiter_p, idx),
+                       ColorFromPalette(PlanetNeptune_p, idx), mixAmt);
+
+      int8_t dxp = (int8_t)x - (int8_t)spotCol;             // овальный вихрь с заворотом по долготе
+      if (dxp > (int8_t)(WIDTH / 2U)) dxp -= WIDTH;
+      if (dxp < -(int8_t)(WIDTH / 2U)) dxp += WIDTH;
+      int8_t dyp = (int8_t)y - (int8_t)spotRow;
+      uint8_t dist2 = dxp * dxp + dyp * dyp * 3;
+      if (dist2 < 12U)
+      {
+        col = blend(col, spotColor, 255U - dist2 * 20U);
+      }
+
+      drawPixelXY(x, y, col);
+    }
+  }
+}
+
+// ============= ЭФФЕКТ ЗЕМЛЯ ===============
+// Вращающаяся Земля на лампе-цилиндре: карта 16x16 в равнопромежуточной проекции
+// бесшовно обёрнута вокруг лампы, вращение субпиксельно плавное (интерполяция
+// между колонками). Если время лампы синхронизировано, ночная сторона планеты
+// затемняется в соответствии с реальным положением Солнца (терминатор привязан
+// к географии и вращается вместе с континентами): глядя на лампу, видно, где
+// на планете сейчас ночь. Бегунок Скорость - темп вращения, Масштаб - яркость
+// ночной стороны.
+
+// коды карты: 0 - океан, 1 - суша, 2 - пустыня/степь, 3 - лёд
+static const uint8_t earthMap[16][16] PROGMEM = {
+  {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},  // Арктика
+  {1,1,1,1,1,3,3,0,1,1,1,1,1,1,1,1},  // тундра, Гренландия
+  {1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0},  // Аляска, Канада, Скандинавия, Сибирь
+  {0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,0},  // юг Канады, Европа, Россия
+  {0,0,1,1,1,0,0,0,1,2,2,2,1,1,0,0},  // США, Средиземноморье, Средняя Азия, Китай
+  {0,0,2,1,0,0,0,2,2,2,2,1,1,1,0,0},  // Мексика, Сахара, Аравия, Индия
+  {0,0,0,1,1,0,0,1,1,1,2,1,1,1,0,0},  // Центральная Америка, Сахель, Индокитай
+  {0,0,0,0,1,1,0,0,1,1,0,1,1,1,1,0},  // Амазонка, Конго, Индонезия
+  {0,0,0,0,1,1,0,0,1,1,0,0,1,1,1,0},  // Бразилия, Конго, Индонезия
+  {0,0,0,0,1,1,0,0,1,1,0,0,0,1,1,0},  // Бразилия, юг Африки, север Австралии
+  {0,0,0,0,1,1,0,0,1,1,0,0,0,2,2,0},  // Аргентина, ЮАР, Австралия
+  {0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1},  // Патагония, юг Австралии, Новая Зеландия
+  {0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0},  // Патагония
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},  // Южный океан
+  {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},  // Антарктида
+  {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3}   // Антарктида
+};
+static const CRGB earthColors[4] = {CRGB(2U, 10U, 60U), CRGB(14U, 90U, 22U), CRGB(120U, 92U, 26U), CRGB(150U, 160U, 175U)};
+
+void earthRoutine()
+{
+  static uint16_t earthRot = 0U;                            // фаза вращения планеты (65536 = полный оборот)
+
+  if (loadingFlag)
+  {
+    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+      if (selectedSettings){
+        setModeSettings(20U+random8(81U), 60U+random8(160U));
+      }
+    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+
+    loadingFlag = false;
+  }
+
+  earthRot += 256U;                                         // шаг вращения на кадр (темп кадров задаёт бегунок Скорость)
+
+  // освещённость каждой колонки карты: положение Солнца из реального времени (UTC)
+  uint8_t dayF[16];
+  uint8_t nightBri = 3U + (uint16_t)modes[currentMode].Scale * 3U / 4U; // Масштаб = яркость ночной стороны
+  if (timeSynched)
+  {
+    uint32_t utcSec;
+    #ifdef USE_NTP
+    utcSec = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime()) % 86400UL;
+    #elif !defined(SUMMER_WINTER_TIME)
+    utcSec = ((uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL) % 86400UL;
+    #else
+    utcSec = (uint32_t)getCurrentLocalTime() % 86400UL;
+    #endif
+    // долгота подсолнечной точки: в полдень UTC солнце над Гринвичем (сезонное склонение не учитывается)
+    uint16_t sunA = (uint16_t)(((129600UL - utcSec) % 86400UL) * 32768UL / 43200UL) + 32768U;
+    for (uint8_t c = 0U; c < 16U; c++)
+    {
+      uint16_t colA = (uint16_t)c * 4096U + 2048U;
+      int32_t cs = cos16((uint16_t)(colA - sunA));          // 32767 - полдень, -32768 - полночь
+      int32_t b = 40 + cs / 128;
+      dayF[c] = constrain(b, (int32_t)nightBri, 255);
+    }
+  }
+  else
+  {
+    memset(dayF, 255, sizeof(dayF));                        // время не синхронизировано - вся планета освещена
+  }
+
+  for (uint8_t x = 0U; x < WIDTH; x++)
+  {
+    uint16_t a = (uint16_t)((uint32_t)x * 65536UL / WIDTH) + earthRot;
+    uint8_t c0 = a >> 12;                                   // колонка карты (0..15, с заворотом)
+    uint8_t c1 = (c0 + 1U) & 0x0F;
+    uint8_t frac = (a >> 4) & 0xFF;                         // субпиксельная доля для плавного вращения
+
+    for (uint8_t y = 0U; y < HEIGHT; y++)
+    {
+      uint8_t my = (uint16_t)y * 16U / HEIGHT;              // строка карты (на случай матриц выше/ниже 16)
+      CRGB col = blend(earthColors[pgm_read_byte(&earthMap[my][c0])],
+                       earthColors[pgm_read_byte(&earthMap[my][c1])], frac);
+      col.nscale8(lerp8by8(dayF[c0], dayF[c1], frac));      // день/ночь
+      drawPixelXY(x, y, col);
+    }
+  }
+}

@@ -114,6 +114,8 @@ void effectsTick()
         case EFF_RAINBOW_VER:         rainbowRoutine();                   break;  // (84U) Paдyгa
         case EFF_CLOCK:               clockRoutine();                     break;  // (85U) Чacы
         case EFF_TEXT:                text_running();                     break;  // (86U) Бeгyщaя cтpoкa
+        case EFF_PLANET:              planetRoutine();                    break;  // (87U) Газовый гигант
+        case EFF_EARTH:               earthRoutine();                     break;  // (88U) Земля
 
       }
       #ifdef WARNING_IF_NO_TIME_ON_EFFECTS_TOO
