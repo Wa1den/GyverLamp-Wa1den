@@ -14,6 +14,12 @@
 void ledsShow()
 {
   uint8_t brightness = FastLED.getBrightness();
+  #ifdef USE_AUTO_BRIGHTNESS
+  if (autoBriFactor != 255U && !dawnFlag)                   // автояркость масштабирует яркость эффекта; рассвет-будильник не приглушается
+  {
+    brightness = scale8(brightness, autoBriFactor);
+  }
+  #endif //USE_AUTO_BRIGHTNESS
   #if (CURRENT_LIMIT > 0)
   brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА)
   #endif

@@ -36,6 +36,12 @@ DB_KEYS(kk,
     btn_sleep_time,                                         // время таймера сна, устанавливаемого двойным кликом кнопки, минуты (имя не совпадает с переменной button_sleep_time)
     running_text,                                           // текст эффекта Бегущая строка
 
+    // Автояркость
+    ab_on,                                                  // вкл/выкл автояркости по датчику освещённости
+    ab_min_bri,                                             // минимальная яркость в темноте, % (5-100)
+    ab_sens,                                                // чувствительность (1-100): насколько мало света нужно для выхода на полную яркость
+    ab_invert,                                              // инверсия датчика (если при ярком свете значение A0 падает, а не растёт)
+
     // Избранное (режим Цикл)
     ntp_host,                                               // адрес NTP сервера (сервера точного времени)
     wol_mac,                                                // MAC-адрес компьютера для Wake-on-LAN
@@ -96,6 +102,12 @@ class Storage
       db.init(kk::btn_sleep_time, (uint8_t)1);
       #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
+      #ifdef USE_AUTO_BRIGHTNESS
+      db.init(kk::ab_on, false);
+      db.init(kk::ab_min_bri, (uint8_t)20);
+      db.init(kk::ab_sens, (uint8_t)50);
+      db.init(kk::ab_invert, false);
+      #endif //USE_AUTO_BRIGHTNESS
       #ifdef USE_NTP
       db.init(kk::ntp_host, NTP_ADDRESS);
       #endif //USE_NTP

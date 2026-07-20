@@ -31,6 +31,9 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
 #define UI_ID_WOL_WAKE     ("ui_wol_wake"_h)
+#define UI_ID_AB_RAW       ("ui_ab_raw"_h)
+#define UI_ID_AB_D5        ("ui_ab_d5"_h)
+#define UI_ID_AB_FACTOR    ("ui_ab_fct"_h)
 #define UI_ID_SET_TIME     ("ui_time"_h)
 #define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
 #define UI_ID_LOG          ("ui_log"_h)
@@ -257,6 +260,20 @@ void settingsBuild(sets::Builder& b)
   }
   #endif //USE_MQTT
 
+  // --- АВТОЯРКОСТЬ ---------------------------
+  #ifdef USE_AUTO_BRIGHTNESS
+  {
+    sets::Group g(b, "Автояркость");
+    b.Switch(kk::ab_on, "Использовать датчик освещённости");
+    b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
+    b.Slider(kk::ab_sens, "Чувствительность", 1, 100, 1);
+    b.Switch(kk::ab_invert, "Инверсия датчика");
+    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // живая диагностика: накройте датчик рукой и смотрите, какое число реагирует
+    b.LabelNum(UI_ID_AB_D5, "Вход D5 (0/1)", (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN));
+    b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
+  }
+  #endif //USE_AUTO_BRIGHTNESS
+
   // --- WAKE-ON-LAN ---------------------------
   {
     sets::Group g(b, "Wake-on-LAN");
@@ -415,4 +432,11 @@ void settingsSyncTick()
   {
     sett.updater().update(UI_ID_LOG, static_cast<sets::Logger&>(uiLog)); // приведение к базовому типу, иначе побеждает шаблонная перегрузка update(id, T) по значению
   }
+
+  #ifdef USE_AUTO_BRIGHTNESS
+  sett.updater()                                            // живое обновление диагностики автояркости (когда страница закрыта - ничего не отправляется)
+      .update(UI_ID_AB_RAW, autoLightRaw)
+      .update(UI_ID_AB_D5, (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN))
+      .update(UI_ID_AB_FACTOR, (uint16_t)autoBriFactor * 100U / 255U);
+  #endif //USE_AUTO_BRIGHTNESS
 }

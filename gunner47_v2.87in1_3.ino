@@ -560,6 +560,10 @@ void setup()
   #endif
 
 
+  #ifdef USE_AUTO_BRIGHTNESS
+  pinMode(LIGHT_SENSOR_DIGITAL_PIN, INPUT_PULLUP);          // вспомогательный цифровой вход для диагностики датчика (с подтяжкой - стабильная 1 без датчика)
+  #endif
+
   // ЛЕНТА/МАТРИЦА
   ledStrip.Begin();                                         // вывод на ленту через аппаратный UART1 (GPIO2); FastLED остаётся для математики эффектов
   FastLED.setBrightness(BRIGHTNESS);                        // глобальная яркость хранится в FastLED и применяется в ledsShow (вместе с лимитом по току CURRENT_LIMIT)
@@ -649,6 +653,7 @@ void loop()
   settingsTick();                                           // обслуживание веб-интерфейса настроек
   handlePendingActions();                                   // отложенные действия из веб-интерфейса (перезагрузка, сброс WiFi)
   ledsFeedbackTick();                                       // анимация отклика на касание кнопки (работает и на выключенной лампе)
+  autoBrightnessTick();                                     // автояркость по датчику освещённости
 
   effectsTick();
 
