@@ -9327,3 +9327,223 @@ void earthRoutine()
     }
   }
 }
+
+// ============= ЭФФЕКТ МАРИО ===============
+// Мини-платформер с камерой, зафиксированной на персонаже: человечек в кепке
+// бежит на месте, а мир движется ему навстречу. Препятствия приходят по одному:
+// либо пара кирпичей, висящих в воздухе (персонаж подпрыгивает и разбивает
+// головой ближний - осколки разлетаются и падают), либо враг-гриб на земле,
+// которого он перепрыгивает. Высота прыжка привязана к расстоянию до
+// препятствия, поэтому на любой скорости прыжок попадает точно. Внизу - тусклая
+// полоса земли с бегущими метками, по которым читается скорость движения.
+// Спавн и исчезновение препятствий происходят в "слепой" зоне за спиной
+// персонажа - на замкнутом цилиндре лампы их появление из ниоткуда не видно.
+// Бегунок Скорость - скорость мира (темп бега ног от неё не зависит),
+// Масштаб - на какой колонке лампы стоит персонаж.
+
+// палитра спрайтов: 0 - прозрачный, 1 - красный (кепка/рукава), 2 - кожа,
+// 3 - тёмно-коричневый (волосы/глаз/ботинки), 4 - синий (комбинезон),
+// 5 - тело врага (тёмно-зелёный для контраста с тёплыми цветами персонажа
+// и кирпичей), 6 - ноги врага, 7 - светлые глаза врага
+static const CRGB marioPalette[] = {
+  CRGB::Black, CRGB(200U, 30U, 10U), CRGB(230U, 130U, 50U), CRGB(60U, 25U, 6U),
+  CRGB(30U, 70U, 230U), CRGB(15U, 110U, 25U), CRGB(6U, 45U, 10U), CRGB(150U, 230U, 80U)
+};
+
+// персонаж 7x8, смотрит вправо; кадры: 0 - шаг, 1 - ноги вместе, 2 - прыжок
+static const uint8_t marioSprite[3][8][7] PROGMEM = {
+  {{0,0,1,1,1,1,0},   // кепка
+   {0,1,1,1,1,1,1},   // козырёк вперёд
+   {0,3,2,2,3,2,0},   // волосы, лицо, глаз
+   {0,3,2,2,2,2,0},
+   {0,1,4,4,4,1,0},   // руки-рукава, грудь комбинезона
+   {0,0,4,4,4,0,0},
+   {0,4,4,0,0,4,0},   // ноги в широком шаге
+   {3,3,0,0,0,3,3}},
+  {{0,0,1,1,1,1,0},
+   {0,1,1,1,1,1,1},
+   {0,3,2,2,3,2,0},
+   {0,3,2,2,2,2,0},
+   {0,1,4,4,4,1,0},
+   {0,0,4,4,4,0,0},
+   {0,0,4,4,0,0,0},   // ноги вместе (фаза пробега)
+   {0,0,3,3,0,0,0}},
+  {{0,0,1,1,1,1,0},
+   {0,1,1,1,1,1,1},
+   {0,3,2,2,3,2,0},
+   {0,3,2,2,2,2,0},
+   {0,1,4,4,4,1,0},
+   {0,0,4,4,4,0,0},
+   {0,4,4,0,4,4,0},   // прыжок - ноги разведены
+   {3,3,0,0,0,3,3}}
+};
+
+// враг-гриб 3x3, два кадра переваливающейся походки
+static const uint8_t goombaSprite[2][3][3] PROGMEM = {
+  {{5,5,5},
+   {7,5,7},
+   {6,0,6}},
+  {{5,5,5},
+   {7,5,7},
+   {0,6,0}}
+};
+
+// точка с заворотом по замкнутой горизонтали цилиндра
+void marioDrawPix(int16_t x, int16_t y, CRGB color)
+{
+  drawPixelXY((int8_t)(((x % (int16_t)WIDTH) + WIDTH) % WIDTH), (int8_t)y, color);
+}
+
+#define MARIO_PARTICLES (8U)                                // осколков разбитого кирпича (4 куска, запас на неубранные от прошлого)
+
+void marioRoutine()
+{
+  static float obsX;                                        // левый край препятствия относительно левого края персонажа (пиксели мира)
+  static float groundShift;                                 // фаза бегущих меток земли (0..4)
+  static uint8_t obsType;                                   // 0 - блок кирпичей, 1 - враг
+  static uint8_t brokenIdx;                                 // какой из двух кирпичей разбит (0xFF - целы оба)
+  static float partX[MARIO_PARTICLES], partY[MARIO_PARTICLES];
+  static float partVX[MARIO_PARTICLES], partVY[MARIO_PARTICLES];
+  static uint8_t partLife[MARIO_PARTICLES];
+
+  if (loadingFlag)
+  {
+    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+      if (selectedSettings){
+        setModeSettings(10U + random8(81U), 60U + random8(160U));
+      }
+    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
+
+    loadingFlag = false;
+    obsX = 16.0F + random8(16U);
+    obsType = random8(2U);
+    brokenIdx = 0xFF;
+    groundShift = 0.0F;
+    memset(partLife, 0, sizeof(partLife));
+  }
+
+  // движение мира: кадры эффекта фиксированные 40 мс (см. effectsTick), Скорость - пиксели за кадр
+  float scrollStep = (modes[currentMode].Speed + 4U) / 64.0F;
+  obsX -= scrollStep;
+  groundShift += scrollStep;
+  while (groundShift >= 4.0F) groundShift -= 4.0F;
+
+  if (obsX < -5.0F)                                         // препятствие полностью пройдено и скрылось за спиной - выпускаем следующее
+  {
+    obsX = 14.0F + random8(26U);
+    obsType = (random8(10U) < 4U) ? 0U : 1U;
+    brokenIdx = 0xFF;
+  }
+
+  uint8_t cx = (uint16_t)modes[currentMode].Scale * (WIDTH - 1U) / 100U; // колонка персонажа из Масштаба
+
+  // прыжок: высота - парабола от расстояния до препятствия, а не от времени,
+  // поэтому персонаж синхронен с миром на любой скорости
+  float jumpArc = 0.0F;
+  if (obsType == 0U)                                        // к кирпичам - невысокий прыжок точно головой в кирпич
+  {
+    if (obsX < 5.5F && obsX > -2.5F)
+    {
+      float p = (5.5F - obsX) / 8.0F;
+      jumpArc = 16.0F * p * (1.0F - p);                     // максимум 4 - макушка достаёт до нижнего ряда кирпичей
+    }
+  }
+  else                                                      // врага перепрыгиваем с запасом
+  {
+    if (obsX < 8.5F && obsX > -5.0F)
+    {
+      float p = (8.5F - obsX) / 13.0F;
+      if (p < 1.0F) jumpArc = 20.0F * p * (1.0F - p);       // максимум 5
+    }
+  }
+  int8_t jumpOffset = (int8_t)(jumpArc + 0.5F);
+
+  // в верхней точке прыжка макушка касается кирпича - разбиваем тот, что над головой
+  if (obsType == 0U && brokenIdx == 0xFF && jumpOffset >= 4)
+  {
+    brokenIdx = (obsX >= 1.5F) ? 0U : 1U;
+    float baseX = obsX + brokenIdx * 2U;
+    uint8_t spawned = 0U;
+    for (uint8_t i = 0U; i < MARIO_PARTICLES && spawned < 4U; i++)
+    {
+      if (partLife[i] > 0U) continue;
+      uint8_t dx = spawned & 0x01;                          // четыре куска кирпича 2x2 разлетаются вверх-в стороны
+      uint8_t dy = spawned >> 1;
+      partX[i] = baseX + dx;
+      partY[i] = 12.0F + dy;
+      partVX[i] = (dx ? 0.35F : -0.35F) + (random8(40U) - 20) * 0.01F;
+      partVY[i] = 0.55F + dy * 0.35F + random8(20U) * 0.01F;
+      partLife[i] = 24U;
+      spawned++;
+    }
+  }
+
+  // полёт осколков: своя скорость плюс общий снос мира, гравитация вниз
+  for (uint8_t i = 0U; i < MARIO_PARTICLES; i++)
+  {
+    if (partLife[i] == 0U) continue;
+    partLife[i]--;
+    partX[i] += partVX[i] - scrollStep;
+    partY[i] += partVY[i];
+    partVY[i] -= 0.18F;
+    if (partY[i] < 0.5F) partLife[i] = 0U;                  // упал на землю - погас
+  }
+
+  // ---- отрисовка
+  ledsClear();
+
+  uint8_t gs = (uint8_t)groundShift;                        // земля: тусклая полоса с бегущими метками (шаг 4 делит WIDTH - без шва на цилиндре)
+  for (uint8_t x = 0U; x < WIDTH; x++)
+  {
+    drawPixelXY(x, 0U, (((x + gs) & 0x03) == 0U) ? CRGB(70U, 35U, 10U) : CRGB(14U, 7U, 2U));
+  }
+
+  if (obsX < 13.4F)                                         // препятствие (дальше по цилиндру - слепая зона за спиной, не рисуем)
+  {
+    int16_t ox = cx + (int16_t)floorf(obsX + 0.5F);
+    if (obsType == 0U)                                      // два кирпича 2x2 в воздухе, оттенки разные
+    {
+      for (uint8_t b = 0U; b < 2U; b++)
+      {
+        if (b == brokenIdx) continue;
+        CRGB c = b ? CRGB(140U, 60U, 16U) : CRGB(210U, 95U, 25U);
+        for (uint8_t dx = 0U; dx < 2U; dx++)
+        {
+          marioDrawPix(ox + b * 2U + dx, 12, c);
+          marioDrawPix(ox + b * 2U + dx, 13, c);
+        }
+      }
+    }
+    else                                                    // враг топает по земле
+    {
+      uint8_t ef = (millis() / 160U) & 0x01;                // походка с фиксированным темпом, от Скорости не зависит
+      for (uint8_t r = 0U; r < 3U; r++)
+      {
+        for (uint8_t c = 0U; c < 3U; c++)
+        {
+          uint8_t idx = pgm_read_byte(&goombaSprite[ef][r][c]);
+          if (idx) marioDrawPix(ox + c, 3 - r, marioPalette[idx]);
+        }
+      }
+    }
+  }
+
+  for (uint8_t i = 0U; i < MARIO_PARTICLES; i++)            // осколки кирпича, гаснут по мере жизни
+  {
+    if (partLife[i] == 0U) continue;
+    CRGB c = CRGB(210U, 95U, 25U);
+    c.nscale8(partLife[i] * 10U);
+    marioDrawPix(cx + (int16_t)floorf(partX[i] + 0.5F), (int16_t)(partY[i] + 0.5F), c);
+  }
+
+  // персонаж поверх всего; темп перебора ног фиксированный - Скорость на него не влияет
+  uint8_t frame = (jumpOffset > 0) ? 2U : ((millis() / 120U) & 0x01);
+  for (uint8_t r = 0U; r < 8U; r++)
+  {
+    for (uint8_t c = 0U; c < 7U; c++)
+    {
+      uint8_t idx = pgm_read_byte(&marioSprite[frame][r][c]);
+      if (idx) marioDrawPix(cx + c, 8 - r + jumpOffset, marioPalette[idx]);
+    }
+  }
+}
