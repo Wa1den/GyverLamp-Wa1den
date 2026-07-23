@@ -22,20 +22,20 @@ void autoBrightnessTick()
   static uint16_t filtered = 0U;
   static bool firstRead = true;
 
+  if (!(bool)db[kk::ab_on])                                 // автояркость выключена - датчик не опрашиваем вовсе
+  {                                                         // (на лампе без датчика не тратим цикл на чтение A0; галка "Использовать датчик" - и есть выключатель опроса)
+    autoBriFactor = 255U;
+    firstRead = true;
+    return;
+  }
+
   if (millis() - lastReadTime < 100U)
   {
     return;
   }
   lastReadTime = millis();
 
-  autoLightRaw = analogRead(A0);                            // читается всегда (и при выключенной функции) - для диагностики
-
-  if (!(bool)db[kk::ab_on])
-  {
-    autoBriFactor = 255U;
-    firstRead = true;
-    return;
-  }
+  autoLightRaw = analogRead(A0);
 
   if (firstRead)
   {

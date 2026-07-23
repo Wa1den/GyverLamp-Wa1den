@@ -288,7 +288,7 @@ void settingsBuild(sets::Builder& b)
     }
     b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
 
-    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // живая диагностика: накройте датчик рукой и смотрите, какое число реагирует
+    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023, опрос при вкл.)", autoLightRaw); // A0 опрашивается только при включённой автояркости; D5 ниже реагирует всегда - по нему видно наличие датчика
     b.LabelNum(UI_ID_AB_D5, "Вход D5 (0/1)", (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN));
     b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
   }
