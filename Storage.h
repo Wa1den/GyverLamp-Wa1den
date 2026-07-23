@@ -25,6 +25,7 @@ DB_KEYS(kk,
     wifi_ssid,                                              // имя WiFi сети роутера
     wifi_pass,                                              // пароль WiFi сети роутера
     wifi_connect,                                           // id кнопки "Подключить" в веб-интерфейсе (в БД не хранится)
+    wifi_last_ssid,                                         // SSID последней успешно подключённой сети (для показа IP бегущей строкой при смене сети)
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -90,6 +91,7 @@ class Storage
       // создание ячеек с начальными значениями (db.init записывает значение, только если ячейки ещё нет)
       db.init(kk::wifi_ssid, "");
       db.init(kk::wifi_pass, "");
+      db.init(kk::wifi_last_ssid, "");
       db.init(kk::esp_mode, (uint8_t)ESP_MODE);
       db.init(kk::lamp_on, false);
       db.init(kk::dawn_mode, (uint8_t)0);

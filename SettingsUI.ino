@@ -454,9 +454,16 @@ void settingsSyncTick()
   }
 
   #ifdef USE_AUTO_BRIGHTNESS
-  sett.updater()                                            // живое обновление диагностики автояркости (когда страница закрыта - ничего не отправляется)
-      .update(UI_ID_AB_RAW, autoLightRaw)
-      .update(UI_ID_AB_D5, (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN))
-      .update(UI_ID_AB_FACTOR, (uint16_t)autoBriFactor * 100U / 255U);
+  static uint16_t lastAbRaw = 0xFFFFU;
+  static uint8_t lastAbFactor = 0U;
+  if (autoLightRaw != lastAbRaw || autoBriFactor != lastAbFactor) // диагностику автояркости шлём только при изменении (когда страница закрыта - ничего не отправляется)
+  {
+    lastAbRaw = autoLightRaw;
+    lastAbFactor = autoBriFactor;
+    sett.updater()
+        .update(UI_ID_AB_RAW, autoLightRaw)
+        .update(UI_ID_AB_D5, (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN))
+        .update(UI_ID_AB_FACTOR, (uint16_t)autoBriFactor * 100U / 255U);
+  }
   #endif //USE_AUTO_BRIGHTNESS
 }

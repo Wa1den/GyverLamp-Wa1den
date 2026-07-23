@@ -18,6 +18,12 @@ void wifiSetup()
     LOG.print(F("Подключено к WiFi сети. IP адрес: "));
     LOG.println(WiFi.localIP());
     uiLog.printf_P(PSTR("WiFi: подключено, IP %s\n"), WiFi.localIP().toString().c_str());
+
+    if (WiFi.SSID() != (String)db[kk::wifi_last_ssid])     // подключились к новой (не той, что в прошлый раз) сети - покажем IP бегущей строкой,
+    {                                                       // чтобы не искать адрес лампы в настройках роутера
+      db.set(kk::wifi_last_ssid, WiFi.SSID());
+      pendingShowIp = true;                                 // сам показ - в loop (handlePendingActions), не из колбэка
+    }
   });
 
   WiFiConnector.onError([]() {

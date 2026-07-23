@@ -40,20 +40,17 @@ void timeTick()
 if (espMode == 1U){      
       if (!timeSynched)
       {
-        if (millis() - lastResolveTryMoment >= RESOLVE_INTERVAL || lastResolveTryMoment == 0)
+        // до первой синхронизации пытаемся не чаще RESOLVE_INTERVAL (15с): и resolveNtpServerAddress
+        // (блокирует до 1.5с при недоступном DNS), и timeClient.update() ниже (блокирует до 1с,
+        // ожидая UDP-ответ, пока время не получено) иначе тормозили бы луп каждые 3с (timeTimer) -
+        // отсюда сильные лаги анимации и веб-интерфейса первые секунды/минуты после загрузки,
+        // пока роутер не отдаст DNS/NTP
+        if (lastResolveTryMoment != 0 && millis() - lastResolveTryMoment < RESOLVE_INTERVAL)
         {
-          resolveNtpServerAddress(ntpServerAddressResolved);              // пытаемся получить IP адрес сервера времени (тест интернет подключения) до тех пор, пока время не будет успешно синхронизировано
-          lastResolveTryMoment = millis();
-          /* эта штука уже не отражает действительность
-          if (!ntpServerAddressResolved)
-          {
-            //#ifdef GENERAL_DEBUG
-            #if defined(GENERAL_DEBUG) && !defined(USE_MANUAL_TIME_SETTING)
-            LOG.println(F("Функции будильника отключены до восстановления подключения к интернету"));
-            #endif
-          }
-          */
+          return;
         }
+        lastResolveTryMoment = millis();
+        resolveNtpServerAddress(ntpServerAddressResolved);              // пытаемся получить IP адрес сервера времени (тест интернет подключения) до тех пор, пока время не будет успешно синхронизировано
         if (!ntpServerAddressResolved)
         {
           return;                                                         // если нет интернет подключения, отключаем будильник до тех пор, пока оно не будет восстановлено

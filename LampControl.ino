@@ -300,6 +300,17 @@ void handlePendingActions()
     wolWake(NULL);                                          // пробуждение компьютера по MAC из настроек
   }
 
+  if (pendingShowIp)                                        // подключились к новой сети - показываем IP лампы бегущей строкой
+  {
+    pendingShowIp = false;
+    WiFi.localIP().toString().toCharArray(TextTicker, sizeof(TextTicker)); // прямо в буфер строки, без сохранения в настройки (db running_text не трогаем)
+    currentMode = EFF_TEXT;
+    ONflag = true;
+    loadingFlag = true;
+    changePower();
+    mqttRequestPublish();
+  }
+
   #if (USE_MQTT)
   if (pendingWolResub)
   {
