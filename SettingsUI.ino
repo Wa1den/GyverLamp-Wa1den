@@ -34,7 +34,6 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_AB_RAW       ("ui_ab_raw"_h)
 #define UI_ID_AB_SET_DARK  ("ui_ab_sdrk"_h)
 #define UI_ID_AB_SET_LIGHT ("ui_ab_slgt"_h)
-#define UI_ID_AB_D5        ("ui_ab_d5"_h)
 #define UI_ID_AB_FACTOR    ("ui_ab_fct"_h)
 #define UI_ID_SET_TIME     ("ui_time"_h)
 #define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
@@ -288,8 +287,7 @@ void settingsBuild(sets::Builder& b)
     }
     b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
 
-    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023, опрос при вкл.)", autoLightRaw); // A0 опрашивается только при включённой автояркости; D5 ниже реагирует всегда - по нему видно наличие датчика
-    b.LabelNum(UI_ID_AB_D5, "Вход D5 (0/1)", (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN));
+    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // опрашивается только при включённой автояркости; накройте датчик рукой - число должно меняться
     b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
   }
   #endif //USE_AUTO_BRIGHTNESS
@@ -462,7 +460,6 @@ void settingsSyncTick()
     lastAbFactor = autoBriFactor;
     sett.updater()
         .update(UI_ID_AB_RAW, autoLightRaw)
-        .update(UI_ID_AB_D5, (uint8_t)digitalRead(LIGHT_SENSOR_DIGITAL_PIN))
         .update(UI_ID_AB_FACTOR, (uint16_t)autoBriFactor * 100U / 255U);
   }
   #endif //USE_AUTO_BRIGHTNESS
