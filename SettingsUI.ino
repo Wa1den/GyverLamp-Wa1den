@@ -46,11 +46,9 @@ static uint16_t uiSleepMinutes = 30U;                       // значение 
 
 // Список эффектов для режима Цикл - это MODE_AMOUNT переключателей с названиями, он заметно
 // утяжеляет пакет страницы, а нужен редко. Поэтому в сборку он попадает только после того,
-// как пользователь открыл соответствующее меню, и убирается обратно через FAV_LIST_KEEP_MS
-// бездействия (на открытие обычной страницы настроек список больше не влияет)
-#define FAV_LIST_KEEP_MS   (120000UL)
+// как пользователь открыл соответствующее меню, и убирается снова, когда страницу закрыли
+// (пока страница открыта, список из меню не пропадает)
 static bool favListVisible = false;                         // строить ли список в текущей сборке страницы
-static uint32_t favListTouchedAt = 0U;                      // момент последнего обращения к списку
 static bool pendingFavReload = false;                       // запрошено перестроение страницы, чтобы показать список
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
@@ -136,14 +134,10 @@ void settingsBuild(sets::Builder& b)
     {
       sets::Menu m(b, "Эффекты в цикле");
 
-      if (b.enterMenu())                                    // пользователь открыл меню
-      {
-        favListTouchedAt = millis();
-        if (!favListVisible)                                // содержимое ещё не в сборке - строим его и просим страницу обновиться
-        {
-          favListVisible = true;
-          pendingFavReload = true;
-        }
+      if (b.enterMenu() && !favListVisible)                 // пользователь открыл меню, а содержимого ещё нет в сборке -
+      {                                                     // строим его и просим страницу обновиться
+        favListVisible = true;
+        pendingFavReload = true;
       }
 
       if (favListVisible)
@@ -154,9 +148,12 @@ void settingsBuild(sets::Builder& b)
           if (b.Switch(UI_ID_FAV_MODE(i), getEffectName(i), &selected))
           {
             lampSetFavoriteMode(i, selected);
-            favListTouchedAt = millis();                    // работа со списком продолжается - не убираем его из сборки
           }
         }
+      }
+      else
+      {
+        b.Label("Список", "загрузится при открытии");        // пустое меню вебморда не показывает вовсе, поэтому заглушка обязательна
       }
     }
   }
@@ -422,7 +419,9 @@ void settingsSetup()
 
   sett.begin();                                             // запускается после WiFiConnector.connect, иначе не подхватится captive DNS
   sett.onBuild(settingsBuild);
-  sett.setUpdatePeriod(5000);                               // страница опрашивает лампу пореже (по умолчанию 2500 мс) - меньше WiFi-трафика
+  sett.setUpdatePeriod(3000);                               // период опроса страницы. ВАЖНО: должен быть заметно меньше FOCUS_TOUT (5000 мс)
+                                                            // из библиотеки, иначе признак "страница открыта" гаснет между запросами -
+                                                            // а от него зависят живые обновления виджетов и сборка списка эффектов Цикла
   sett.setVersion(FIRMWARE_TITLE);                          // строка Firmware в инфо-панели веб-интерфейса (см. Version.h)
 }
 
@@ -435,9 +434,9 @@ void settingsTick()
     pendingFavReload = false;
     sett.reload();
   }
-  if (favListVisible && millis() - favListTouchedAt > FAV_LIST_KEEP_MS)
+  if (favListVisible && !sett.focused())
   {
-    favListVisible = false;                                 // список давно не трогали - убираем из последующих сборок страницы
+    favListVisible = false;                                 // страницу закрыли - следующее её открытие снова будет лёгким
   }
 
   settingsSyncTick();
