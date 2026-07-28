@@ -44,6 +44,15 @@ SettingsGyverWS sett("GyverLamp", &db);
 
 static uint16_t uiSleepMinutes = 30U;                       // значение поля "минут" для таймера выключения (подставляется из button_sleep_time при старте)
 
+// Список эффектов для режима Цикл - это MODE_AMOUNT переключателей с названиями, он заметно
+// утяжеляет пакет страницы, а нужен редко. Поэтому в сборку он попадает только после того,
+// как пользователь открыл соответствующее меню, и убирается обратно через FAV_LIST_KEEP_MS
+// бездействия (на открытие обычной страницы настроек список больше не влияет)
+#define FAV_LIST_KEEP_MS   (120000UL)
+static bool favListVisible = false;                         // строить ли список в текущей сборке страницы
+static uint32_t favListTouchedAt = 0U;                      // момент последнего обращения к списку
+static bool pendingFavReload = false;                       // запрошено перестроение страницы, чтобы показать список
+
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
 void settingsBuild(sets::Builder& b)
@@ -126,12 +135,27 @@ void settingsBuild(sets::Builder& b)
 
     {
       sets::Menu m(b, "Эффекты в цикле");
-      for (uint8_t i = 0; i < MODE_AMOUNT; i++)
+
+      if (b.enterMenu())                                    // пользователь открыл меню
       {
-        bool selected = FavoritesManager::FavoriteModes[i] != 0;
-        if (b.Switch(UI_ID_FAV_MODE(i), getEffectName(i), &selected))
+        favListTouchedAt = millis();
+        if (!favListVisible)                                // содержимое ещё не в сборке - строим его и просим страницу обновиться
         {
-          lampSetFavoriteMode(i, selected);
+          favListVisible = true;
+          pendingFavReload = true;
+        }
+      }
+
+      if (favListVisible)
+      {
+        for (uint8_t i = 0; i < MODE_AMOUNT; i++)
+        {
+          bool selected = FavoritesManager::FavoriteModes[i] != 0;
+          if (b.Switch(UI_ID_FAV_MODE(i), getEffectName(i), &selected))
+          {
+            lampSetFavoriteMode(i, selected);
+            favListTouchedAt = millis();                    // работа со списком продолжается - не убираем его из сборки
+          }
         }
       }
     }
@@ -405,6 +429,17 @@ void settingsSetup()
 void settingsTick()
 {
   sett.tick();
+
+  if (pendingFavReload)                                     // показать список эффектов Цикла: перестраиваем страницу уже вместе с ним
+  {
+    pendingFavReload = false;
+    sett.reload();
+  }
+  if (favListVisible && millis() - favListTouchedAt > FAV_LIST_KEEP_MS)
+  {
+    favListVisible = false;                                 // список давно не трогали - убираем из последующих сборок страницы
+  }
+
   settingsSyncTick();
 }
 
