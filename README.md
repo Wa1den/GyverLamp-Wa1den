@@ -100,7 +100,7 @@
 | FastLED | **3.2.9** | математика эффектов |
 | NeoPixelBus (Makuna) | **строго 2.8.4** | вывод на ленту через UART1 (master не собирается под ядро 3.x) |
 | Settings (GyverLibs) | 1.3.x | веб-интерфейс настроек |
-| GyverDB, GyverHTTP, StringUtils, GTL, BSON, Stamp, Table, StreamIO, FOR_MACRO (GyverLibs) | свежие | зависимости Settings/GyverDB |
+| GyverDB, GyverHTTP, StringUtils, GTL, BSON, Stamp, Table, StreamIO, FOR_MACRO (GyverLibs) | из папки `libs` | зависимости Settings/GyverDB. В GyverHTTP внесена правка на одну строку (`#ifndef` вокруг таймаута клиента) — она позволяет прошивке уменьшить время, на которое синхронный вебсервер блокирует лампу; со стоковой версией лампа подвисает при открытии страницы настроек |
 | WiFiConnector (GyverLibs) | свежая | подключение к WiFi |
 | GyverButton (GyverLibs) | свежая | кнопка |
 | WebSockets (Links2004) | свежая | живые обновления страницы |

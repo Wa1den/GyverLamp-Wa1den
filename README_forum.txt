@@ -54,7 +54,7 @@
 [TD]Settings (GyverLibs)[/TD][TD]1.3.x[/TD][TD]веб-интерфейс настроек[/TD]
 [/TR]
 [TR]
-[TD]GyverDB, GyverHTTP, StringUtils, GTL, BSON, Stamp, Table, StreamIO, FOR_MACRO (GyverLibs)[/TD][TD]свежие[/TD][TD]зависимости Settings/GyverDB[/TD]
+[TD]GyverDB, GyverHTTP, StringUtils, GTL, BSON, Stamp, Table, StreamIO, FOR_MACRO (GyverLibs)[/TD][TD]из папки libs[/TD][TD]зависимости Settings/GyverDB. В GyverHTTP внесена правка на одну строку (#ifndef вокруг таймаута клиента) — она позволяет прошивке уменьшить время, на которое синхронный вебсервер блокирует лампу; со стоковой версией лампа подвисает при открытии страницы настроек[/TD]
 [/TR]
 [TR]
 [TD]WiFiConnector (GyverLibs)[/TD][TD]свежая[/TD][TD]подключение к WiFi[/TD]
