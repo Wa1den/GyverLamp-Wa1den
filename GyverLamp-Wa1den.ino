@@ -656,29 +656,50 @@ void setup()
 }
 
 
+// Диагностика подвисаний: измеряет длительность каждой стадии основного цикла и пишет
+// в Журнал те, что заняли больше LOOP_WATCHDOG_MS. Заодно показывает свободную память -
+// её просадка выдаёт утечку или фрагментацию кучи
+#ifdef LOOP_WATCHDOG_MS
+static uint32_t loopStageStart = 0U;
+#define LOOP_STAGE(name)                                                                          do {                                                                                              uint32_t stageMs = millis() - loopStageStart;                                                   if (stageMs >= LOOP_WATCHDOG_MS)                                                                {                                                                                                 uiLog.printf_P(PSTR("Долгий цикл: %s %u мс (память %u)"), name, stageMs, ESP.getFreeHeap());       uiLog.println();                                                                              }                                                                                               loopStageStart = millis();                                                                    } while (0)
+#else
+#define LOOP_STAGE(name)
+#endif
+
 void loop()
 {
+  #ifdef LOOP_WATCHDOG_MS
+  loopStageStart = millis();
+  #endif
+
   wifiTick();                                               // обслуживание WiFi подключения (WiFiConnector)
+  LOOP_STAGE("wifi");
   settingsTick();                                           // обслуживание веб-интерфейса настроек
+  LOOP_STAGE("веб-интерфейс");
   handlePendingActions();                                   // отложенные действия из веб-интерфейса (перезагрузка, сброс WiFi)
   ledsFeedbackTick();                                       // анимация отклика на касание кнопки (работает и на выключенной лампе)
   autoBrightnessTick();                                     // автояркость по датчику освещённости
+  LOOP_STAGE("датчик света");
 
   effectsTick();
+  LOOP_STAGE("эффект");
 
   Storage::HandleTick(&settChanged, &eepromTimeout, &ONflag,
     &currentMode, modes, &(FavoritesManager::SaveFavoritesToStorage));
+  LOOP_STAGE("сохранение настроек");
 
   //#ifdef USE_NTP
   #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
   //if (millis() > 30 * 1000U) можно попытаться оттянуть срок первой попытки синхронизации времени на 30 секунд, чтобы роутер успел не только загрузиться, но и соединиться с интернетом
     timeTick();
   #endif
+  LOOP_STAGE("время/NTP");
 
   #ifdef ESP_USE_BUTTON
   //if (buttonEnabled) в процедуре ведь есть эта проверка
     buttonTick();
   #endif
+  LOOP_STAGE("кнопка");
 
   #ifdef OTA
   otaManager.HandleOtaUpdate();                             // ожидание и обработка команды на обновление прошивки по воздуху
@@ -709,6 +730,7 @@ void loop()
   #if USE_MQTT
   MqttManager::tick();                                      // переподключение к брокеру, применение принятых команд, публикация состояния
   #endif
+  LOOP_STAGE("mqtt");
 
   #if defined(GENERAL_DEBUG) && GENERAL_DEBUG_TELNET
   handleTelnetClient();
