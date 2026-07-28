@@ -241,11 +241,11 @@ void lampForceNtpSync()
   {
     ntpServerName = NTP_ADDRESS;
   }
-  timeClient.setPoolServerName(ntpServerName.c_str());
   uiLog.printf_P(PSTR("NTP: синхронизация с %s...\n"), ntpServerName.c_str());
 
+  ntpResetRetryInterval();                                  // ручной запрос - сбрасываем нарастающую паузу автоматических попыток
   ntpServerAddressResolved = false;
-  resolveNtpServerAddress(ntpServerAddressResolved);        // проверка доступности сервера (DNS) - и диагностика в журнал
+  resolveNtpServerAddress(ntpServerAddressResolved);        // резолвит имя из настроек и передаёт NTPClient уже IP; диагностика в журнал
   if (!ntpServerAddressResolved)
   {
     uiLog.println(F("NTP: сервер недоступен (ошибка DNS/нет интернета)"));

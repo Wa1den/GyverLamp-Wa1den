@@ -13,6 +13,32 @@
 #define RESOLVE_TIMEOUT       (1500UL)                                    // таймаут ожидания подключения к интернету в миллисекундах (1,5 секунды)
 uint32_t lastResolveTryMoment = 0UL;
 IPAddress ntpServerIp = {0, 0, 0, 0};
+String ntpServerIpStr;                                                    // IP сервера времени строкой: NTPClient получает ЕГО вместо имени хоста.
+                                                                          // иначе NTPClient при каждой отправке пакета делает DNS-запрос через
+                                                                          // WiFiUdp::beginPacket(имя) -> WiFi.hostByName() с таймаутом 10 секунд,
+                                                                          // который наглухо блокирует loop (лампа замирала на ~10 с каждые 15 с,
+                                                                          // пока время не синхронизировано). hostByName со строкой-IP возвращается сразу
+uint32_t ntpRetryInterval = RESOLVE_INTERVAL;                             // текущий интервал попыток синхронизации (растёт при неудачах)
+#define NTP_RETRY_MAX         (10UL * 60UL * 1000UL)                      // максимальный интервал попыток (10 минут)
+
+// сброс паузы между попытками к обычной (вызывается при ручной синхронизации из веб-интерфейса;
+// отдельная функция, т.к. LampControl.ino компилируется раньше time.ino и переменную оттуда не видит)
+void ntpResetRetryInterval()
+{
+  ntpRetryInterval = RESOLVE_INTERVAL;
+}
+
+// неудачная попытка синхронизации: увеличиваем паузу до следующей вдвое (до NTP_RETRY_MAX),
+// чтобы недоступный сервер времени не дёргал лампу секундными паузами каждые 15 секунд
+void ntpRetryFailed(const __FlashStringHelper* reason)
+{
+  if (ntpRetryInterval < NTP_RETRY_MAX)
+  {
+    ntpRetryInterval = (ntpRetryInterval * 2UL > NTP_RETRY_MAX) ? NTP_RETRY_MAX : ntpRetryInterval * 2UL;
+  }
+  uiLog.printf_P(PSTR("NTP: %s, следующая попытка через %u с"), String(reason).c_str(), (uint16_t)(ntpRetryInterval / 1000UL));
+  uiLog.println();
+}
 
 #endif
 
@@ -45,7 +71,7 @@ if (espMode == 1U){
         // ожидая UDP-ответ, пока время не получено) иначе тормозили бы луп каждые 3с (timeTimer) -
         // отсюда сильные лаги анимации и веб-интерфейса первые секунды/минуты после загрузки,
         // пока роутер не отдаст DNS/NTP
-        if (lastResolveTryMoment != 0 && millis() - lastResolveTryMoment < RESOLVE_INTERVAL)
+        if (lastResolveTryMoment != 0 && millis() - lastResolveTryMoment < ntpRetryInterval)
         {
           return;
         }
@@ -53,6 +79,7 @@ if (espMode == 1U){
         resolveNtpServerAddress(ntpServerAddressResolved);              // пытаемся получить IP адрес сервера времени (тест интернет подключения) до тех пор, пока время не будет успешно синхронизировано
         if (!ntpServerAddressResolved)
         {
+          ntpRetryFailed(F("сервер недоступен (ошибка DNS/нет интернета)"));
           return;                                                         // если нет интернет подключения, отключаем будильник до тех пор, пока оно не будет восстановлено
         }
       }
@@ -70,6 +97,7 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
          {
            uiLog.println(F("NTP: время синхронизировано"));
          }
+         ntpRetryInterval = RESOLVE_INTERVAL;                             // сервер ответил - возвращаем обычный интервал попыток
          timeSynched = true;
          #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE) // если ручное время тоже поддерживается, сохраняем туда реальное на случай отвалившегося NTP
            manualTimeShift = localTimeZone.toLocal(timeClient.getEpochTime()) - millis() / 1000UL;
@@ -77,6 +105,10 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
          #ifdef PHONE_N_MANUAL_TIME_PRIORITY
            stillUseNTP = false;
          #endif
+      }
+      else if (!timeSynched)
+      {
+        ntpRetryFailed(F("сервер не ответил"));                          // пакет ушёл, но ответа нет (порт 123 закрыт у провайдера, сервер молчит)
       }
 //    }//if (!timeSynched || millis() > ntpTimeLastSync + NTP_INTERVAL)
 }
@@ -205,9 +237,9 @@ void resolveNtpServerAddress(bool &ntpServerAddressResolved)              // ф�
     return;
   }
 
-  //WiFi.hostByName(NTP_ADDRESS, ntpServerIp, RESOLVE_TIMEOUT);
-  //if (ntpServerIp[0] <= 0)
-  if (!WiFi.hostByName(NTP_ADDRESS, ntpServerIp, RESOLVE_TIMEOUT) || ntpServerIp[0] == 0 || ntpServerIp == IPAddress(255U, 255U, 255U, 255U))
+  // резолвим адрес, заданный в настройках (раньше здесь была захардкоженная константа NTP_ADDRESS -
+  // смена сервера на странице настроек на проверку доступности не влияла), с коротким таймаутом RESOLVE_TIMEOUT
+  if (!WiFi.hostByName(ntpServerName.c_str(), ntpServerIp, RESOLVE_TIMEOUT) || ntpServerIp[0] == 0 || ntpServerIp == IPAddress(255U, 255U, 255U, 255U))
   {
     if (ntpServerAddressResolved)                           // переход "интернет был - пропал"
     {
@@ -228,6 +260,8 @@ void resolveNtpServerAddress(bool &ntpServerAddressResolved)              // ф�
     }
     #endif
 
+    ntpServerIpStr = ntpServerIp.toString();                              // дальше NTPClient работает по IP - без DNS-запросов, блокирующих loop
+    timeClient.setPoolServerName(ntpServerIpStr.c_str());                 // NTPClient хранит указатель, поэтому строка глобальная и живёт всё время работы
     ntpServerAddressResolved = true;
   }
 }

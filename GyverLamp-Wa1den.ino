@@ -624,8 +624,8 @@ void setup()
   {
     ntpServerName = NTP_ADDRESS;
   }
-  timeClient.setPoolServerName(ntpServerName.c_str());
-  timeClient.begin();
+  timeClient.begin();                                       // имя сервера в NTPClient не передаём: после резолва ему отдаётся уже IP
+                                                            // (иначе он резолвит имя при каждой отправке пакета и блокирует loop на 10 сек)
   ESP.wdtFeed();
   #endif
 
