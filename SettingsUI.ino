@@ -27,6 +27,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_TIMER_START  ("ui_tmr_go"_h)
 #define UI_ID_TIMER_STOP   ("ui_tmr_off"_h)
 #define UI_ID_TEXT         ("ui_text"_h)
+#define UI_ID_TEXT_IP      ("ui_text_ip"_h)
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
@@ -216,6 +217,13 @@ void settingsBuild(sets::Builder& b)
   // --- БЕГУЩАЯ СТРОКА ------------------------
   {
     sets::Group g(b, "Бегущая строка");
+
+    bool showIp = (bool)db[kk::run_text_ip];                 // включено - строка показывает адрес лампы,
+    if (b.Switch(UI_ID_TEXT_IP, "Писать текущий IP", &showIp)) // поле "Текст" при этом не используется и не затирается
+    {
+      lampSetRunningTextShowIp(showIp);
+    }
+
     String text = TextTicker;
     if (b.Input(UI_ID_TEXT, "Текст", &text))
     {

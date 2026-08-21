@@ -34,7 +34,9 @@
  * Топик состояния (исходящий, retained; публикуется после каждого изменения состояния лампы):
  *   LedLamp/<id>/state - JSON: {"effect":N,"brightness":1-100,"speed":1-100,"scale":N,
  *                               "power":bool,"espMode":N,"useNtp":bool,"timerRunning":bool,
- *                               "buttonEnabled":bool,"time":"HH:MM:SS"}
+ *                               "buttonEnabled":bool,"time":"HH:MM:SS","ip":"A.B.C.D"}
+ *   ip - текущий адрес лампы (в режиме точки доступа - адрес AP). Роутер может выдать
+ *   лампе новый адрес после перезагрузки, а retained state всегда содержит актуальный.
  *
  * Параметры брокера хранятся в базе настроек (Storage.h, ключи kk::mqtt_*)
  * и редактируются через веб-интерфейс Settings.
@@ -491,7 +493,7 @@ class MqttManager
 
       char json[CMD_BUFFER_SIZE];
       snprintf_P(json, sizeof(json),
-        PSTR("{\"effect\":%u,\"brightness\":%d,\"speed\":%d,\"scale\":%u,\"power\":%s,\"espMode\":%u,\"useNtp\":%s,\"timerRunning\":%s,\"buttonEnabled\":%s,\"time\":\"%s\"}"),
+        PSTR("{\"effect\":%u,\"brightness\":%d,\"speed\":%d,\"scale\":%u,\"power\":%s,\"espMode\":%u,\"useNtp\":%s,\"timerRunning\":%s,\"buttonEnabled\":%s,\"time\":\"%s\",\"ip\":\"%s\"}"),
         currentMode,
         (int)map(constrain(modes[currentMode].Brightness, 1, 255), 1, 255, 1, 100), // яркость наружу в диапазоне 1-100
         (int)map(constrain(modes[currentMode].Speed, 1, 255), 1, 255, 1, 100),      // скорость наружу в диапазоне 1-100
@@ -505,7 +507,8 @@ class MqttManager
         #endif
         TimerManager::TimerRunning ? "true" : "false",
         buttonEnabled ? "true" : "false",
-        timeBuf);
+        timeBuf,
+        (WiFiConnector.connected() ? WiFi.localIP() : WiFi.softAPIP()).toString().c_str());
 
       #ifdef GENERAL_DEBUG
       LOG.printf_P(PSTR("Отправлено MQTT: топик \"%s\", значение \"%s\"\n"), topicOutput.c_str(), json);

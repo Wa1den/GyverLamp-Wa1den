@@ -17,6 +17,23 @@
 int16_t offset = WIDTH;
 uint32_t scrollTimer = 0LL;
 
+// Источник текста для эффекта Бегущая строка: текущий IP лампы, если включена
+// галка "Писать текущий IP" в настройках, иначе текст из настроек (TextTicker).
+// Адрес читается в момент вызова - то есть на каждом запуске эффекта, поэтому
+// после того, как роутер выдал лампе новый адрес, строка покажет его сама,
+// без перезагрузки лампы и без правки поля "Текст".
+const char* runningTextSource(char* ipBuf, size_t ipBufSize)
+{
+  if (!(bool)db[kk::run_text_ip])
+  {
+    return TextTicker;
+  }
+
+  IPAddress ip = WiFiConnector.connected() ? WiFi.localIP() : WiFi.softAPIP();
+  ip.toString().toCharArray(ipBuf, ipBufSize);
+  return ipBuf;
+}
+
 boolean fillString(const char* text, CRGB letterColor, boolean itsText)
 {
   //CRGB letterColor = CHSV(modes[EFF_TEXT].Scale * 2.5 * 2.5, 255U, 255U);

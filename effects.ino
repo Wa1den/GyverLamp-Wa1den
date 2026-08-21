@@ -3741,7 +3741,10 @@ void text_running() {
       }
     #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
-    while (!fillString(TextTicker, CHSV(modes[EFF_TEXT].Scale * 2.55, 255U, 255U), true) && currentMode == EFF_TEXT) {
+    char ipBuf[16];                                         // хватает на "255.255.255.255"
+    const char* text = runningTextSource(ipBuf, sizeof(ipBuf)); // текст из настроек либо текущий IP лампы
+
+    while (!fillString(text, CHSV(modes[EFF_TEXT].Scale * 2.55, 255U, 255U), true) && currentMode == EFF_TEXT) {
       // цикл прокрутки строки блокирующий, поэтому внутри обслуживаются каналы управления,
       // чтобы лампа реагировала на команды (смена эффекта командой прервёт прокрутку)
       wifiTick();

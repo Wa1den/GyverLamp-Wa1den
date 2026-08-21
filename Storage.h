@@ -36,6 +36,7 @@ DB_KEYS(kk,
     rnd_cycle_on,                                           // вкл/выкл случайных настроек эффектов в режиме Цикл (ключи в DB_KEYS - глобальные имена, поэтому имя не совпадает с переменной random_on)
     btn_sleep_time,                                         // время таймера сна, устанавливаемого двойным кликом кнопки, минуты (имя не совпадает с переменной button_sleep_time)
     running_text,                                           // текст эффекта Бегущая строка
+    run_text_ip,                                            // вкл/выкл "Писать текущий IP" в эффекте Бегущая строка
 
     // Автояркость
     ab_on,                                                  // вкл/выкл автояркости по датчику освещённости
@@ -104,6 +105,7 @@ class Storage
       db.init(kk::btn_sleep_time, (uint8_t)1);
       #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
+      db.init(kk::run_text_ip, false);
       #ifdef USE_AUTO_BRIGHTNESS
       db.init(kk::ab_on, false);
       db.init(kk::ab_min_bri, (uint8_t)20);

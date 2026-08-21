@@ -208,6 +208,19 @@ void lampSetRunningText(const char* text)
   mqttRequestPublish();
 }
 
+// вкл/выкл режима "Писать текущий IP" для эффекта Бегущая строка.
+// Поле "Текст" при этом не трогается: выключил галку - вернулся заданный текст.
+void lampSetRunningTextShowIp(bool showIp)
+{
+  db.set(kk::run_text_ip, showIp);
+
+  if (currentMode == EFF_TEXT)                              // бегущая строка на экране - перезапустить с новым источником текста
+  {
+    loadingFlag = true;
+  }
+  mqttRequestPublish();
+}
+
 #ifdef USE_MANUAL_TIME_SETTING
 // ручная установка времени лампы (unix-время по UTC, например из виджета даты/времени веб-интерфейса)
 void lampSetManualTime(uint32_t utcUnixTime)
