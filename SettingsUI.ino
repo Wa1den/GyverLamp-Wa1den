@@ -318,6 +318,10 @@ void settingsBuild(sets::Builder& b)
   {
     sets::Group g(b, "Служебное");
 
+    b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
+    b.Label("Автор", FIRMWARE_AUTHOR);
+    b.Label("Основана на", FIRMWARE_BASE);
+
     b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
     b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
 
@@ -395,7 +399,7 @@ void settingsSetup()
   sett.begin();                                             // запускается после WiFiConnector.connect, иначе не подхватится captive DNS
   sett.onBuild(settingsBuild);
   sett.setUpdatePeriod(5000);                               // страница опрашивает лампу пореже (по умолчанию 2500 мс) - меньше WiFi-трафика
-  sett.setVersion("GyverLamp 3.0");                         // строка Firmware в инфо-панели веб-интерфейса
+  sett.setVersion(FIRMWARE_TITLE);                          // строка Firmware в инфо-панели веб-интерфейса (см. Version.h)
 }
 
 void settingsTick()

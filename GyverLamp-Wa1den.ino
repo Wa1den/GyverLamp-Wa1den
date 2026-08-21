@@ -12,6 +12,18 @@
 // https://arduino.esp8266.com/stable/package_esp8266com_index.json
 
 /*
+  GyverLamp-Wa1den
+  Прошивка от Wa1den, основана на Gunner47 v2.87in1.
+  Все 87 исходных эффектов Gunner47 сохранены, переработана система управления
+  (веб-интерфейс Settings вместо Android-приложения и Blynk) — подробности в README.md.
+
+  Имя и номер версии задаются в Version.h, они же показываются на странице
+  настроек в браузере (инфо-панель "Firmware" и группа "Служебное").
+
+  Репозиторий: https://github.com/Wa1den/GyverLamp-Wa1den
+*/
+
+/*
   Скетч к проекту "Многофункциональный RGB светильник"
   Страница проекта (схемы, описания): https://alexgyver.ru/GyverLamp/
   Исходники авторской (старой) прошивки на GitHub: https://github.com/AlexGyver/GyverLamp/

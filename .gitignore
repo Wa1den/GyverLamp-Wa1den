@@ -1,0 +1,12 @@
+# Артефакты сборки arduino-cli / Arduino IDE (--build-path build)
+build/
+
+# Локальные настройки IDE и редакторов
+.vscode/
+.theia/
+*.code-workspace
+
+# Служебное
+*.log
+Thumbs.db
+desktop.ini
