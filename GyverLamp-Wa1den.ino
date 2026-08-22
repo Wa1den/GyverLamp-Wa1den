@@ -13,7 +13,7 @@
 
 /*
   GyverLamp-Wa1den
-  Прошивка от Wa1den, основана на Gunner47 v2.87in1.
+  Прошивка от Wa1den, основана на Gunner47 v2.87in1: https://github.com/SottNick/GyverLamp
   Все 87 исходных эффектов Gunner47 сохранены, переработана система управления
   (веб-интерфейс Settings вместо Android-приложения и Blynk) — подробности в README.md.
 

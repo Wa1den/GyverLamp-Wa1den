@@ -1,6 +1,6 @@
 # GyverLamp-Wa1den
 
-**Версия 3.1.0** · прошивка от **Wa1den**, основана на **Gunner47 v2.87in1**
+**Версия 3.1.0** · прошивка от **Wa1den**, основана на [**Gunner47 v2.87in1**](https://github.com/SottNick/GyverLamp)
 (которая, в свою очередь, основана на [GyverLamp](https://github.com/AlexGyver/GyverLamp/) от AlexGyver).
 
 Переработана система управления прошивки **gunner47_v2.87in1** для WiFi-лампы GyverLamp.

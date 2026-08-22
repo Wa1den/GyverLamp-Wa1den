@@ -3,7 +3,7 @@
 // ==================================================================
 //  Version.h — имя, версия и авторство прошивки.
 //
-//  Прошивка от Wa1den, основана на Gunner47 v2.87in1
+//  Прошивка от Wa1den, основана на Gunner47 v2.87in1 (https://github.com/SottNick/GyverLamp)
 //  (которая, в свою очередь, основана на GyverLamp от AlexGyver).
 //
 //  Эти строки показываются на странице настроек в браузере:
@@ -24,6 +24,6 @@
                                                   //   МИНОР — новые эффекты и функции, настройки переживают обновление
                                                   //   ПАТЧ  — только исправления багов
 #define FIRMWARE_AUTHOR   "Wa1den"
-#define FIRMWARE_BASE     "Gunner47 v2.87in1"
+#define FIRMWARE_BASE     "Gunner47 v2.87in1"      // https://github.com/SottNick/GyverLamp
 
 #define FIRMWARE_TITLE    FIRMWARE_NAME " " FIRMWARE_VERSION
