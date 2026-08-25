@@ -30,6 +30,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_TEXT_IP      ("ui_text_ip"_h)
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
+#define UI_ID_AP_APPLY     ("ui_ap_app"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
 #define UI_ID_WOL_WAKE     ("ui_wol_wake"_h)
 #define UI_ID_AB_RAW       ("ui_ab_raw"_h)
@@ -262,6 +263,28 @@ void settingsBuild(sets::Builder& b)
         espMode = mode;
         Storage::SaveEspMode(&espMode);
         pendingRestart = true;                              // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
+      }
+    }
+  }
+
+  // --- ТОЧКА ДОСТУПА -------------------------
+  {
+    sets::Group g(b, "Точка доступа");
+    b.Input(kk::ap_name, "Имя сети (SSID)");
+    b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
+    b.Paragraph("Когда работает", F("Своя сеть лампы поднята в режиме точки доступа и на время подключения "
+                                    "к роутеру, после успешного подключения выключается."));
+
+    if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
+    {
+      String apPassword = (String)db[kk::ap_pass];
+      if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
+      {
+        uiLog.println(F("Точка доступа: пароль короче 8 символов, изменения не применены"));
+      }
+      else
+      {
+        pendingRestart = true;                              // новое имя и пароль применяются при старте (текущее подключение к точке доступа в любом случае разрывается)
       }
     }
   }

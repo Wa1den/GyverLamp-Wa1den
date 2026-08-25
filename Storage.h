@@ -26,6 +26,8 @@ DB_KEYS(kk,
     wifi_pass,                                              // пароль WiFi сети роутера
     wifi_connect,                                           // id кнопки "Подключить" в веб-интерфейсе (в БД не хранится)
     wifi_last_ssid,                                         // SSID последней успешно подключённой сети (для показа IP бегущей строкой при смене сети)
+    ap_name,                                                // имя собственной точки доступа лампы (пусто - AP_NAME из Config.h)
+    ap_pass,                                                // пароль собственной точки доступа (пусто - открытая сеть)
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -68,6 +70,23 @@ DB_KEYS(kk,
     mqtt_pass                                               // пароль пользователя MQTT брокера
 );
 
+#define AP_PASS_MIN_LENGTH    (8U)                          // WiFi не принимает пароль точки доступа короче восьми символов: с более коротким паролем softAP не стартует и лампа остаётся без сети
+
+// Имя и пароль точки доступа лампы: значения из веб-интерфейса, а если имя не задано или
+// пароль оказался короче восьми символов - значения из Config.h. Пустой пароль означает
+// сеть без пароля, это допустимо.
+inline String apName()
+{
+  String name = (String)db[kk::ap_name];
+  return name.length() ? name : String(AP_NAME);
+}
+
+inline String apPass()
+{
+  String pass = (String)db[kk::ap_pass];
+  return (pass.length() == 0U || pass.length() >= AP_PASS_MIN_LENGTH) ? pass : String(AP_PASS);
+}
+
 #define STORAGE_WRITE_DELAY   (30000UL)                     // отсрочка записи настроек эффектов после последнего изменения (чтобы не изнашивать флеш при регулировке ползунками)
 
 class Storage
@@ -93,6 +112,8 @@ class Storage
       db.init(kk::wifi_ssid, "");
       db.init(kk::wifi_pass, "");
       db.init(kk::wifi_last_ssid, "");
+      db.init(kk::ap_name, AP_NAME);
+      db.init(kk::ap_pass, AP_PASS);
       db.init(kk::esp_mode, (uint8_t)ESP_MODE);
       db.init(kk::lamp_on, false);
       db.init(kk::dawn_mode, (uint8_t)0);
