@@ -15,6 +15,7 @@
 
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
+#include "Storage.h"                                        // hostName() - имя лампы в локальной сети
 
 #define CONFIRMATION_TIMEOUT  (30U)                         // время в сеундах, в течение которого нужно дважды подтвердить старт обновлениЯ по воздуху (иначе сброс в None)
 
@@ -124,10 +125,11 @@ class OtaManager
 
     void startOtaUpdate()
     {
-      char espHostName[65];
-      sprintf_P(espHostName, PSTR("%s-%u"), AP_NAME, ESP.getChipId());
+      String espHostName = hostName();                      // то же имя, что и в локальной сети: ArduinoOTA.begin() перезапускает
+                                                            // общий объект MDNS со своим именем, и с отдельным именем лампа на
+                                                            // время прошивки перестала бы отвечать на <имя>.local
       ArduinoOTA.setPort(ESP_OTA_PORT);
-      ArduinoOTA.setHostname(espHostName);
+      ArduinoOTA.setHostname(espHostName.c_str());
       ArduinoOTA.setPassword(AP_PASS);
 
       ArduinoOTA.onStart([this]()
@@ -220,7 +222,7 @@ class OtaManager
       OtaFlag = OtaPhase::InProgress;
 
       #ifdef GENERAL_DEBUG
-      LOG.printf_P(PSTR("Для обновления в Arduino IDE выберите пункт меню Инструменты - Порт - '%s at "), espHostName);
+      LOG.printf_P(PSTR("Для обновления в Arduino IDE выберите пункт меню Инструменты - Порт - '%s at "), espHostName.c_str());
       LOG.print(WiFi.localIP());
       LOG.println(F("'"));
       LOG.printf_P(PSTR("Затем нажмите кнопку 'Загрузка' в течение %u секунд и по запросу введите пароль '%s'\n"), ESP_CONF_TIMEOUT, AP_PASS);

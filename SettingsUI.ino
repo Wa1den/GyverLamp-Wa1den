@@ -31,6 +31,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_AP_APPLY     ("ui_ap_app"_h)
+#define UI_ID_HOST_APPLY   ("ui_host_app"_h)
 #define UI_ID_MQTT_APPLY   ("ui_mqtt_app"_h)
 #define UI_ID_WOL_WAKE     ("ui_wol_wake"_h)
 #define UI_ID_AB_RAW       ("ui_ab_raw"_h)
@@ -265,6 +266,29 @@ void settingsBuild(sets::Builder& b)
         pendingRestart = true;                              // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
       }
     }
+
+    b.Input(kk::host_name, "Имя лампы в сети");
+
+    String hostAddress = F("http://");                      // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
+    hostAddress += hostName();                              // который лампа получит после перезагрузки, а не введённое в поле
+    hostAddress += F(".local");
+
+    // строка собирается вручную из классов библиотеки: готовый виджет ссылки показывает только
+    // стрелку, а HTML-виджет с подписью уводит содержимое на строку ниже. Классы widget_row и
+    // value дают тот же вид, что у соседних строк, а flex-wrap переносит адрес, если он не влез
+    String hostLink = F("<div class=\"widget_row\" style=\"flex-wrap:wrap;height:unset;margin:-5px 0\">"
+                        "<label class=\"widget_label\">Адрес лампы</label>"
+                        "<a class=\"value\" style=\"color:var(--accent);flex-shrink:0\" target=\"_blank\" href=\"");
+    hostLink += hostAddress;
+    hostLink += F("\">");
+    hostLink += hostAddress;
+    hostLink += F("</a></div>");
+    b.HTML("", hostLink);
+
+    if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
+    {
+      pendingRestart = true;                                // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
+    }
   }
 
   // --- ТОЧКА ДОСТУПА -------------------------
@@ -272,8 +296,6 @@ void settingsBuild(sets::Builder& b)
     sets::Group g(b, "Точка доступа");
     b.Input(kk::ap_name, "Имя сети (SSID)");
     b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
-    b.Paragraph("Когда работает", F("Своя сеть лампы поднята в режиме точки доступа и на время подключения "
-                                    "к роутеру, после успешного подключения выключается."));
 
     if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
     {
@@ -371,8 +393,6 @@ void settingsBuild(sets::Builder& b)
     sets::Group g(b, "Служебное");
 
     b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
-    b.Label("Автор", FIRMWARE_AUTHOR);
-    b.Label("Основана на", FIRMWARE_BASE);
 
     b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
     b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
@@ -448,7 +468,10 @@ void settingsSetup()
   uiSleepMinutes = button_sleep_time;                       // последнее использованное время таймера - в поле веб-интерфейса
   #endif
 
-  sett.begin();                                             // запускается после WiFiConnector.connect, иначе не подхватится captive DNS
+  sett.begin(true, hostName().c_str());                     // запускается после WiFiConnector.connect, иначе не подхватится captive DNS.
+                                                            // второй аргумент - имя для mDNS, по нему лампа отвечает на <имя>.local;
+                                                            // вызывать можно до подключения к роутеру: MDNS.begin ставит колбэк
+                                                            // lwIP и перезапускает ответчик, когда интерфейс поднимается
   sett.onBuild(settingsBuild);
   sett.setUpdatePeriod(3000);                               // период опроса страницы. ВАЖНО: должен быть заметно меньше FOCUS_TOUT (5000 мс)
                                                             // из библиотеки, иначе признак "страница открыта" гаснет между запросами -

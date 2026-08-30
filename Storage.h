@@ -28,6 +28,7 @@ DB_KEYS(kk,
     wifi_last_ssid,                                         // SSID последней успешно подключённой сети (для показа IP бегущей строкой при смене сети)
     ap_name,                                                // имя собственной точки доступа лампы (пусто - AP_NAME из Config.h)
     ap_pass,                                                // пароль собственной точки доступа (пусто - открытая сеть)
+    host_name,                                              // имя лампы в локальной сети (пусто - HOST_NAME из Config.h)
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -71,6 +72,7 @@ DB_KEYS(kk,
 );
 
 #define AP_PASS_MIN_LENGTH    (8U)                          // WiFi не принимает пароль точки доступа короче восьми символов: с более коротким паролем softAP не стартует и лампа остаётся без сети
+#define HOST_NAME_MAX_LENGTH  (32U)                         // WiFi.hostname() не принимает имя длиннее 32 символов
 
 // Имя и пароль точки доступа лампы: значения из веб-интерфейса, а если имя не задано или
 // пароль оказался короче восьми символов - значения из Config.h. Пустой пароль означает
@@ -85,6 +87,37 @@ inline String apPass()
 {
   String pass = (String)db[kk::ap_pass];
   return (pass.length() == 0U || pass.length() >= AP_PASS_MIN_LENGTH) ? pass : String(AP_PASS);
+}
+
+// Имя лампы в локальной сети: лампа передаёт его роутеру в DHCP-запросе и отвечает по mDNS
+// на <имя>.local. В имени хоста допустимы только латинские буквы, цифры и дефис, причём дефис
+// не может быть первым или последним символом - остального WiFi.hostname() не принимает, и
+// лампа осталась бы под именем ESP_XXXXXX. Поэтому введённое значение приводится к этому
+// набору, а пустой результат заменяется значением из Config.h.
+inline String hostName()
+{
+  String name = (String)db[kk::host_name];
+  String result;
+
+  for (uint16_t i = 0U; i < name.length() && result.length() < HOST_NAME_MAX_LENGTH; i++)
+  {
+    char c = name[i];
+    if (c >= 'A' && c <= 'Z')
+    {
+      c += 'a' - 'A';
+    }
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '-' && result.length()))
+    {
+      result += c;
+    }
+  }
+
+  while (result.length() && result[result.length() - 1U] == '-')
+  {
+    result.remove(result.length() - 1U);
+  }
+
+  return result.length() ? result : String(HOST_NAME);
 }
 
 #define STORAGE_WRITE_DELAY   (30000UL)                     // отсрочка записи настроек эффектов после последнего изменения (чтобы не изнашивать флеш при регулировке ползунками)
@@ -114,6 +147,7 @@ class Storage
       db.init(kk::wifi_last_ssid, "");
       db.init(kk::ap_name, AP_NAME);
       db.init(kk::ap_pass, AP_PASS);
+      db.init(kk::host_name, HOST_NAME);
       db.init(kk::esp_mode, (uint8_t)ESP_MODE);
       db.init(kk::lamp_on, false);
       db.init(kk::dawn_mode, (uint8_t)0);

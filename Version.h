@@ -6,9 +6,8 @@
 //  Прошивка от Wa1den, основана на Gunner47 v2.87in1 (https://github.com/SottNick/GyverLamp)
 //  (которая, в свою очередь, основана на GyverLamp от AlexGyver).
 //
-//  Эти строки показываются на странице настроек в браузере:
-//  FIRMWARE_TITLE — в инфо-панели (строка Firmware),
-//  автор и основа — в группе "Служебное".
+//  FIRMWARE_TITLE показывается на странице настроек в браузере:
+//  в инфо-панели (строка Firmware) и в группе "Служебное".
 //
 //  Как выпускать новую версию:
 //  1) поднять номер в FIRMWARE_VERSION по правилам ниже;
@@ -23,7 +22,5 @@
                                                   //   МАЖОР — несовместимые изменения (сброс настроек, смена протокола/железа)
                                                   //   МИНОР — новые эффекты и функции, настройки переживают обновление
                                                   //   ПАТЧ  — только исправления багов
-#define FIRMWARE_AUTHOR   "Wa1den"
-#define FIRMWARE_BASE     "Gunner47 v2.87in1"      // https://github.com/SottNick/GyverLamp
 
 #define FIRMWARE_TITLE    FIRMWARE_NAME " " FIRMWARE_VERSION

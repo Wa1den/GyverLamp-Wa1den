@@ -10,6 +10,10 @@
 
 void wifiSetup()
 {
+  WiFi.hostname(hostName());                                // имя, которое лампа передаёт роутеру в DHCP-запросе: роутер показывает
+                                                            // её в списке клиентов по имени, а его локальный DNS отдаёт по нему адрес
+                                                            // (задаётся до connect: запрос с именем уходит при подключении)
+
   WiFiConnector.setName(apName());                          // имя и пароль точки доступа задаются в веб-интерфейсе (группа "Точка доступа"),
   WiFiConnector.setPass(apPass());                          // значения из Config.h используются как начальные
   WiFiConnector.setTimeout(ESP_CONN_TIMEOUT);
@@ -64,5 +68,6 @@ void resetWifiSettings()
   db[kk::wifi_pass] = "";
   db[kk::ap_name] = AP_NAME;                                // имя и пароль точки доступа тоже возвращаются к значениям из Config.h:
   db[kk::ap_pass] = AP_PASS;                                // иначе забытый пароль точки доступа отрезает доступ к веб-интерфейсу
+  db[kk::host_name] = HOST_NAME;                            // имя лампы в сети - часть тех же сетевых настроек
   db.update();
 }
