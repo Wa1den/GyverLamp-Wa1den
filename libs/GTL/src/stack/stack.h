@@ -5,6 +5,9 @@ namespace gtl {
 
 template <typename T>
 struct bsearch_t {
+    bsearch_t() : bsearch_t(0, nullptr) {}
+    bsearch_t(size_t idx, T* ptr) : idx(idx), ptr(ptr) {}
+
     // индекс в стеке. Если ptr == nullptr - позиция для вставки
     size_t idx;
 
@@ -162,7 +165,7 @@ class stackT : protected AR {
             else high = mid;
         }
 
-        return {low, (low < _len && _buf[low] == val) ? &_buf[low] : nullptr};
+        return bsearch_t<T>(low, (low < _len && _buf[low] == val) ? &_buf[low] : nullptr);
     }
 
     // добавить с сортировкой. Флаг uniq - не добавлять если элемент уже есть
@@ -278,9 +281,10 @@ class stackT : protected AR {
     size_t write(const void* buf, size_t len, bool pgm = false) {
         if (!len || !buf) return 0;
 
-        if (len == sizeof(T) && !pgm) {
-            return push(*(const T*)buf) ? len : 0;
-        }
+        // slower!
+        // if (len == sizeof(T) && !pgm) {
+        //     return push(*(const T*)buf) ? sizeof(T) : 0;
+        // }
 
         size_t wlen = (len + sizeof(T) - 1) / sizeof(T);
         if (!_fit(_len + wlen)) return 0;
@@ -417,6 +421,7 @@ class stackT : protected AR {
 
     // буфер
     using AR::buf;
+    using AR::data;
 
     // legacy
     bool includes(const T& val) const __attribute__((deprecated)) {

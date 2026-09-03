@@ -125,6 +125,22 @@
 #define WEBSOCKETS_TCP_TIMEOUT (5000)
 #endif
 
+// ПРАВКА ДЛЯ GyverLamp-Wa1den. Штатно все три ожидания ниже брали WEBSOCKETS_TCP_TIMEOUT (5000 мс),
+// и любое из них останавливало весь скетч на эти 5 секунд: сервер синхронный, вебсокет обслуживается
+// в loop(). Наблюдался провал 10.2 с - похоже на два таких таймаута подряд.
+// Значения укорочены и намеренно сделаны разными: по длительности провала в Журнале видно,
+// какая именно стадия его вызвала (в том числе если запись профилирования не успела уйти).
+// Переопределить из скетча нельзя - эти файлы компилируются отдельно от .ino, только правкой здесь.
+#ifndef WEBSOCKETS_HEADER_TIMEOUT
+#define WEBSOCKETS_HEADER_TIMEOUT (700)  // чтение строк HTTP-рукопожатия нового клиента
+#endif
+#ifndef WEBSOCKETS_READ_TIMEOUT
+#define WEBSOCKETS_READ_TIMEOUT (1100)  // дочитывание кадра, если он пришёл не целиком
+#endif
+#ifndef WEBSOCKETS_WRITE_TIMEOUT
+#define WEBSOCKETS_WRITE_TIMEOUT (1500)  // отправка кадра, если TCP не принимает данные
+#endif
+
 #define NETWORK_ESP8266_ASYNC (0)
 #define NETWORK_ESP8266 (1)
 #define NETWORK_W5100 (2)

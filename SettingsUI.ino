@@ -5,6 +5,21 @@
 // Виджеты с ключами kk::* читают и пишут значения напрямую в базу настроек (Storage.h).
 // Виджеты состояния лампы (питание/эффект/яркость/...) показывают текущие значения
 // глобалов и применяют изменения через слой LampControl (LampControl.ino).
+//
+// Структура страницы. sets::Group - блок прямо на главной, sets::Menu - отдельная
+// страница со стрелкой "назад". Содержимое всех разделов приходит в браузер одним
+// пакетом сборки и переключается на стороне браузера; лампе уходит только уведомление
+// об открытии раздела (b.enterMenu()), на нём построена ленивая сборка списка эффектов:
+//
+//   Лампа              группа, всё что трогают каждый день
+//   Цикл эффектов      меню > Эффекты в цикле (ленивое, см. favListVisible)
+//   Будильник          меню
+//   Таймер выключения  группа
+//   Бегущая строка     группа
+//   Кнопка             группа
+//   Автояркость        меню
+//   Сеть               меню: WiFi, точка доступа, MQTT, Wake-on-LAN
+//   Служебное          меню > Журнал
 
 SettingsGyverWS sett("GyverLamp", &db);
 
@@ -96,7 +111,7 @@ void settingsBuild(sets::Builder& b)
 
   // --- ЦИКЛ (АВТОМАТИЧЕСКАЯ СМЕНА ИЗБРАННЫХ ЭФФЕКТОВ) ---
   {
-    sets::Group g(b, "Цикл эффектов");
+    sets::Menu page(b, "Цикл эффектов");                    // отдельная страница: настройки цикла нужны редко
 
     bool favOn = FavoritesManager::FavoritesRunning != 0;
     if (b.Switch(UI_ID_FAV_ON, "Включен", &favOn))
@@ -163,7 +178,7 @@ void settingsBuild(sets::Builder& b)
 
   // --- БУДИЛЬНИК (РАССВЕТ) -------------------
   {
-    sets::Menu m(b, "Будильник (рассвет)");
+    sets::Menu page(b, "Будильник (рассвет)");
 
     for (uint8_t i = 0; i < 7U; i++)
     {
@@ -245,100 +260,10 @@ void settingsBuild(sets::Builder& b)
   }
   #endif //ESP_USE_BUTTON
 
-  // --- WIFI ----------------------------------
-  {
-    sets::Group g(b, "WiFi");
-    b.Input(kk::wifi_ssid, "Имя сети (SSID)");
-    b.Pass(kk::wifi_pass, "Пароль");
-
-    if (b.Button(kk::wifi_connect, "Подключить"))
-    {
-      pendingWifiConnect = true;                            // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
-    }
-
-    uint8_t mode = espMode;
-    if (b.Select(UI_ID_ESP_MODE, "Режим работы", "Точка доступа;Клиент (через роутер)", &mode))
-    {
-      if (mode != espMode)
-      {
-        espMode = mode;
-        Storage::SaveEspMode(&espMode);
-        pendingRestart = true;                              // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
-      }
-    }
-
-    b.Input(kk::host_name, "Имя лампы в сети");
-
-    String hostAddress = F("http://");                      // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
-    hostAddress += hostName();                              // который лампа получит после перезагрузки, а не введённое в поле
-    hostAddress += F(".local");
-
-    // строка собирается вручную из классов библиотеки: готовый виджет ссылки показывает только
-    // стрелку, а HTML-виджет с подписью уводит содержимое на строку ниже. Классы widget_row и
-    // value дают тот же вид, что у соседних строк, а flex-wrap переносит адрес, если он не влез
-    String hostLink = F("<div class=\"widget_row\" style=\"flex-wrap:wrap;height:unset;margin:-5px 0\">"
-                        "<label class=\"widget_label\">Адрес лампы</label>"
-                        "<a class=\"value\" style=\"color:var(--accent);flex-shrink:0\" target=\"_blank\" href=\"");
-    hostLink += hostAddress;
-    hostLink += F("\">");
-    hostLink += hostAddress;
-    hostLink += F("</a></div>");
-    b.HTML("", hostLink);
-
-    if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
-    {
-      pendingRestart = true;                                // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
-    }
-  }
-
-  // --- ТОЧКА ДОСТУПА -------------------------
-  {
-    sets::Group g(b, "Точка доступа");
-    b.Input(kk::ap_name, "Имя сети (SSID)");
-    b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
-
-    if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
-    {
-      String apPassword = (String)db[kk::ap_pass];
-      if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
-      {
-        uiLog.println(F("Точка доступа: пароль короче 8 символов, изменения не применены"));
-      }
-      else
-      {
-        pendingRestart = true;                              // новое имя и пароль применяются при старте (текущее подключение к точке доступа в любом случае разрывается)
-      }
-    }
-  }
-
-  // --- MQTT ----------------------------------
-  #if (USE_MQTT)
-  {
-    sets::Group g(b, "MQTT");
-    b.Switch(kk::mqtt_enabled, "Включен");
-    b.Input(kk::mqtt_host, "Адрес брокера");
-    b.Number(kk::mqtt_port, "Порт");
-    b.Input(kk::mqtt_user, "Пользователь");
-    b.Pass(kk::mqtt_pass, "Пароль");
-
-    if (MqttManager::getTopicInput().length())
-    {
-      // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
-      b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
-                            String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
-    }
-
-    if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
-    {
-      pendingRestart = true;                                // новые параметры брокера применяются при старте
-    }
-  }
-  #endif //USE_MQTT
-
   // --- АВТОЯРКОСТЬ ---------------------------
   #ifdef USE_AUTO_BRIGHTNESS
   {
-    sets::Group g(b, "Автояркость");
+    sets::Menu page(b, "Автояркость");                      // отдельная страница: настраивается один раз при калибровке
     b.Switch(kk::ab_on, "Использовать датчик освещённости");
     b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
 
@@ -366,31 +291,127 @@ void settingsBuild(sets::Builder& b)
   }
   #endif //USE_AUTO_BRIGHTNESS
 
-  // --- WAKE-ON-LAN ---------------------------
+  // --- СЕТЬ ----------------------------------
   {
-    sets::Group g(b, "Wake-on-LAN");
-    b.Input(kk::wol_mac, "MAC компьютера");
+    sets::Menu page(b, "Сеть");                             // WiFi, точка доступа, MQTT и Wake-on-LAN - на отдельной странице
 
-    if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
+    // --- WIFI ----------------------------------
     {
-      pendingWolWake = true;                                // отправка выполнится в loop, результат - в Журнале
+      sets::Group g(b, "WiFi");
+      b.Input(kk::wifi_ssid, "Имя сети (SSID)");
+      b.Pass(kk::wifi_pass, "Пароль");
+
+      if (b.Button(kk::wifi_connect, "Подключить"))
+      {
+        pendingWifiConnect = true;                          // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
+      }
+
+      uint8_t mode = espMode;
+      if (b.Select(UI_ID_ESP_MODE, "Режим работы", "Точка доступа;Клиент (через роутер)", &mode))
+      {
+        if (mode != espMode)
+        {
+          espMode = mode;
+          Storage::SaveEspMode(&espMode);
+          pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
+        }
+      }
+
+      b.Input(kk::host_name, "Имя лампы в сети");
+
+      String hostAddress = F("http://");                    // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
+      hostAddress += hostName();                            // который лампа получит после перезагрузки, а не введённое в поле
+      hostAddress += F(".local");
+
+      // строка собирается вручную из классов библиотеки: готовый виджет ссылки показывает только
+      // стрелку, а HTML-виджет с подписью уводит содержимое на строку ниже. Классы widget_row и
+      // value дают тот же вид, что у соседних строк, а flex-wrap переносит адрес, если он не влез
+      String hostLink = F("<div class=\"widget_row\" style=\"flex-wrap:wrap;height:unset;margin:-5px 0\">"
+                          "<label class=\"widget_label\">Адрес лампы</label>"
+                          "<a class=\"value\" style=\"color:var(--accent);flex-shrink:0\" target=\"_blank\" href=\"");
+      hostLink += hostAddress;
+      hostLink += F("\">");
+      hostLink += hostAddress;
+      hostLink += F("</a></div>");
+      b.HTML("", hostLink);
+
+      if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
+      {
+        pendingRestart = true;                              // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
+      }
     }
 
+    // --- ТОЧКА ДОСТУПА -------------------------
+    {
+      sets::Group g(b, "Точка доступа");
+      b.Input(kk::ap_name, "Имя сети (SSID)");
+      b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
+
+      if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
+      {
+        String apPassword = (String)db[kk::ap_pass];
+        if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
+        {
+          uiLog.println(F("Точка доступа: пароль короче 8 символов, изменения не применены"));
+        }
+        else
+        {
+          pendingRestart = true;                            // новое имя и пароль применяются при старте (текущее подключение к точке доступа в любом случае разрывается)
+        }
+      }
+    }
+
+    // --- MQTT ----------------------------------
     #if (USE_MQTT)
-    if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
     {
-      pendingWolResub = true;                               // подписка обновится в loop
-    }
-    if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
-    {
-      pendingWolResub = true;
+      sets::Group g(b, "MQTT");
+      b.Switch(kk::mqtt_enabled, "Включен");
+      b.Input(kk::mqtt_host, "Адрес брокера");
+      b.Number(kk::mqtt_port, "Порт");
+      b.Input(kk::mqtt_user, "Пользователь");
+      b.Pass(kk::mqtt_pass, "Пароль");
+
+      if (MqttManager::getTopicInput().length())
+      {
+        // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
+        b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
+                              String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
+      }
+
+      if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
+      {
+        pendingRestart = true;                              // новые параметры брокера применяются при старте
+      }
     }
     #endif //USE_MQTT
+
+    // --- WAKE-ON-LAN ---------------------------
+    {
+      sets::Group g(b, "Wake-on-LAN");
+      b.Input(kk::wol_mac, "MAC компьютера");
+
+      if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
+      {
+        pendingWolWake = true;                              // отправка выполнится в loop, результат - в Журнале
+      }
+
+      #if (USE_MQTT)
+      if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
+      {
+        pendingWolResub = true;                             // подписка обновится в loop
+      }
+      if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
+      {
+        pendingWolResub = true;
+      }
+      #endif //USE_MQTT
+    }
+
   }
 
   // --- СЛУЖЕБНОЕ -----------------------------
   {
-    sets::Group g(b, "Служебное");
+    sets::Menu page(b, "Служебное");                        // отдельная страница: информация, время, сбросы и Журнал
 
     b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
 
@@ -462,8 +483,71 @@ void settingsBuild(sets::Builder& b)
   }
 }
 
+// Профилирование веб-интерфейса. Библиотека Settings пропатчена (libs/Settings/src/core/profile.h)
+// и сообщает сюда длительность каждого этапа обработки запроса страницы. Пишем в Журнал всё,
+// что заняло больше UI_PROFILE_MS: суммарный замер стадии "веб-интерфейс" в loop() показывает
+// только факт подвисания, а эти записи - какой именно этап его вызвал.
+#ifdef UI_PROFILE_MS
+
+// действие страницы приходит уже хэшем, восстанавливаем имя для журнала
+static const char* uiActionName(uint32_t hash)
+{
+  switch (hash)
+  {
+    case su::SH("load"):     return "load";                 // первая сборка страницы
+    case su::SH("update"):   return "update";               // периодический опрос
+    case su::SH("set"):      return "set";                  // изменение виджета
+    case su::SH("click"):    return "click";                // нажатие кнопки
+    case su::SH("menu"):     return "menu";                 // открытие вложенного меню
+    case su::SH("fs"):       return "fs";                   // список файлов - его шлёт открытие бокового меню
+    case su::SH("ping"):     return "ping";
+    case su::SH("discover"): return "discover";
+    case su::SH("unfocus"):  return "unfocus";              // страницу закрыли
+    case su::SH("remove"):   return "remove";
+    case su::SH("create"):   return "create";
+  }
+  return nullptr;
+}
+
+static void uiProfileStage(const char* stage, uint32_t ms, uint32_t arg)
+{
+  if (ms < UI_PROFILE_MS)
+  {
+    return;
+  }
+
+  static const char* lastStage = nullptr;                   // защита от лавины: одна и та же стадия пишется не чаще раза в секунду.
+  static uint32_t lastLogMs = 0U;                           // запись в Журнал вызывает отправку в браузер, а медленная отправка - новую
+  uint32_t now = millis();                                  // запись, и при затыке в сети журнал вытеснил бы сам себя
+  if (stage == lastStage && now - lastLogMs < 1000UL)
+  {
+    return;
+  }
+  lastStage = stage;
+  lastLogMs = now;
+
+  uiLog.printf_P(PSTR("Веб: %s %u мс"), stage, ms);
+  const char* action = uiActionName(arg);                   // стадия "запрос" передаёт хэш действия, остальные - размер данных
+  if (action)
+  {
+    uiLog.printf_P(PSTR(" [%s]"), action);
+  }
+  else if (arg)
+  {
+    uiLog.printf_P(PSTR(" [%u Б]"), arg);
+  }
+  uiLog.printf_P(PSTR(" (память %u, блок %u, фрагм %u%%)"),
+                 ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation());
+  uiLog.println();
+}
+#endif //UI_PROFILE_MS
+
 void settingsSetup()
 {
+  #ifdef UI_PROFILE_MS
+  sets::onProfile(uiProfileStage);                          // до sett.begin(), чтобы попал и запуск сервера
+  #endif
+
   #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
   uiSleepMinutes = button_sleep_time;                       // последнее использованное время таймера - в поле веб-интерфейса
   #endif
@@ -473,9 +557,10 @@ void settingsSetup()
                                                             // вызывать можно до подключения к роутеру: MDNS.begin ставит колбэк
                                                             // lwIP и перезапускает ответчик, когда интерфейс поднимается
   sett.onBuild(settingsBuild);
-  sett.setUpdatePeriod(3000);                               // период опроса страницы. ВАЖНО: должен быть заметно меньше FOCUS_TOUT (5000 мс)
-                                                            // из библиотеки, иначе признак "страница открыта" гаснет между запросами -
-                                                            // а от него зависят живые обновления виджетов и сборка списка эффектов Цикла
+  sett.setUpdatePeriod(3000);                               // период опроса страницы браузером. В варианте с вебсокетом библиотека всё равно
+                                                            // отдаёт браузеру 0: виджеты обновляются пушем по вебсокету, а не опросом.
+                                                            // Признак "страница открыта" (от него зависят живые обновления и сборка списка
+                                                            // эффектов Цикла) держит пинг страницы раз в 2.5 с - вдвое чаще FOCUS_TOUT (5000 мс)
   sett.setVersion(FIRMWARE_TITLE);                          // строка Firmware в инфо-панели веб-интерфейса (см. Version.h)
 }
 

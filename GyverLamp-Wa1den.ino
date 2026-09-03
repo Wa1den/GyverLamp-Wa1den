@@ -661,11 +661,14 @@ void setup()
 
 
 // Диагностика подвисаний: измеряет длительность каждой стадии основного цикла и пишет
-// в Журнал те, что заняли больше LOOP_WATCHDOG_MS. Заодно показывает свободную память -
-// её просадка выдаёт утечку или фрагментацию кучи
+// в Журнал те, что заняли больше LOOP_WATCHDOG_MS. Заодно показывает состояние кучи:
+// свободно всего, самый большой непрерывный блок и процент фрагментации. Свободной памяти
+// может быть много, но если крупный блок не выделяется, lwIP не может отправить пакет -
+// и синхронный сервер зависает в ожидании отправки. Стадию "веб-интерфейс" разбирает
+// более подробное профилирование в SettingsUI.ino (UI_PROFILE_MS)
 #ifdef LOOP_WATCHDOG_MS
 static uint32_t loopStageStart = 0U;
-#define LOOP_STAGE(name)                                                                          do {                                                                                              uint32_t stageMs = millis() - loopStageStart;                                                   if (stageMs >= LOOP_WATCHDOG_MS)                                                                {                                                                                                 uiLog.printf_P(PSTR("Долгий цикл: %s %u мс (память %u)"), name, stageMs, ESP.getFreeHeap());       uiLog.println();                                                                              }                                                                                               loopStageStart = millis();                                                                    } while (0)
+#define LOOP_STAGE(name)                                                                          do {                                                                                              uint32_t stageMs = millis() - loopStageStart;                                                   if (stageMs >= LOOP_WATCHDOG_MS)                                                                {                                                                                                 uiLog.printf_P(PSTR("Долгий цикл: %s %u мс (память %u, блок %u, фрагм %u%%)"), name, stageMs, ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation());       uiLog.println();                                                                              }                                                                                               loopStageStart = millis();                                                                    } while (0)
 #else
 #define LOOP_STAGE(name)
 #endif

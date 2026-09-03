@@ -22,6 +22,7 @@
 #include "./logger.h"
 #include "./macro.h"
 #include "./packet.h"
+#include "./profile.h"                                      // правка для GyverLamp-Wa1den: замеры длительности стадий
 #include "./updater.h"
 
 namespace sets {
@@ -191,7 +192,11 @@ class SettingsBase {
     // тикер, вызывать в родительском классе
     void tick() {
 #ifndef SETT_NO_DB
-        if (_db) _db->tick();
+        if (_db) {
+            uint32_t prof = profileStart();
+            _db->tick();
+            profileEnd("БД", prof);  // запись настроек на флеш: не уступает управление, тормозит loop()
+        }
         if (_upd_tmr.elapsed(DB_WS_UPDATE_PRD) && _dbHasUpdates()) {
             _upd_tmr.restart();
             Packet p;
@@ -324,6 +329,12 @@ class SettingsBase {
 
     // парсить запрос HTTP клиента
     void parse(size_t passh, size_t actionh, size_t idh, Text value) {
+        uint32_t prof = profileStart();
+        _parse(passh, actionh, idh, value);
+        profileEnd("запрос", prof, actionh);  // arg - хэш действия, скетч расшифровывает его в имя
+    }
+
+    void _parse(size_t passh, size_t actionh, size_t idh, Text value) {
         if (!_focus_tmr.running()) {
             _focus_tmr.restart();
             if (_focus_cb) _focus_cb();
@@ -363,6 +374,10 @@ class SettingsBase {
                     Build action(Build::Type::Menu, granted, idh);
                     Builder b(this, action);
                     _build_cb(b);
+                    if (_reload) {
+                        _sendReload();
+                        return;
+                    }
                 }
                 break;
 
@@ -451,7 +466,7 @@ class SettingsBase {
             case SH("ping"): {
                 BSON b;
                 b('{');
-                b[Code::rssi] = getRSSI();
+                b[BSCode(Code::rssi)] = getRSSI();
                 b('}');
                 _answer(b);
                 return;
@@ -488,14 +503,21 @@ class SettingsBase {
 
     void _sendFs(bool granted) {
         String res;
+        uint32_t prof = profileStart();
         if (granted) fs.listDir(res, "/", ';', ':');
+        profileEnd("FS список", prof, res.length());
+
+        prof = profileStart();
+        uint64_t total = 0, used = 0;
+        fs.flash.spaceInfo(total, used);                    // одним обходом ФС вместо двух, см. HybridFS.h
+        profileEnd("FS размер", prof, (uint32_t)used);
 
         Packet p;
         p('{');
         p[Code::type] = Code::fs;
         p[Code::content] = res;
-        p[Code::used] = fs.flash.usedSpace();
-        p[Code::total] = fs.flash.totalSpace();
+        p[Code::used] = used;
+        p[Code::total] = total;
         if (!granted) p[Code::error] = F("Access denied");
         p('}');
         _answer(p);
@@ -503,11 +525,12 @@ class SettingsBase {
 
     void _sendBuild(bool granted) {
         if (_build_cb) {
+            uint32_t prof = profileStart();
             Packet p(_packet_size, this, _hook);
             p('{');
             p[Code::type] = Code::build;
             p[Code::ws_port] = _ws_port;
-            p[Code::update_tout] = config.updateTout;
+            p[Code::update_tout] = _upd_cb ? config.updateTout : 0;
             p[Code::ping_tout] = config.pingTout;
             p[Code::request_tout] = config.requestTout;
             p[Code::send_tout] = config.sliderTout;
@@ -537,6 +560,7 @@ class SettingsBase {
                 p(']');
             }
             p('}');
+            profileEnd("сборка", prof);                     // длину не пишем: пакет уходит частями по мере наполнения, в конце в нём остатки
             _answer(p);
         } else {
             _answerEmpty();

@@ -461,7 +461,9 @@ WSclient_t * WebSocketsServerCore::newClient(WEBSOCKETS_NETWORK_CLASS * TCPclien
 #endif
 #if (WEBSOCKETS_NETWORK_TYPE != NETWORK_ESP8266_ASYNC)
             // set Timeout for readBytesUntil and readStringUntil
-            client->tcp->setTimeout(WEBSOCKETS_TCP_TIMEOUT);
+            // правка для GyverLamp-Wa1den, см. WebSockets.h. Этот же таймаут ограничивает и запись:
+            // WiFiClient::write отдаёт его в ClientContext, где он ждёт, пока lwIP примет данные
+            client->tcp->setTimeout(WEBSOCKETS_HEADER_TIMEOUT);
 #endif
             client->status = WSC_HEADER;
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266) || (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266_ASYNC) || (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP32) || (WEBSOCKETS_NETWORK_TYPE == NETWORK_RP2040)

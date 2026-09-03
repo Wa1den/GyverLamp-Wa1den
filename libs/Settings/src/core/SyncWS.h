@@ -8,6 +8,8 @@
 
 #include <WebSocketsServer.h>
 
+#include "./profile.h"                                      // правка для GyverLamp-Wa1den: замеры длительности стадий
+
 namespace sets {
 
 class SyncWS {
@@ -44,17 +46,24 @@ class SyncWS {
     }
 
     void tick() {
-        _ws.loop();
+        uint32_t prof = profileStart();
+        _ws.loop();                                         // рукопожатие новых клиентов и чтение кадров, ждёт TCP с таймаутами из WebSockets.h
+        profileEnd("WS приём", prof);
 
         if (_buf) {
+            prof = profileStart();
+            size_t len = _len;
             onData(_buf, _len);
             _clear();
+            profileEnd("WS запрос", prof, len);
         }
     }
 
     void send(uint8_t* data, size_t len, bool broadcast) {
+        uint32_t prof = profileStart();
         if (broadcast) _ws.broadcastBIN(data, len);
         else _ws.sendBIN(_id, data, len);
+        profileEnd("WS отправка", prof, len);
     }
 
     virtual void onData(uint8_t* data, size_t len) = 0;

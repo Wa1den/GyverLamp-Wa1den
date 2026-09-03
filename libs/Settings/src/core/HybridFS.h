@@ -44,12 +44,22 @@ class FSWrapper {
             fs.info64(info);
             return info.usedBytes;
         };
+        _spaceInfo = [&](uint64_t& total, uint64_t& used) {
+            fs::FSInfo64 info;
+            fs.info64(info);                                // один обход файловой системы на оба числа
+            total = info.totalBytes;
+            used = info.usedBytes;
+        };
 #else  // ESP32
         _totalSpace = [&]() -> uint64_t {
             return fs.totalBytes();
         };
         _usedSpace = [&]() -> uint64_t {
             return fs.usedBytes();
+        };
+        _spaceInfo = [&](uint64_t& total, uint64_t& used) {
+            total = fs.totalBytes();
+            used = fs.usedBytes();
         };
 #endif
     }
@@ -59,6 +69,7 @@ class FSWrapper {
         _fs = nullptr;
         _totalSpace = nullptr;
         _usedSpace = nullptr;
+        _spaceInfo = nullptr;
     }
 
     // удалить файл
@@ -202,10 +213,22 @@ class FSWrapper {
         return totalSpace() - usedSpace();
     }
 
+    // всего и занято одним запросом. Правка для GyverLamp-Wa1den: на ESP8266 каждый из
+    // totalSpace()/usedSpace() - это отдельный info64(), а тот обходит всю файловую систему.
+    // Открытие бокового меню страницы вызывало оба подряд, то есть два обхода вместо одного
+    void spaceInfo(uint64_t& total, uint64_t& used) {
+        total = used = 0;
+        if (!_spaceInfo) return;
+        _spaceInfo(total, used);
+        if (total >= FSW_MAX_SPACE) total = 0;
+        if (used >= FSW_MAX_SPACE) used = 0;
+    }
+
    private:
     FS* _fs = nullptr;
     std::function<uint64_t()> _totalSpace = nullptr;
     std::function<uint64_t()> _usedSpace = nullptr;
+    std::function<void(uint64_t&, uint64_t&)> _spaceInfo = nullptr;
 };
 
 #define HFS_SD_PREFIX "/sd/"

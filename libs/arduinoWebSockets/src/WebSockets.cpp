@@ -627,7 +627,7 @@ bool WebSockets::readCb(WSclient_t * client, uint8_t * out, size_t n, WSreadWait
             return false;
         }
 
-        if((millis() - t) > WEBSOCKETS_TCP_TIMEOUT) {
+        if((millis() - t) > WEBSOCKETS_READ_TIMEOUT) {    // правка для GyverLamp-Wa1den, см. WebSockets.h
             DEBUG_WEBSOCKETS("[readCb] receive TIMEOUT! %lu\n", (millis() - t));
             if(cb) {
                 cb(client, false);
@@ -688,7 +688,7 @@ size_t WebSockets::write(WSclient_t * client, uint8_t * out, size_t n) {
             break;
         }
 
-        if((millis() - t) > WEBSOCKETS_TCP_TIMEOUT) {
+        if((millis() - t) > WEBSOCKETS_WRITE_TIMEOUT) {    // правка для GyverLamp-Wa1den, см. WebSockets.h
             DEBUG_WEBSOCKETS("[write] write TIMEOUT! %lu\n", (millis() - t));
             break;
         }

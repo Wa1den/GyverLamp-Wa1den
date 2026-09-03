@@ -111,10 +111,19 @@ class SettingsT : public sets::SettingsBase {
         _dns.stop();
     }
 
+    // правка для GyverLamp-Wa1den: стадии разнесены по замерам, см. core/profile.h
     void tick() {
+        uint32_t prof = sets::profileStart();
         _dns.tick();
-        server.tick();
+        sets::profileEnd("DNS", prof);
+
+        prof = sets::profileStart();
+        server.tick();                                      // приём и обработка HTTP-запроса, блокирует loop() на время сеанса
+        sets::profileEnd("HTTP", prof);
+
+        prof = sets::profileStart();
         sets::SettingsBase::tick();
+        sets::profileEnd("фон", prof);
     }
 
     ghttp::Server<server_t, client_t> server;
@@ -124,6 +133,8 @@ class SettingsT : public sets::SettingsBase {
     bool _rst = false;
 
     void answer(uint8_t* data, size_t len) override {
+        uint32_t prof = sets::profileStart();
         server.send(Text(data, len));
+        sets::profileEnd("ответ HTTP", prof, len);
     }
 };
