@@ -576,10 +576,10 @@ static void uiProfileStage(const char* stage, uint32_t ms, uint32_t arg)
 }
 
 // отключения клиентов вебсокета по сбою: зависший клиент оборван или не отвечал на пинг.
-// По адресу видно, чьё устройство держало соединение
-static void uiProfileEvent(const char* event, uint8_t num, uint32_t ip)
+// По адресу видно, чьё устройство держало соединение, по числу активных - остались ли другие открытые страницы
+static void uiProfileEvent(const char* event, uint8_t num, uint32_t ip, uint8_t active)
 {
-  uiLog.printf_P(PSTR("Веб: клиент %u (%s) %s"), num, IPAddress(ip).toString().c_str(), event);
+  uiLog.printf_P(PSTR("Веб: клиент %u (%s) %s (активных клиентов %u)"), num, IPAddress(ip).toString().c_str(), event, active);
   uiLog.println();
 }
 #endif //UI_PROFILE_MS

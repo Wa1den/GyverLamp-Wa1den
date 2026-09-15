@@ -52,12 +52,13 @@ class SyncWS {
 
                 case WStype_DISCONNECTED:
                     if (num < WEBSOCKETS_SERVER_CLIENT_MAX && _ips[num]) {    // без адреса - соединение без рукопожатия
+                        uint32_t ip = _ips[num];
+                        _ips[num] = 0;                                        // до подсчёта: отключённый клиент в число активных не входит
                         if (_stallMs && millis() - _stallMs < STALL_WINDOW_MS) {
-                            profileEvent("оборван: не принимал данные", num, _ips[num]);
+                            profileEvent("оборван: не принимал данные", num, ip, _activeClients());
                         } else if (millis() - _alive[num] >= PING_INTERVAL_MS + PONG_TIMEOUT_MS) {
-                            profileEvent("отключён: не отвечал на пинг", num, _ips[num]);
+                            profileEvent("отключён: не отвечал на пинг", num, ip, _activeClients());
                         }
-                        _ips[num] = 0;
                     }
                     break;
 
@@ -117,6 +118,16 @@ class SyncWS {
 
     void _markAlive(uint8_t num) {
         if (num < WEBSOCKETS_SERVER_CLIENT_MAX) _alive[num] = millis();
+    }
+
+    // клиенты, прошедшие рукопожатие и ещё не отключённые. Считается по своему списку адресов: connectedClients()
+    // библиотеки при проверке сам отключает потерянных клиентов и вызвал бы обработчик отключения изнутри текущего
+    uint8_t _activeClients() {
+        uint8_t n = 0;
+        for (uint8_t i = 0; i < WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
+            if (_ips[i]) n++;
+        }
+        return n;
     }
     uint8_t _id = 0;
     uint8_t* _buf = nullptr;
