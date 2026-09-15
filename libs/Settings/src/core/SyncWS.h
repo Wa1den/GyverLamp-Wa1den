@@ -33,9 +33,32 @@ class SyncWS {
                     _id = num;
                     break;
 
+                // правка для GyverLamp-Wa1den: подключения и отключения видны в журнале скетча (core/profile.h).
+                // Адрес запоминается при подключении: к событию отключения клиент уже сброшен, и remoteIP пуст.
+                // Отключение без подключения (соединение с портом без рукопожатия) не сообщается
+                case WStype_CONNECTED:
+                    if (num < WEBSOCKETS_SERVER_CLIENT_MAX) {
+                        _ips[num] = (uint32_t)_ws.remoteIP(num);
+                        profileEvent("подключён", num, _ips[num]);
+                    }
+                    break;
+
+                case WStype_DISCONNECTED:
+                    if (num < WEBSOCKETS_SERVER_CLIENT_MAX && _ips[num]) {
+                        profileEvent("отключён", num, _ips[num]);
+                        _ips[num] = 0;
+                    }
+                    break;
+
                 default: break;
             }
         });
+
+        // правка для GyverLamp-Wa1den: пинг клиентов. Без него вкладка, приостановленная браузером на телефоне
+        // или ноутбуке, сутками числится подключённой, каждая рассылка ей ждёт таймаут записи, и всё это время
+        // стоит анимация. На пинг отвечает браузер без участия страницы; клиент, дважды подряд не ответивший,
+        // отключается
+        _ws.enableHeartbeat(PING_INTERVAL_MS, PONG_TIMEOUT_MS, PONG_MISSES);
 
         _ws.begin();
     }
@@ -69,7 +92,12 @@ class SyncWS {
     virtual void onData(uint8_t* data, size_t len) = 0;
 
    private:
+    static constexpr uint32_t PING_INTERVAL_MS = 10000;     // период пинга клиентов
+    static constexpr uint32_t PONG_TIMEOUT_MS = 5000;       // сколько ждать ответа на пинг
+    static constexpr uint8_t PONG_MISSES = 2;               // после стольких пропущенных ответов клиент отключается
+
     WebSocketsServer _ws;
+    uint32_t _ips[WEBSOCKETS_SERVER_CLIENT_MAX] = {};       // адреса подключённых клиентов, для журнала
     uint8_t _id = 0;
     uint8_t* _buf = nullptr;
     size_t _len;

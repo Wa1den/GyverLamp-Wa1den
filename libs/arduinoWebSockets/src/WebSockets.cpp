@@ -690,6 +690,12 @@ size_t WebSockets::write(WSclient_t * client, uint8_t * out, size_t n) {
 
         if((millis() - t) > WEBSOCKETS_WRITE_TIMEOUT) {    // правка для GyverLamp-Wa1den, см. WebSockets.h
             DEBUG_WEBSOCKETS("[write] write TIMEOUT! %lu\n", (millis() - t));
+#if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
+            // клиент не принимает данные, а кадр уже не дописать, поток рассинхронизирован. Соединение рвётся сразу,
+            // сбросом без ожидания подтверждений: иначе каждая следующая отправка этому клиенту снова ждала бы
+            // таймаут. Слот освобождает clientIsConnected при ближайшей проверке, страница переподключается автоматически
+            client->tcp->abort();
+#endif
             break;
         }
 

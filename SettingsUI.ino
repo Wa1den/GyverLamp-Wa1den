@@ -516,15 +516,23 @@ static void uiProfileStage(const char* stage, uint32_t ms, uint32_t arg)
     return;
   }
 
-  static const char* lastStage = nullptr;                   // защита от лавины: одна и та же стадия пишется не чаще раза в секунду.
-  static uint32_t lastLogMs = 0U;                           // запись в Журнал вызывает отправку в браузер, а медленная отправка - новую
-  uint32_t now = millis();                                  // запись, и при затыке в сети журнал вытеснил бы сам себя
-  if (stage == lastStage && now - lastLogMs < 1000UL)
+  // защита от лавины: одна и та же стадия пишется не чаще раза в 10 секунд, число пропущенных повторов
+  // добавляется в её следующую запись. Запись в Журнал вызывает отправку в браузер, медленная отправка
+  // даёт новую запись, и при зависшем клиенте такие строки за несколько секунд вытесняли бы из журнала всё остальное
+  static const uint32_t REPEAT_MS = 10000UL;
+  static const char* lastStage = nullptr;
+  static uint32_t lastLogMs = 0U;
+  static uint16_t suppressed = 0U;
+  uint32_t now = millis();
+  if (stage == lastStage && now - lastLogMs < REPEAT_MS)
   {
+    suppressed++;
     return;
   }
+  uint16_t repeats = (stage == lastStage) ? suppressed : 0U;
   lastStage = stage;
   lastLogMs = now;
+  suppressed = 0U;
 
   uiLog.printf_P(PSTR("Веб: %s %u мс"), stage, ms);
   const char* action = uiActionName(arg);                   // стадия "запрос" передаёт хэш действия, остальные - размер данных
@@ -538,6 +546,18 @@ static void uiProfileStage(const char* stage, uint32_t ms, uint32_t arg)
   }
   uiLog.printf_P(PSTR(" (память %u, блок %u, фрагм %u%%)"),
                  ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation());
+  if (repeats)
+  {
+    uiLog.printf_P(PSTR(", повторов с прошлой записи: %u"), repeats);
+  }
+  uiLog.println();
+}
+
+// подключения и отключения клиентов вебсокета: по адресу видно, чья вкладка держит соединение,
+// а отключение сразу после долгой отправки - что зависший клиент оборван
+static void uiProfileEvent(const char* event, uint8_t num, uint32_t ip)
+{
+  uiLog.printf_P(PSTR("Веб: клиент %u %s (%s)"), num, event, IPAddress(ip).toString().c_str());
   uiLog.println();
 }
 #endif //UI_PROFILE_MS
@@ -546,6 +566,7 @@ void settingsSetup()
 {
   #ifdef UI_PROFILE_MS
   sets::onProfile(uiProfileStage);                          // до sett.begin(), чтобы попал и запуск сервера
+  sets::onProfileEvent(uiProfileEvent);
   #endif
 
   #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
@@ -623,8 +644,13 @@ void settingsSyncTick()
         .update(UI_ID_FAV_ON, favOn);
   }
 
-  if (uiLog._changed())                                     // новые записи журнала - в открытую страницу
+  // новые записи журнала отправляются в открытую страницу не чаще раза в 3 секунды: журнал уходит целиком
+  // (1.2 КБ) при каждой новой строке, и при медленном клиенте частая отправка вызывает подвисания.
+  // Флаг изменений сбрасывает только отправка, поэтому отложенные записи не теряются
+  static uint32_t lastLogPush = 0U;
+  if (millis() - lastLogPush >= 3000U && uiLog._changed())
   {
+    lastLogPush = millis();
     sett.updater().update(UI_ID_LOG, static_cast<sets::Logger&>(uiLog)); // приведение к базовому типу, иначе побеждает шаблонная перегрузка update(id, T) по значению
   }
 

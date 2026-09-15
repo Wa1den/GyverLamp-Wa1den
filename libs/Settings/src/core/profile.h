@@ -37,4 +37,21 @@ inline void profileEnd(const char* stage, uint32_t start, uint32_t arg = 0) {
     if (_profileCb()) _profileCb()(stage, millis() - start, arg);
 }
 
+// событие без длительности: подключение и отключение клиента вебсокета. num - номер клиента, ip - его адрес
+typedef void (*ProfileEventCallback)(const char* event, uint8_t num, uint32_t ip);
+
+inline ProfileEventCallback& _profileEventCb() {
+    static ProfileEventCallback cb = nullptr;
+    return cb;
+}
+
+// подключить приёмник событий. nullptr - отключить
+inline void onProfileEvent(ProfileEventCallback cb) {
+    _profileEventCb() = cb;
+}
+
+inline void profileEvent(const char* event, uint8_t num, uint32_t ip) {
+    if (_profileEventCb()) _profileEventCb()(event, num, ip);
+}
+
 }  // namespace sets
