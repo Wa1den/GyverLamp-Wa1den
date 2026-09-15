@@ -24,6 +24,7 @@ class SyncWS {
         _ws.onEvent([this](uint8_t num, WStype_t type, uint8_t* data, size_t len) {
             switch (type) {
                 case WStype_BIN:
+                    _markAlive(num);
                     _clear();
                     _buf = new uint8_t[len];
                     if (!_buf) return;
@@ -33,19 +34,29 @@ class SyncWS {
                     _id = num;
                     break;
 
-                // правка для GyverLamp-Wa1den: подключения и отключения видны в журнале скетча (core/profile.h).
-                // Адрес запоминается при подключении: к событию отключения клиент уже сброшен, и remoteIP пуст.
-                // Отключение без подключения (соединение с портом без рукопожатия) не сообщается
+                // правка для GyverLamp-Wa1den: в журнал скетча (core/profile.h) попадают только отключения по сбою,
+                // обычное закрытие вкладки не сообщается. Сбоем считается отключение сразу после отправки, упёршейся
+                // в таймаут (такое соединение рвёт WebSockets::write), или после молчания клиента дольше периода пинга
+                // с таймаутом ответа: живая вкладка отвечает на пинг раз в PING_INTERVAL_MS, а клиента, пропустившего
+                // ответы, отключают не раньше чем через PING_INTERVAL_MS + 2 * PONG_TIMEOUT_MS молчания
                 case WStype_CONNECTED:
                     if (num < WEBSOCKETS_SERVER_CLIENT_MAX) {
-                        _ips[num] = (uint32_t)_ws.remoteIP(num);
-                        profileEvent("подключён", num, _ips[num]);
+                        _ips[num] = (uint32_t)_ws.remoteIP(num);    // к событию отключения клиент уже сброшен, и remoteIP пуст
+                        _markAlive(num);
                     }
                     break;
 
+                case WStype_PONG:
+                    _markAlive(num);
+                    break;
+
                 case WStype_DISCONNECTED:
-                    if (num < WEBSOCKETS_SERVER_CLIENT_MAX && _ips[num]) {
-                        profileEvent("отключён", num, _ips[num]);
+                    if (num < WEBSOCKETS_SERVER_CLIENT_MAX && _ips[num]) {    // без адреса - соединение без рукопожатия
+                        if (_stallMs && millis() - _stallMs < STALL_WINDOW_MS) {
+                            profileEvent("оборван: не принимал данные", num, _ips[num]);
+                        } else if (millis() - _alive[num] >= PING_INTERVAL_MS + PONG_TIMEOUT_MS) {
+                            profileEvent("отключён: не отвечал на пинг", num, _ips[num]);
+                        }
                         _ips[num] = 0;
                     }
                     break;
@@ -83,10 +94,12 @@ class SyncWS {
     }
 
     void send(uint8_t* data, size_t len, bool broadcast) {
+        uint32_t start = millis();
         uint32_t prof = profileStart();
         if (broadcast) _ws.broadcastBIN(data, len);
         else _ws.sendBIN(_id, data, len);
         profileEnd("WS отправка", prof, len);
+        if (millis() - start >= WEBSOCKETS_WRITE_TIMEOUT) _stallMs = millis();    // см. WStype_DISCONNECTED
     }
 
     virtual void onData(uint8_t* data, size_t len) = 0;
@@ -95,9 +108,16 @@ class SyncWS {
     static constexpr uint32_t PING_INTERVAL_MS = 10000;     // период пинга клиентов
     static constexpr uint32_t PONG_TIMEOUT_MS = 5000;       // сколько ждать ответа на пинг
     static constexpr uint8_t PONG_MISSES = 2;               // после стольких пропущенных ответов клиент отключается
+    static constexpr uint32_t STALL_WINDOW_MS = 1000;       // отключение в пределах этого времени после долгой отправки - обрыв зависшего клиента
 
     WebSocketsServer _ws;
     uint32_t _ips[WEBSOCKETS_SERVER_CLIENT_MAX] = {};       // адреса подключённых клиентов, для журнала
+    uint32_t _alive[WEBSOCKETS_SERVER_CLIENT_MAX] = {};     // когда клиент последний раз присылал данные или ответ на пинг
+    uint32_t _stallMs = 0;                                  // когда закончилась последняя отправка, упёршаяся в таймаут записи
+
+    void _markAlive(uint8_t num) {
+        if (num < WEBSOCKETS_SERVER_CLIENT_MAX) _alive[num] = millis();
+    }
     uint8_t _id = 0;
     uint8_t* _buf = nullptr;
     size_t _len;
