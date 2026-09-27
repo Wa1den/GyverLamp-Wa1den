@@ -199,7 +199,8 @@ void lampSetRunningText(const char* text)
 
   strncpy(TextTicker, text, CMD_BUFFER_SIZE);
   TextTicker[CMD_BUFFER_SIZE] = '\0';
-  db.set(kk::running_text, TextTicker);
+  db.set(kk::running_text, (const char*)TextTicker);       // без приведения массив char[] попадает в шаблонный конструктор AnyType как двоичные данные,
+                                                            // и в строковую ячейку записывается пустая строка
 
   if (currentMode == EFF_TEXT)                              // если бегущая строка сейчас на экране - перезапустить эффект с новым текстом
   {
