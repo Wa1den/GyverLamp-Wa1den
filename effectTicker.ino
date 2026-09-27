@@ -16,6 +16,12 @@ void effectsTick()
 {
   if (!dawnFlag)
   {
+    if (countdownActive())                                  // обратный отсчёт рисуется вместо эффекта (countdown.ino)
+    {
+      countdownTick();
+      return;
+    }
+
     // ------------------------------------- у эффектов до EFF_MATRIX (все перед Матрицей) бегунок Скорость не регулирует задержку между кадрами
     if (ONflag && (millis() - effTimer >= ((currentMode == EFF_EARTH || currentMode == EFF_MARIO) ? 40U :   // у Земли и Марио фиксированный темп кадров - Скорость управляет движением внутри эффекта
                                            (currentMode >= EFF_MATRIX ) ? 256U - modes[currentMode].Speed : (currentMode <= EFF_OCEAN ) ? 50 : 15)))

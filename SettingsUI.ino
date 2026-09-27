@@ -14,6 +14,7 @@
 //   Лампа              группа, всё что трогают каждый день
 //   Цикл эффектов      меню > Эффекты в цикле (ленивое, см. favListVisible)
 //   Будильник          меню
+//   Обратный отсчёт    меню
 //   Таймер выключения  группа
 //   Бегущая строка     группа
 //   Кнопка             группа
@@ -51,6 +52,10 @@ static css = `
 #define UI_ID_ALARM_ON(i)  (0xA1A000UL + (i))
 #define UI_ID_ALARM_T(i)   (0xA1B000UL + (i))
 #define UI_ID_DAWN_MODE    ("ui_dawn"_h)
+#define UI_ID_CD_LEFT      ("ui_cd_left"_h)
+#define UI_ID_CD_START     ("ui_cd_go"_h)
+#define UI_ID_CD_PAUSE     ("ui_cd_pause"_h)
+#define UI_ID_CD_STOP      ("ui_cd_stop"_h)
 #define UI_ID_TIMER_MIN    ("ui_tmr_min"_h)
 #define UI_ID_TIMER_START  ("ui_tmr_go"_h)
 #define UI_ID_TIMER_STOP   ("ui_tmr_off"_h)
@@ -85,6 +90,19 @@ static uint16_t uiSleepMinutes = 30U;                       // значение 
 // (пока страница открыта, список из меню не пропадает)
 static bool favListVisible = false;                         // строить ли список в текущей сборке страницы
 static bool pendingFavReload = false;                       // запрошено перестроение страницы, чтобы показать список
+
+// оставшееся время обратного отсчёта для поля "Осталось" - одна и та же строка в сборке страницы и в живом обновлении
+static String uiCountdownText()
+{
+  char buf[8];
+  countdownText(buf);
+  String text = buf;
+  if (countdownPaused())
+  {
+    text += F(" (пауза)");
+  }
+  return text;
+}
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
@@ -244,6 +262,33 @@ void settingsBuild(sets::Builder& b)
                  "5 минут;10 минут;15 минут;20 минут;25 минут;30 минут;40 минут;50 минут;60 минут", &dawn))
     {
       lampSetDawnMode(dawn);
+    }
+  }
+
+  // --- ОБРАТНЫЙ ОТСЧЁТ ----------------------
+  {
+    sets::Menu page(b, "Обратный отсчёт");
+
+    b.Slider(kk::cd_seconds, "Интервал, с", 5, 3600, 5);
+    b.Label(UI_ID_CD_LEFT, "Осталось", uiCountdownText()); // обновляется на открытой странице, см. settingsSyncTick
+    b.Slider(kk::cd_bri, "Яркость", 1, 255, 1);
+    b.Slider(kk::cd_hue, "Цвет", 0, 255, 1);
+    b.Slider(kk::cd_rot, "Поворот", 0, WIDTH - 1, 1);
+
+    {
+      sets::Buttons btns(b);
+      if (b.Button(UI_ID_CD_START, "Старт"))
+      {
+        countdownStart();
+      }
+      if (b.Button(UI_ID_CD_PAUSE, "Пауза"))
+      {
+        countdownPause();
+      }
+      if (b.Button(UI_ID_CD_STOP, "Стоп"))
+      {
+        countdownStop();
+      }
     }
   }
 
@@ -697,6 +742,15 @@ void settingsSyncTick()
   {
     lastLogPush = millis();
     sett.updater().update(UI_ID_LOG, static_cast<sets::Logger&>(uiLog)); // приведение к базовому типу, иначе побеждает шаблонная перегрузка update(id, T) по значению
+  }
+
+  // поле "Осталось" обратного отсчёта: оставшееся время, пауза или выбранный интервал
+  static String lastCountdownText;
+  String countdownLeft = uiCountdownText();
+  if (countdownLeft != lastCountdownText)
+  {
+    lastCountdownText = countdownLeft;
+    sett.updater().update(UI_ID_CD_LEFT, countdownLeft);
   }
 
   #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)

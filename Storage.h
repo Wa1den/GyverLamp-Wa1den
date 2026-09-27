@@ -41,6 +41,12 @@ DB_KEYS(kk,
     running_text,                                           // текст эффекта Бегущая строка
     run_text_ip,                                            // вкл/выкл "Писать текущий IP" в эффекте Бегущая строка
 
+    // Обратный отсчёт
+    cd_seconds,                                             // интервал, секунды (5-3600, шаг 5)
+    cd_bri,                                                 // яркость цифр
+    cd_hue,                                                 // цвет цифр (оттенок 0-255), вспышки - противоположного оттенка
+    cd_rot,                                                 // положение цифр по окружности лампы, колонка 0-15
+
     // Автояркость
     ab_on,                                                  // вкл/выкл автояркости по датчику освещённости
     ab_min_bri,                                             // минимальная яркость в темноте, % (5-100)
@@ -163,6 +169,10 @@ class Storage
       #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
       db.init(kk::run_text_ip, false);
+      db.init(kk::cd_seconds, (uint16_t)60);
+      db.init(kk::cd_bri, (uint8_t)40);
+      db.init(kk::cd_hue, (uint8_t)0);
+      db.init(kk::cd_rot, (uint8_t)0);
       #ifdef USE_AUTO_BRIGHTNESS
       db.init(kk::ab_on, false);
       db.init(kk::ab_min_bri, (uint8_t)20);
