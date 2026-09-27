@@ -70,6 +70,8 @@ static css = `
 #define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
 #define UI_ID_LAMP_TIME    ("ui_lamp_time"_h)
 #define UI_ID_SYNC_STATE   ("ui_sync_state"_h)
+#define UI_ID_TZ_OFFSET    ("ui_tz"_h)
+#define UI_ID_TZ_DST       ("ui_tz_dst"_h)
 #define UI_ID_LOG          ("ui_log"_h)
 #define UI_ID_FX_RESET     ("ui_fx_rst"_h)
 #define UI_ID_WIFI_RESET   ("ui_wifi_rst"_h)
@@ -109,13 +111,7 @@ static uint32_t uiManualTimeValue()
   {
     return 0U;
   }
-  #ifdef USE_NTP
   return (uint32_t)localTimeZone.toUTC(getCurrentLocalTime());
-  #elif !defined(SUMMER_WINTER_TIME)
-  return (uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL;
-  #else
-  return (uint32_t)getCurrentLocalTime();
-  #endif
 }
 #endif
 
@@ -471,6 +467,19 @@ void settingsBuild(sets::Builder& b)
     getFormattedTime(timeBuf);
     b.Label(UI_ID_LAMP_TIME, "Время лампы", timeBuf);      // поля времени обновляются на открытой странице, см. settingsSyncTick
     b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", uiSyncState());
+
+    uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
+    if (b.Select(UI_ID_TZ_OFFSET, "Часовой пояс", timezoneList(), &tzIndex))
+    {
+      lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
+      uiTimeRefresh = true;
+    }
+    uint8_t tzDst = db[kk::tz_dst];
+    if (b.Select(UI_ID_TZ_DST, "Переход на летнее время", "нет;Европа;США и Канада", &tzDst))
+    {
+      lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
+      uiTimeRefresh = true;
+    }
     #ifdef USE_NTP
     b.Input(kk::ntp_host, "NTP сервер");
     if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))

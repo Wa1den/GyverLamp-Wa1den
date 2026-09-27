@@ -49,6 +49,8 @@ DB_KEYS(kk,
 
     // Избранное (режим Цикл)
     ntp_host,                                               // адрес NTP сервера (сервера точного времени)
+    tz_offset,                                              // часовой пояс: смещение от UTC в минутах
+    tz_dst,                                                 // переход на летнее время: 0 - нет, 1 - европейские правила, 2 - США и Канада
     wol_mac,                                                // MAC-адрес компьютера для Wake-on-LAN
     wol_ext_on,                                             // вкл/выкл слежения за дополнительным WOL-топиком
     wol_ext_topic,                                          // дополнительный WOL-топик (произвольный, вне дерева топиков лампы)
@@ -170,6 +172,8 @@ class Storage
       #ifdef USE_NTP
       db.init(kk::ntp_host, NTP_ADDRESS);
       #endif //USE_NTP
+      db.init(kk::tz_offset, (int16_t)TIMEZONE_OFFSET_DEFAULT);
+      db.init(kk::tz_dst, (uint8_t)TIMEZONE_DST_DEFAULT);
       db.init(kk::wol_mac, "");
       db.init(kk::wol_ext_on, false);
       db.init(kk::wol_ext_topic, "");

@@ -9283,10 +9283,8 @@ void earthRoutine()
   if (timeSynched)
   {
     uint32_t utcSec;
-    #ifdef USE_NTP
+    #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
     utcSec = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime()) % 86400UL;
-    #elif !defined(SUMMER_WINTER_TIME)
-    utcSec = ((uint32_t)getCurrentLocalTime() - LOCAL_OFFSET * 60UL) % 86400UL;
     #else
     utcSec = (uint32_t)getCurrentLocalTime() % 86400UL;
     #endif

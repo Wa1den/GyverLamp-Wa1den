@@ -226,11 +226,7 @@ void lampSetRunningTextShowIp(bool showIp)
 // ручная установка времени лампы (unix-время по UTC, например из виджета даты/времени веб-интерфейса)
 void lampSetManualTime(uint32_t utcUnixTime)
 {
-  #ifdef USE_NTP
   manualTimeShift = localTimeZone.toLocal((time_t)utcUnixTime) - millis() / 1000UL;
-  #else
-  manualTimeShift = (time_t)utcUnixTime + LOCAL_OFFSET * 60UL - millis() / 1000UL;
-  #endif
 
   #ifdef GET_TIME_FROM_PHONE
   phoneTimeLastSync = manualTimeShift + millis() / 1000UL;
@@ -244,6 +240,116 @@ void lampSetManualTime(uint32_t utcUnixTime)
   #endif
 }
 #endif //USE_MANUAL_TIME_SETTING
+
+#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+// часовые пояса для выбора в веб-интерфейсе: смещение от UTC в минутах
+static const int16_t timezoneOffsets[] PROGMEM = {
+  -720, -660, -600, -570, -540, -480, -420, -360, -300, -240, -210, -180, -120, -60,
+  0, 60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525, 540, 570,
+  600, 630, 660, 720, 765, 780, 840
+};
+#define TIMEZONE_COUNT        (sizeof(timezoneOffsets) / sizeof(timezoneOffsets[0]))
+
+// список поясов строкой для виджета выбора: "UTC-12;...;UTC+5:30;..."
+String timezoneList()
+{
+  String list;
+  for (uint8_t i = 0U; i < TIMEZONE_COUNT; i++)
+  {
+    int16_t offset = (int16_t)pgm_read_word(&timezoneOffsets[i]);
+    uint16_t absOffset = abs(offset);
+    char item[12];
+    if (absOffset % 60U)
+    {
+      sprintf_P(item, PSTR("UTC%c%u:%02u"), offset < 0 ? '-' : '+', absOffset / 60U, absOffset % 60U);
+    }
+    else
+    {
+      sprintf_P(item, PSTR("UTC%c%u"), offset < 0 ? '-' : '+', absOffset / 60U);
+    }
+    if (i)
+    {
+      list += ';';
+    }
+    list += item;
+  }
+  return list;
+}
+
+// номер пояса в списке по смещению; смещение не из списка (файл настроек испорчен) даёт UTC+0
+uint8_t timezoneIndex(int16_t offset)
+{
+  for (uint8_t i = 0U; i < TIMEZONE_COUNT; i++)
+  {
+    if ((int16_t)pgm_read_word(&timezoneOffsets[i]) == offset)
+    {
+      return i;
+    }
+  }
+  return timezoneIndex(0);
+}
+
+int16_t timezoneOffset(uint8_t index)
+{
+  return (int16_t)pgm_read_word(&timezoneOffsets[index < TIMEZONE_COUNT ? index : timezoneIndex(0)]);
+}
+
+// правило перехода для Timezone: воскресенье заданной недели месяца, час - по местному времени до перехода
+static TimeChangeRule timezoneRule(uint8_t week, uint8_t month, int16_t hour, int16_t offset)
+{
+  TimeChangeRule rule;
+  rule.abbrev[0] = '\0';
+  rule.week = week;
+  rule.dow = dow_t::Sun;
+  rule.month = month;
+  rule.hour = (uint8_t)constrain(hour, 0, 23);
+  rule.offset = offset;
+  return rule;
+}
+
+// правила часового пояса из настроек - в объект localTimeZone, через который идут все пересчёты UTC и местного времени
+void timezoneApply()
+{
+  int16_t offset = timezoneOffset(timezoneIndex(db[kk::tz_offset].toInt()));
+  TimeChangeRule stdRule = timezoneRule(week_t::Last, month_t::Oct, 1, offset);
+  TimeChangeRule dstRule = stdRule;                         // одинаковые правила - без перехода на летнее время
+
+  switch ((uint8_t)db[kk::tz_dst])
+  {
+    case 1U:                                                // Европа: последние воскресенья марта и октября, в 01:00 UTC
+      dstRule = timezoneRule(week_t::Last, month_t::Mar, (60 + offset) / 60, offset + 60);
+      stdRule = timezoneRule(week_t::Last, month_t::Oct, (120 + offset) / 60, offset);
+      break;
+    case 2U:                                                // США и Канада: второе воскресенье марта и первое ноября, в 02:00 местного времени
+      dstRule = timezoneRule(week_t::Second, month_t::Mar, 2, offset + 60);
+      stdRule = timezoneRule(week_t::First, month_t::Nov, 2, offset);
+      break;
+  }
+
+  localTimeZone.setRules(dstRule, stdRule);
+}
+
+// смена часового пояса из веб-интерфейса. Момент времени сохраняется: резервное время
+// (manualTimeShift) хранится местным, поэтому его пересчитывают под новый пояс
+void lampSetTimezone(int16_t offset, uint8_t dst)
+{
+  #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+  time_t utcNow = localTimeZone.toUTC(millis() / 1000UL + manualTimeShift);
+  #endif
+
+  db.set(kk::tz_offset, offset);
+  db.set(kk::tz_dst, dst);
+  timezoneApply();
+
+  #if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+  time_t newShift = localTimeZone.toLocal(utcNow) - millis() / 1000UL;
+  #ifdef GET_TIME_FROM_PHONE
+  phoneTimeLastSync += newShift - manualTimeShift;
+  #endif
+  manualTimeShift = newShift;
+  #endif
+}
+#endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
 #ifdef USE_NTP
 // принудительная синхронизация времени с NTP сервером (кнопка в веб-интерфейсе);

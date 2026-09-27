@@ -350,6 +350,8 @@ void ledsClear();                                           // очистка к
 #include "fonts.h"
 #ifdef USE_NTP
 #include <NTPClient.h>
+#endif
+#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 #include <Timezone.h>
 #endif
 #include <TimeLib.h>
@@ -422,17 +424,14 @@ NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // 
 #ifdef USE_NTP
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL); // объект, запрашивающий время с ntp сервера; в нём смещение часового пояса не используется (перенесено в объект localTimeZone); здесь всегда должно быть время UTC
-  #ifdef SUMMER_WINTER_TIME
-  TimeChangeRule summerTime = { SUMMER_TIMEZONE_NAME, SUMMER_WEEK_NUM, SUMMER_WEEKDAY, SUMMER_MONTH, SUMMER_HOUR, SUMMER_OFFSET };
-  TimeChangeRule winterTime = { WINTER_TIMEZONE_NAME, WINTER_WEEK_NUM, WINTER_WEEKDAY, WINTER_MONTH, WINTER_HOUR, WINTER_OFFSET };
-  Timezone localTimeZone(summerTime, winterTime);
-  #else
-  TimeChangeRule localTime = { LOCAL_TIMEZONE_NAME, LOCAL_WEEK_NUM, LOCAL_WEEKDAY, LOCAL_MONTH, LOCAL_HOUR, LOCAL_OFFSET };
-  Timezone localTimeZone(localTime);
-  #endif
   #ifdef PHONE_N_MANUAL_TIME_PRIORITY
     bool stillUseNTP = true;
   #endif    
+#endif
+
+#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+TimeChangeRule utcRule = { "", week_t::Last, dow_t::Sun, month_t::Mar, 1U, 0 };
+Timezone localTimeZone(utcRule);                            // часовой пояс и летнее время задаются в веб-интерфейсе, правила ставит timezoneApply() при старте
 #endif
 
 timerMinim timeTimer(3000);
@@ -601,6 +600,9 @@ void setup()
     &(FavoritesManager::SaveFavoritesToStorage),
     &(restoreSettings)); // восстановление настроек эффектов по умолчанию выполняется в обработчике инициализации Storage
   LOG.printf_P(PSTR("Рабочий режим лампы: ESP_MODE = %d\n"), espMode);
+  #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
+  timezoneApply();                                          // часовой пояс и летнее время из настроек
+  #endif
 
   if (needResetWifiOnStart)                                 // сброс сохранённых SSID и пароля при старте с зажатой кнопкой, если разрешено (ESP_RESET_ON_START)
   {
