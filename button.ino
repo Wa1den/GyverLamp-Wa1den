@@ -26,8 +26,19 @@ void buttonTick()
   uint8_t clickCount = touch.hasClicks() ? touch.getClicks() : 0U;
 
 
+  // кубик на лампе: один клик бросает его ещё раз (если включено на странице настроек), два клика возвращают к эффекту
+  if (clickCount == 1U && diceActive() && !dawnFlag && (bool)db[kk::dice_click])
+  {
+    diceRoll((uint8_t)db[kk::dice_last]);
+  }
+  else if (clickCount == 2U && diceActive() && !dawnFlag)
+  {
+    diceExit();
+  }
+
+
   // однократное нажатие
-  if (clickCount == 1U)
+  else if (clickCount == 1U)
   {
     if (dawnFlag)
     {

@@ -47,6 +47,16 @@ DB_KEYS(kk,
     cd_hue,                                                 // цвет цифр (оттенок 0-255), вспышки - противоположного оттенка
     cd_rot,                                                 // положение цифр по окружности лампы, колонка 0-15
 
+    // Кубики
+    dice_bri,                                               // яркость
+    dice_speed,                                             // скорость анимации броска: от 4 с на 1 до 0.9 с на 255
+    dice_hue,                                               // цвет (оттенок 0-255)
+    dice_rot,                                               // положение результата по окружности лампы, колонка 0-15
+    dice_hold,                                              // сколько секунд держится результат, 0 - пока не вернуться к эффекту
+    dice_click,                                             // клик кнопкой лампы бросает кубик ещё раз, пока он на лампе
+    dice_mirror,                                            // копия результата и анимации на противоположной стороне лампы
+    dice_last,                                              // последний брошенный кубик (индекс в diceSides)
+
     // Автояркость
     ab_on,                                                  // вкл/выкл автояркости по датчику освещённости
     ab_min_bri,                                             // минимальная яркость в темноте, % (5-100)
@@ -173,6 +183,14 @@ class Storage
       db.init(kk::cd_bri, (uint8_t)40);
       db.init(kk::cd_hue, (uint8_t)0);
       db.init(kk::cd_rot, (uint8_t)0);
+      db.init(kk::dice_bri, (uint8_t)40);
+      db.init(kk::dice_speed, (uint8_t)128);
+      db.init(kk::dice_hue, (uint8_t)0);
+      db.init(kk::dice_rot, (uint8_t)0);
+      db.init(kk::dice_hold, (uint16_t)10);
+      db.init(kk::dice_click, false);
+      db.init(kk::dice_mirror, true);
+      db.init(kk::dice_last, (uint8_t)6);
       #ifdef USE_AUTO_BRIGHTNESS
       db.init(kk::ab_on, false);
       db.init(kk::ab_min_bri, (uint8_t)20);

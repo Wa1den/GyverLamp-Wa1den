@@ -64,7 +64,7 @@ void countdownStart()
 
   if (cdState == CD_IDLE)
   {
-    cdWasOn = ONflag;
+    cdWasOn = diceActive() ? diceAbort() : ONflag;          // отсчёт сменяет кубик и наследует, была ли лампа включена до него
   }
   cdMode = currentMode;
   ONflag = true;                                            // выключенная лампа включается сразу на цифрах, без разгорания эффекта
@@ -100,6 +100,14 @@ void countdownStop()
     changePower();
   }
   mqttRequestPublish();
+}
+
+// отсчёт убирается без возврата к эффекту, потому что лампу занимает кубик;
+// возвращает, была ли лампа включена до отсчёта
+bool countdownAbort()
+{
+  cdState = CD_IDLE;
+  return cdWasOn;
 }
 
 // яркость вспышки через t мс от её начала: разгорается с нарастающим темпом и гаснет с убывающим

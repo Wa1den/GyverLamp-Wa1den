@@ -21,6 +21,11 @@ void effectsTick()
       countdownTick();
       return;
     }
+    if (diceActive())                                       // кубик тоже рисуется вместо эффекта (dice.ino)
+    {
+      diceTick();
+      return;
+    }
 
     // ------------------------------------- у эффектов до EFF_MATRIX (все перед Матрицей) бегунок Скорость не регулирует задержку между кадрами
     if (ONflag && (millis() - effTimer >= ((currentMode == EFF_EARTH || currentMode == EFF_MARIO) ? 40U :   // у Земли и Марио фиксированный темп кадров - Скорость управляет движением внутри эффекта

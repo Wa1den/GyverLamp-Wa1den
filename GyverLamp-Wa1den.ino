@@ -717,7 +717,7 @@ void loop()
   TimerManager::HandleTimer(&ONflag, &settChanged,          // обработка событий таймера отключения лампы
     &eepromTimeout, &changePower);
 
-  if (!countdownActive() &&                                 // во время обратного отсчёта Цикл эффект не переключает, иначе отсчёт прервался бы
+  if (!countdownActive() && !diceActive() &&               // во время обратного отсчёта и кубика Цикл эффект не переключает, иначе они прервались бы
       FavoritesManager::HandleFavorites(                    // обработка режима избранных эффектов
       &ONflag,
       &currentMode,

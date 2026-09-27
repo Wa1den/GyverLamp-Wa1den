@@ -15,6 +15,7 @@
 //   Цикл эффектов      меню > Эффекты в цикле (ленивое, см. favListVisible)
 //   Будильник          меню
 //   Обратный отсчёт    меню
+//   Кубики             меню
 //   Таймер выключения  группа
 //   Бегущая строка     группа
 //   Кнопка             группа
@@ -58,6 +59,9 @@ static css = `
 #define UI_ID_CD_START     ("ui_cd_go"_h)
 #define UI_ID_CD_PAUSE     ("ui_cd_pause"_h)
 #define UI_ID_CD_STOP      ("ui_cd_stop"_h)
+#define UI_ID_DICE(i)      (0xD1CE00UL + (i))
+#define UI_ID_DICE_RESULT  ("ui_dice_res"_h)
+#define UI_ID_DICE_EXIT    ("ui_dice_exit"_h)
 #define UI_ID_TIMER_MIN    ("ui_tmr_min"_h)
 #define UI_ID_TIMER_START  ("ui_tmr_go"_h)
 #define UI_ID_TIMER_STOP   ("ui_tmr_off"_h)
@@ -303,6 +307,39 @@ void settingsBuild(sets::Builder& b)
       {
         countdownStop();
       }
+    }
+  }
+
+  // --- КУБИКИ -------------------------------
+  {
+    sets::Menu page(b, "Кубики");
+
+    for (uint8_t row = 0U; row < 4U; row++)                 // восемь кубиков в два столбца
+    {
+      sets::Buttons btns(b);
+      for (uint8_t col = 0U; col < 2U; col++)
+      {
+        uint8_t type = row * 2U + col;
+        String name = F("1d");
+        name += diceSidesOf(type);
+        if (b.Button(UI_ID_DICE(type), name))
+        {
+          diceRoll(type);
+        }
+      }
+    }
+
+    b.Label(UI_ID_DICE_RESULT, "Результат", diceText());   // обновляется на открытой странице, см. settingsSyncTick
+    b.Slider(kk::dice_bri, "Яркость", 1, 255, 1);
+    b.Slider(kk::dice_speed, "Скорость анимации", 1, 255, 1);
+    b.Slider(kk::dice_hue, "Цвет", 0, 255, 1);
+    b.Slider(kk::dice_rot, "Поворот", 0, WIDTH - 1, 1);
+    b.Slider(kk::dice_hold, "Показ результата, с (0 - до возврата)", 0, 120, 1);
+    b.Switch(kk::dice_mirror, "Дублировать на обратной стороне");
+    b.Switch(kk::dice_click, "Повторный бросок кнопкой лампы");
+    if (b.Button(UI_ID_DICE_EXIT, "Вернуться к эффекту"))
+    {
+      diceExit();
     }
   }
 
@@ -765,6 +802,14 @@ void settingsSyncTick()
   {
     lastCountdownText = countdownLeft;
     sett.updater().update(UI_ID_CD_LEFT, countdownLeft);
+  }
+
+  static String lastDiceText;                               // поле "Результат" кубиков: бросок идёт или его итог
+  String diceResult = diceText();
+  if (diceResult != lastDiceText)
+  {
+    lastDiceText = diceResult;
+    sett.updater().update(UI_ID_DICE_RESULT, diceResult);
   }
 
   #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
