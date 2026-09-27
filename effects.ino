@@ -9556,11 +9556,17 @@ void marioRoutine()
 // прицела, поэтому иногда промахивается. Отскок зависит от того, какой частью ракетки отбит мяч.
 // Промах отмечается короткой тусклой вспышкой всей лампы. Партия идёт до 9 очков, в её конце
 // в месте последнего промаха показывается счёт: верхний игрок сверху, нижний снизу.
+//
+// Мяч 2x2 и ракетки рисуются со сглаживанием: пиксель светится на ту долю, на которую его
+// накрывает фигура, поэтому мяч смещается плавно, а не прыжками на целую клетку. Координаты
+// непрерывные, пиксель k занимает отрезок [k, k+1). След мяча - затухание прошлого кадра.
 // Бегунок Масштаб - цвет ракеток (мяч противоположного оттенка, на 100 - белые ракетки),
-// Скорость - скорость мяча, от 6 до 28 строк в секунду.
+// Скорость - скорость мяча, от 6 до 45 строк в секунду; кадр 20 мс.
 
 #define PONG_PADDLE_WIDTH   (4.0F)                          // ширина ракетки, колонок
-#define PONG_AIM_ERROR      (2.6F)                          // наибольшая ошибка прицела, колонок: при ошибке больше половины ракетки мяч проходит мимо
+#define PONG_BALL_HALF      (1.0F)                          // половина стороны мяча
+#define PONG_AIM_ERROR      (2.8F)                          // наибольшая ошибка прицела, колонок: при большей ошибке мяч проходит мимо ракетки
+#define PONG_TRAIL_FADE     (90U)                           // сколько яркости прошлого кадра остаётся в следе, из 255
 #define PONG_FLASH_MS       (400U)                          // вспышка после промаха, до следующей подачи
 #define PONG_FLASH_BRIGHT   (50U)                           // яркость вспышки в начале
 #define PONG_SCORE_MS       (2500U)                         // сколько показывается счёт в конце партии
@@ -9569,13 +9575,38 @@ void marioRoutine()
 // разность a - b по окружности лампы, в пределах [-WIDTH/2, WIDTH/2)
 static float pongWrap(float a, float b)
 {
-  float d = fmodf(a - b + WIDTH * 1.5F, (float)WIDTH) - WIDTH / 2.0F;
-  return d;
+  return fmodf(a - b + WIDTH * 1.5F, (float)WIDTH) - WIDTH / 2.0F;
+}
+
+// прямоугольник [x0, x1) x [y0, y1) со сглаживанием: каждый пиксель получает цвет пропорционально
+// накрытой площади и прибавляется к тому, что уже нарисовано; по горизонтали переносится через шов
+static void pongRect(float x0, float x1, float y0, float y1, CRGB color)
+{
+  for (int16_t x = (int16_t)floorf(x0); x < (int16_t)ceilf(x1); x++)
+  {
+    float cx = min(x1, x + 1.0F) - max(x0, (float)x);
+    if (cx <= 0.0F)
+    {
+      continue;
+    }
+    uint8_t column = (uint8_t)((x % (int16_t)WIDTH + WIDTH) % WIDTH);
+    for (int16_t y = (int16_t)floorf(y0); y < (int16_t)ceilf(y1); y++)
+    {
+      float cy = min(y1, y + 1.0F) - max(y0, (float)y);
+      if (y < 0 || y >= (int16_t)HEIGHT || cy <= 0.0F)
+      {
+        continue;
+      }
+      CRGB part = color;
+      part.nscale8((uint8_t)(cx * cy * 255.0F));
+      leds[XY(column, y)] += part;
+    }
+  }
 }
 
 void pingPongRoutine()
 {
-  static float ballX, ballY, ballVX, ballVY;
+  static float ballX, ballY, ballVX, ballVY;                // центр мяча
   static float paddleX[2];                                  // центры ракеток: 0 - нижняя, 1 - верхняя
   static float aimError[2];                                 // ошибка прицела на текущую подачу к ракетке
   static uint8_t score[2];
@@ -9583,7 +9614,6 @@ void pingPongRoutine()
   static uint32_t pauseUntil;                               // до этого момента новой подачи нет
   static bool serve;                                        // после паузы нужна новая подача
   static bool gameOver;                                     // партия закончилась, показывается счёт
-  static float trailX[3], trailY[3];                        // след мяча
 
   if (loadingFlag)
   {
@@ -9595,14 +9625,17 @@ void pingPongRoutine()
 
     loadingFlag = false;
     score[0] = score[1] = 0U;
-    paddleX[0] = paddleX[1] = WIDTH / 2U;
+    paddleX[0] = paddleX[1] = WIDTH / 2.0F;
     missAt = millis() - PONG_FLASH_MS;                      // без вспышки на старте
     pauseUntil = 0U;
     serve = true;
     gameOver = false;
+    ledsClear();
   }
 
-  float speed = 0.24F + modes[currentMode].Speed * 0.0036F; // строк за кадр 40 мс. Быстрее строки за кадр мяч не проскакивает ракетку: отскок проверяется, как только он дошёл до её строки или дальше
+  float speed = 0.12F + modes[currentMode].Speed * 0.00306F; // строк за кадр 20 мс
+  const float bottomHit = 1.0F + PONG_BALL_HALF;            // центр мяча, при котором он касается нижней ракетки
+  const float topHit = HEIGHT - 1.0F - PONG_BALL_HALF;      // и верхней
 
   if (serve && millis() >= pauseUntil)                      // подача из середины по высоте в случайную сторону
   {
@@ -9613,17 +9646,12 @@ void pingPongRoutine()
       score[0] = score[1] = 0U;
     }
     ballX = random8(WIDTH);
-    ballY = (HEIGHT - 1U) / 2.0F;
+    ballY = HEIGHT / 2.0F;
     ballVY = random8(2U) ? speed : -speed;
     ballVX = (random8(2U) ? 1.0F : -1.0F) * speed * (0.3F + random8(60U) / 100.0F);
     for (uint8_t i = 0U; i < 2U; i++)
     {
       aimError[i] = (random8(201U) - 100) / 100.0F * PONG_AIM_ERROR;
-    }
-    for (uint8_t i = 0U; i < 3U; i++)
-    {
-      trailX[i] = ballX;
-      trailY[i] = ballY;
     }
   }
 
@@ -9637,40 +9665,28 @@ void pingPongRoutine()
     ballVY *= scale;
     ballVX *= scale;
 
-    for (uint8_t i = 2U; i > 0U; i--)
-    {
-      trailX[i] = trailX[i - 1U];
-      trailY[i] = trailY[i - 1U];
-    }
-    trailX[0] = ballX;
-    trailY[0] = ballY;
-
     ballX = fmodf(ballX + ballVX + WIDTH, (float)WIDTH);
     ballY += ballVY;
 
-    // ракетки: та, к которой летит мяч, идёт к точке его падения, вторая возвращается к середине траектории
+    // ракетки: та, к которой летит мяч, идёт к точке его падения, вторая подтягивается за мячом
     for (uint8_t p = 0U; p < 2U; p++)
     {
       bool incoming = (p == 0U) ? (ballVY < 0.0F) : (ballVY > 0.0F);
-      float target;
+      float target = ballX;
       if (incoming)
       {
-        float rows = (p == 0U) ? (ballY - 1.0F) : (HEIGHT - 2.0F - ballY);
-        target = ballX + ballVX * rows / fabsf(ballVY) + aimError[p];
-      }
-      else
-      {
-        target = ballX;
+        float rows = (p == 0U) ? (ballY - bottomHit) : (topHit - ballY);
+        target += ballVX * rows / fabsf(ballVY) + aimError[p];
       }
       float d = pongWrap(target, paddleX[p]);
       float step = incoming ? speed * 1.1F : speed * 0.4F;
       paddleX[p] = fmodf(paddleX[p] + constrain(d, -step, step) + WIDTH, (float)WIDTH);
     }
 
-    // отскок от ракетки или очко
+    // отскок от ракетки или очко: мяч отбит, если накрывает ракетку хотя бы на половину своей ширины
     for (uint8_t p = 0U; p < 2U; p++)
     {
-      bool reached = (p == 0U) ? (ballVY < 0.0F && ballY <= 1.0F) : (ballVY > 0.0F && ballY >= HEIGHT - 2.0F);
+      bool reached = (p == 0U) ? (ballVY < 0.0F && ballY <= bottomHit) : (ballVY > 0.0F && ballY >= topHit);
       if (!reached)
       {
         continue;
@@ -9678,13 +9694,13 @@ void pingPongRoutine()
       float offset = pongWrap(ballX, paddleX[p]);
       if (fabsf(offset) <= PONG_PADDLE_WIDTH / 2.0F)
       {
-        ballY = (p == 0U) ? 2.0F - ballY : 2.0F * (HEIGHT - 2.0F) - ballY;
+        ballY = (p == 0U) ? 2.0F * bottomHit - ballY : 2.0F * topHit - ballY;
         ballVY = -ballVY;
         ballVX = constrain(ballVX + offset * 0.35F * speed, -1.3F * speed, 1.3F * speed); // край ракетки закручивает мяч сильнее
         aimError[1U - p] = (random8(201U) - 100) / 100.0F * PONG_AIM_ERROR;
       }
     }
-    if (ballY < 0.0F || ballY > HEIGHT - 1.0F)              // мяч ушёл за торец
+    if (ballY < 0.0F || ballY > HEIGHT)                     // мяч ушёл за торец
     {
       score[ballY < 0.0F ? 1U : 0U]++;
       gameOver = score[0] >= PONG_WIN_SCORE || score[1] >= PONG_WIN_SCORE;
@@ -9700,18 +9716,26 @@ void pingPongRoutine()
     uint8_t fade = 255U - sinceMiss * 255U / PONG_FLASH_MS;
     fillAll(CHSV(hue + 128U, 255U, scale8(PONG_FLASH_BRIGHT, scale8(fade, fade))));
   }
-  else
+  else if (serve)
   {
     ledsClear();
   }
-
-  for (uint8_t p = 0U; p < 2U; p++)
+  else
   {
-    for (uint8_t k = 0U; k < (uint8_t)PONG_PADDLE_WIDTH; k++)
+    nscale8(leds, NUM_LEDS, PONG_TRAIL_FADE);               // прошлые кадры гаснут и остаются следом мяча
+  }
+
+  for (uint8_t p = 0U; p < 2U; p++)                         // строки ракеток перерисовываются целиком, без следа
+  {
+    uint8_t row = p ? HEIGHT - 1U : 0U;
+    if (sinceMiss >= PONG_FLASH_MS)
     {
-      int16_t x = (int16_t)floorf(paddleX[p] - PONG_PADDLE_WIDTH / 2.0F + 0.5F) + k;
-      drawPixelXY((uint8_t)((x % (int16_t)WIDTH + WIDTH) % WIDTH), p ? HEIGHT - 1U : 0U, CHSV(hue, sat, 255U));
+      for (uint8_t x = 0U; x < WIDTH; x++)
+      {
+        leds[XY(x, row)] = CRGB::Black;
+      }
     }
+    pongRect(paddleX[p] - PONG_PADDLE_WIDTH / 2.0F, paddleX[p] + PONG_PADDLE_WIDTH / 2.0F, row, row + 1.0F, CHSV(hue, sat, 255U));
   }
 
   if (serve)
@@ -9721,15 +9745,11 @@ void pingPongRoutine()
       return;
     }
     // конец партии: счёт в месте последнего промаха
-    uint8_t left = (uint8_t)((int16_t)(ballX + 0.5F) + WIDTH - 1U) % WIDTH;
+    uint8_t left = (uint8_t)((int16_t)ballX + WIDTH - 1U) % WIDTH;
     drawDig3x5(left, HEIGHT / 2U + 1U, score[1] % 10U, CHSV(hue + 128U, 255U, 255U));
     drawDig3x5(left, HEIGHT / 2U - 6U, score[0] % 10U, CHSV(hue + 128U, 255U, 255U));
     return;
   }
 
-  for (uint8_t i = 3U; i > 0U; i--)                         // след гаснет к хвосту
-  {
-    drawPixelXY((uint8_t)(trailX[i - 1U] + 0.5F) % WIDTH, (uint8_t)(trailY[i - 1U] + 0.5F), CHSV(hue + 128U, 200U, 90U - i * 25U));
-  }
-  drawPixelXY((uint8_t)(ballX + 0.5F) % WIDTH, (uint8_t)(ballY + 0.5F), CHSV(hue + 128U, 120U, 255U));
+  pongRect(ballX - PONG_BALL_HALF, ballX + PONG_BALL_HALF, ballY - PONG_BALL_HALF, ballY + PONG_BALL_HALF, CHSV(hue + 128U, 120U, 255U));
 }
