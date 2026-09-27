@@ -20,6 +20,7 @@ String ntpServerIpStr;                                                    // IP 
                                                                           // пока время не синхронизировано). hostByName со строкой-IP возвращается сразу
 uint32_t ntpRetryInterval = RESOLVE_INTERVAL;                             // текущий интервал попыток синхронизации (растёт при неудачах)
 #define NTP_RETRY_MAX         (10UL * 60UL * 1000UL)                      // максимальный интервал попыток (10 минут)
+#define NTP_START_DELAY       (5000UL)                                    // пауза между подключением к роутеру и первой попыткой синхронизации, мс
 
 // сброс паузы между попытками к обычной (вызывается при ручной синхронизации из веб-интерфейса;
 // отдельная функция, т.к. LampControl.ino компилируется раньше time.ino и переменную оттуда не видит)
@@ -72,6 +73,23 @@ if (espMode == 1U){
         // отсюда сильные лаги анимации и веб-интерфейса первые секунды/минуты после загрузки,
         // пока роутер не отдаст DNS/NTP
         if (lastResolveTryMoment != 0 && millis() - lastResolveTryMoment < ntpRetryInterval)
+        {
+          return;
+        }
+
+        // первая попытка - только после подключения к роутеру и паузы NTP_START_DELAY: сразу после
+        // старта сети ещё нет, и попытка через 3 с после загрузки всегда заканчивалась ошибкой DNS
+        static uint32_t wifiUpAt = 0U;
+        if (!WiFiConnector.connected())
+        {
+          wifiUpAt = 0U;
+          return;
+        }
+        if (wifiUpAt == 0U)
+        {
+          wifiUpAt = millis();
+        }
+        if (millis() - wifiUpAt < NTP_START_DELAY)
         {
           return;
         }
