@@ -359,6 +359,8 @@ void ledsClear();                                           // очистка к
 extern bool timeSynched;                                    // определены ниже/в time.ino; нужны классу журнала
 time_t getCurrentLocalTime();
 
+void crashTailPut(char c);                                  // след журнала для разбора перезагрузок, определён ниже
+
 // Журнал событий для веб-интерфейса: кольцевой буфер, в начало каждой строки
 // автоматически добавляется временная метка - [ДД.ММ ЧЧ:ММ:СС] при
 // синхронизированном времени, иначе [ЧЧ:ММ:СС] от старта лампы.
@@ -387,6 +389,7 @@ class TimedLogger : public sets::Logger
         }
         for (const char* p = stamp; *p != '\0'; p++)
         {
+          crashTailPut(*p);
           sets::Logger::write(*p);
         }
       }
@@ -394,6 +397,7 @@ class TimedLogger : public sets::Logger
       {
         _lineStart = true;
       }
+      crashTailPut(v);
       return sets::Logger::write(v);
     }
 
@@ -402,6 +406,144 @@ class TimedLogger : public sets::Logger
 };
 
 TimedLogger uiLog(1200);                                    // объявлен до MqttManager.h, который в него пишет
+
+// След для разбора перезагрузок по сторожевому таймеру. Журнал uiLog живёт в оперативной памяти и
+// при сбросе теряется, а RTC-память переживает любой сброс, кроме отключения питания. Поэтому в неё
+// пишутся последняя завершённая стадия основного цикла, эффект, время работы и хвост журнала, а
+// после сброса по сторожу или исключению они выводятся в журнал. Первые 32 слова пользовательской
+// RTC-памяти занимает команда загрузчика при обновлении по воздуху, след лежит за ними.
+// RTC-память доступна только целыми словами, поэтому хвост копится в RAM и переносится в конце строки.
+#define CRASH_TRACE_ADDR    (0x60001200UL + 40U * 4U)
+#define CRASH_TRACE_MAGIC   (0x4C414D50UL)
+#define CRASH_TAIL_WORDS    (64U)
+
+struct CrashTrace
+{
+  uint32_t magic;
+  uint32_t build;                                           // хэш даты и времени сборки: указатель на имя стадии верен только в той же прошивке
+  uint32_t stage;                                           // указатель на имя последней завершённой стадии цикла
+  uint32_t uptime;                                          // millis() на момент этой стадии
+  uint32_t state;                                           // номер эффекта, в старшем байте - включена ли лампа
+  uint32_t head;                                            // позиция записи в кольце хвоста
+  uint32_t tail[CRASH_TAIL_WORDS];
+};
+
+static volatile CrashTrace* const crashTrace = (volatile CrashTrace*)CRASH_TRACE_ADDR;
+static char crashTail[CRASH_TAIL_WORDS * 4U] __attribute__((aligned(4))); // хвост журнала в RAM
+static uint16_t crashTailHead = 0U;
+static bool crashTraceReady = false;                        // след прошлого запуска уже прочитан, можно писать новый
+static CrashTrace crashPrev;                                // след прошлого запуска
+static bool crashPrevValid = false;
+
+static uint32_t crashBuildHash()
+{
+  uint32_t hash = 2166136261UL;                             // FNV-1a
+  for (const char* p = __DATE__ " " __TIME__; *p; p++)
+  {
+    hash = (hash ^ (uint8_t)*p) * 16777619UL;
+  }
+  return hash;
+}
+
+void crashTailPut(char c)
+{
+  if (!crashTraceReady)
+  {
+    return;
+  }
+  crashTail[crashTailHead] = c;
+  crashTailHead = (crashTailHead + 1U) % sizeof(crashTail);
+  if (c == '\n')                                            // строка закончилась - хвост переносится в RTC
+  {
+    const uint32_t* words = (const uint32_t*)crashTail;
+    for (uint8_t i = 0U; i < CRASH_TAIL_WORDS; i++)
+    {
+      crashTrace->tail[i] = words[i];
+    }
+    crashTrace->head = crashTailHead;
+  }
+}
+
+// вызывается в каждой точке LOOP_STAGE: три записи слова в RTC на стадию
+void crashTraceStage(const char* name, uint8_t mode, bool on)
+{
+  crashTrace->stage = (uint32_t)name;
+  crashTrace->uptime = millis();
+  crashTrace->state = mode | ((uint32_t)on << 24);
+}
+
+// в самом начале setup: забрать след прошлого запуска и начать новый
+void crashTraceLoad()
+{
+  crashPrevValid = crashTrace->magic == CRASH_TRACE_MAGIC;
+  if (crashPrevValid)
+  {
+    crashPrev.build = crashTrace->build;
+    crashPrev.stage = crashTrace->stage;
+    crashPrev.uptime = crashTrace->uptime;
+    crashPrev.state = crashTrace->state;
+    crashPrev.head = crashTrace->head;
+    for (uint8_t i = 0U; i < CRASH_TAIL_WORDS; i++)
+    {
+      crashPrev.tail[i] = crashTrace->tail[i];
+    }
+  }
+  crashTrace->magic = CRASH_TRACE_MAGIC;
+  crashTrace->build = crashBuildHash();
+  crashTrace->stage = 0U;
+  crashTrace->uptime = 0U;
+  crashTrace->state = 0U;
+  crashTrace->head = 0U;
+  for (uint8_t i = 0U; i < CRASH_TAIL_WORDS; i++)
+  {
+    crashTrace->tail[i] = 0U;
+  }
+  crashTraceReady = true;
+}
+
+// после строки "Старт": если лампа перезагрузилась по сторожу или исключению, вывести след в журнал
+void crashTraceReport()
+{
+  const rst_info* info = ESP.getResetInfoPtr();
+  if (!crashPrevValid || (info->reason != REASON_WDT_RST && info->reason != REASON_EXCEPTION_RST && info->reason != REASON_SOFT_WDT_RST))
+  {
+    return;
+  }
+
+  if (info->reason == REASON_EXCEPTION_RST)
+  {
+    uiLog.printf_P(PSTR("Исключение %u по адресу 0x%08x\n"), info->exccause, info->epc1);
+  }
+  uiLog.printf_P(PSTR("До сброса: работала %u с, эффект %u, лампа %s"), crashPrev.uptime / 1000U,
+                 crashPrev.state & 0xFFU, (crashPrev.state >> 24) ? "включена" : "выключена");
+  if (crashPrev.build == crashBuildHash() && crashPrev.stage)
+  {
+    uiLog.printf_P(PSTR(", последняя завершённая стадия цикла: %s"), (const char*)crashPrev.stage);
+  }
+  uiLog.println();
+
+  // хвост журнала прошлого запуска, начиная с первой целой строки
+  const char* tail = (const char*)crashPrev.tail;
+  const uint16_t size = CRASH_TAIL_WORDS * 4U;
+  uint16_t i = 0U;
+  while (i < size && tail[(crashPrev.head + i) % size] != '\n')
+  {
+    i++;
+  }
+  if (++i >= size)
+  {
+    return;
+  }
+  uiLog.println(F("Журнал до сброса:"));
+  for (; i < size; i++)
+  {
+    char c = tail[(crashPrev.head + i) % size];
+    if (c)
+    {
+      uiLog.write((uint8_t)c);
+    }
+  }
+}
 
 #ifdef OTA
 #include "OtaManager.h"
@@ -524,6 +666,7 @@ void setup()
   Serial.begin(115200);
   Serial.println();
   ESP.wdtEnable(WDTO_8S);
+  crashTraceLoad();                                         // до первой записи в журнал, иначе след прошлого запуска затрётся
 
 
   // ПИНЫ
@@ -659,6 +802,7 @@ void setup()
   }
 
   uiLog.printf_P(PSTR("Старт. Причина перезагрузки: %s\n"), ESP.getResetReason().c_str()); // в журнал веб-интерфейса; помогает заметить самопроизвольные перезагрузки
+  crashTraceReport();
 }
 
 
@@ -670,9 +814,9 @@ void setup()
 // более подробное профилирование в SettingsUI.ino (UI_PROFILE_MS)
 #ifdef LOOP_WATCHDOG_MS
 static uint32_t loopStageStart = 0U;
-#define LOOP_STAGE(name)                                                                          do {                                                                                              uint32_t stageMs = millis() - loopStageStart;                                                   if (stageMs >= LOOP_WATCHDOG_MS)                                                                {                                                                                                 uiLog.printf_P(PSTR("Долгий цикл: %s %u мс (память %u, блок %u, фрагм %u%%)"), name, stageMs, ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation());       uiLog.println();                                                                              }                                                                                               loopStageStart = millis();                                                                    } while (0)
+#define LOOP_STAGE(name)                                                                          do {                                                                                              uint32_t stageMs = millis() - loopStageStart;                                                   if (stageMs >= LOOP_WATCHDOG_MS)                                                                {                                                                                                 uiLog.printf_P(PSTR("Долгий цикл: %s %u мс (память %u, блок %u, фрагм %u%%)"), name, stageMs, ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation());       uiLog.println();                                                                              }                                                                                               loopStageStart = millis();                                                                    crashTraceStage(name, currentMode, ONflag); } while (0)
 #else
-#define LOOP_STAGE(name)
+#define LOOP_STAGE(name) crashTraceStage(name, currentMode, ONflag)
 #endif
 
 void loop()
