@@ -4,7 +4,7 @@
 // Пока осталось больше минуты, минуты стоят над секундами цифрами 3x5, в последнюю минуту
 // остаются секунды шрифтом 5x8. В последние 5 секунд на смене каждой секунды фон вспыхивает
 // цветом, противоположным цвету цифр, и каждая следующая вспышка ярче. По окончании фон
-// вспыхивает трижды на полную яркость, после чего лампа возвращается к эффекту или
+// вспыхивает пять раз на полную яркость, после чего лампа возвращается к эффекту или
 // выключается, если до старта была выключена.
 //
 // Отсчёт прерывается без вспышек, если лампу выключили или сменили эффект - кнопкой,
@@ -13,7 +13,8 @@
 #define COUNTDOWN_FRAME_MS      (20U)                       // период кадра во время вспышек
 #define COUNTDOWN_FLASH_RISE    (150U)                      // вспышка разгорается, мс
 #define COUNTDOWN_FLASH_FALL    (250U)                      // и гаснет, мс
-#define COUNTDOWN_FINAL_PERIOD  (500U)                      // период трёх финальных вспышек, мс
+#define COUNTDOWN_FINAL_PERIOD  (500U)                      // период финальных вспышек, мс
+#define COUNTDOWN_FINAL_FLASHES (5U)                        // сколько раз фон вспыхивает по окончании
 #define COUNTDOWN_WARN_SECONDS  (5U)                        // сколько последних секунд отмечается вспышками
 
 enum CountdownState : uint8_t
@@ -196,7 +197,7 @@ void countdownTick()
   if (cdState == CD_FINAL)
   {
     uint32_t elapsed = millis() - cdFinalAt;
-    if (elapsed >= 3U * COUNTDOWN_FINAL_PERIOD)
+    if (elapsed >= COUNTDOWN_FINAL_FLASHES * COUNTDOWN_FINAL_PERIOD)
     {
       countdownStop();
       return;

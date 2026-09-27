@@ -53,6 +53,8 @@ static css = `
 #define UI_ID_ALARM_T(i)   (0xA1B000UL + (i))
 #define UI_ID_DAWN_MODE    ("ui_dawn"_h)
 #define UI_ID_CD_LEFT      ("ui_cd_left"_h)
+#define UI_ID_CD_MIN       ("ui_cd_min"_h)
+#define UI_ID_CD_SEC       ("ui_cd_sec"_h)
 #define UI_ID_CD_START     ("ui_cd_go"_h)
 #define UI_ID_CD_PAUSE     ("ui_cd_pause"_h)
 #define UI_ID_CD_STOP      ("ui_cd_stop"_h)
@@ -269,7 +271,19 @@ void settingsBuild(sets::Builder& b)
   {
     sets::Menu page(b, "Обратный отсчёт");
 
-    b.Slider(kk::cd_seconds, "Интервал, с", 5, 3600, 5);
+    uint16_t interval = (uint16_t)db[kk::cd_seconds];      // в базе интервал хранится секундами, на странице - минутами и секундами в одной строке
+    uint16_t intervalMin = interval / 60U;
+    uint16_t intervalSec = interval % 60U;
+    {
+      sets::Row row(b);
+      bool changed = b.Number(UI_ID_CD_MIN, "Минуты", &intervalMin, 0, 99);
+      changed |= b.Number(UI_ID_CD_SEC, "Секунды", &intervalSec, 0, 59);
+      if (changed)
+      {
+        interval = constrain(intervalMin, 0U, 99U) * 60U + constrain(intervalSec, 0U, 59U);
+        db.set(kk::cd_seconds, (uint16_t)max(interval, (uint16_t)1U)); // нулевой интервал отсчитывается как одна секунда
+      }
+    }
     b.Label(UI_ID_CD_LEFT, "Осталось", uiCountdownText()); // обновляется на открытой странице, см. settingsSyncTick
     b.Slider(kk::cd_bri, "Яркость", 1, 255, 1);
     b.Slider(kk::cd_hue, "Цвет", 0, 255, 1);
