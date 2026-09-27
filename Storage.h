@@ -226,8 +226,12 @@ class Storage
       {
         modesEntry.writeBytes(modes);
       }
-      else                                                  // количество эффектов изменилось после обновления прошивки - остаются настройки по умолчанию
+      else                                                  // количество эффектов изменилось после обновления прошивки
       {
+        if (modesEntry.buffer() && modesEntry.size() < sizeof(ModeType) * MODE_AMOUNT && modesEntry.size() % sizeof(ModeType) == 0)
+        {
+          memcpy(modes, modesEntry.buffer(), modesEntry.size()); // новые эффекты добавляются в конец списка: настройки прежних сохраняются, новые получают значения по умолчанию
+        }
         db.set(kk::modes_blob, gdb::AnyType((const void*)modes, sizeof(ModeType) * MODE_AMOUNT));
       }
 

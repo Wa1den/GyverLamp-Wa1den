@@ -141,10 +141,14 @@ class FavoritesManager
       if (favModesEntry.size() == MODE_AMOUNT)
       {
         favModesEntry.writeBytes(FavoriteModes);
-        for (uint8_t i = 0; i < MODE_AMOUNT; i++)
-        {
-          FavoriteModes[i] = FavoriteModes[i] > 0 ? 1 : 0;
-        }
+      }
+      else if (favModesEntry.buffer() && favModesEntry.size() < MODE_AMOUNT) // эффекты добавлены в конец списка: отметки прежних сохраняются
+      {
+        memcpy(FavoriteModes, favModesEntry.buffer(), favModesEntry.size());
+      }
+      for (uint8_t i = 0; i < MODE_AMOUNT; i++)
+      {
+        FavoriteModes[i] = FavoriteModes[i] > 0 ? 1 : 0;
       }
     }
 

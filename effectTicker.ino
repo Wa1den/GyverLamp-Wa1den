@@ -28,7 +28,7 @@ void effectsTick()
     }
 
     // ------------------------------------- у эффектов до EFF_MATRIX (все перед Матрицей) бегунок Скорость не регулирует задержку между кадрами
-    if (ONflag && (millis() - effTimer >= ((currentMode == EFF_EARTH || currentMode == EFF_MARIO) ? 40U :   // у Земли и Марио фиксированный темп кадров - Скорость управляет движением внутри эффекта
+    if (ONflag && (millis() - effTimer >= ((currentMode == EFF_EARTH || currentMode == EFF_MARIO || currentMode == EFF_PINGPONG) ? 40U :   // у Земли, Марио и Пинг-понга фиксированный темп кадров - Скорость управляет движением внутри эффекта
                                            (currentMode >= EFF_MATRIX ) ? 256U - modes[currentMode].Speed : (currentMode <= EFF_OCEAN ) ? 50 : 15)))
     {
       effTimer = millis();
@@ -129,6 +129,7 @@ void effectsTick()
         case EFF_SNAKE_GAME:          snakeGameRoutine();                 break;  // (87U) Змейка
         case EFF_EARTH:               earthRoutine();                     break;  // (88U) Земля
         case EFF_MARIO:               marioRoutine();                     break;  // (89U) Марио
+        case EFF_PINGPONG:            pingPongRoutine();                  break;  // (90U) Пинг-понг
 
       }
       #ifdef WARNING_IF_NO_TIME_ON_EFFECTS_TOO
