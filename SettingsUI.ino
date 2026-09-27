@@ -23,6 +23,19 @@
 
 SettingsGyverWS sett("GyverLamp", &db);
 
+// Правка вёрстки страницы. Библиотека добавляет на страницу поле css у каждого класса из custom.js.
+// В исходной вёрстке подпись виджета не переносится, и на узком экране или при увеличенном масштабе
+// длинная подпись выталкивает переключатель или значение за край строки. Здесь подпись и значение
+// переносятся по словам, а правая часть строки не сжимается и занимает не больше 60% ширины
+static const char uiCustomJs[] PROGMEM = R"js(class LampLayout {
+static css = `
+.widget_row{height:unset;min-height:32px}
+.widget_row label{white-space:normal}
+.widget_row>:last-child:not(:first-child){flex-shrink:0;max-width:60%}
+.widget_row .value{white-space:normal;overflow-wrap:break-word;text-align:right}
+`;
+})js";
+
 // стабильные id виджетов, не привязанных к базе настроек (0xFA00xx - зона id избранных эффектов)
 #define UI_ID_POWER        ("ui_pwr"_h)
 #define UI_ID_EFFECT       ("ui_eff"_h)
@@ -600,6 +613,7 @@ void settingsSetup()
                                                             // вызывать можно до подключения к роутеру: MDNS.begin ставит колбэк
                                                             // lwIP и перезапускает ответчик, когда интерфейс поднимается
   sett.onBuild(settingsBuild);
+  sett.setCustom(uiCustomJs, sizeof(uiCustomJs) - 1);      // браузер скачивает custom.js один раз и перезагружает страницу, дальше берёт его из localStorage
   sett.setUpdatePeriod(3000);                               // период опроса страницы браузером. В варианте с вебсокетом библиотека всё равно
                                                             // отдаёт браузеру 0: виджеты обновляются пушем по вебсокету, а не опросом.
                                                             // Признак "страница открыта" (от него зависят живые обновления и сборка списка
