@@ -10,9 +10,12 @@
 // На 1d20 выпавшие 20 и 1 отмечаются фоном: разноцветными искрами и красным мерцанием.
 //
 // Цифры числа стоят столбиком сверху вниз: число занимает 5 колонок, и его копия помещается на
-// противоположной стороне лампы. Копию вместе с анимацией включает опция «Дублировать на обратной
-// стороне», чтобы результат видели сидящие с разных сторон. Две цифры идут крупным шрифтом, три
-// (только 100 на 1d100) - цифрами 3x5, у единицы при этом срезана верхняя точка: иначе не хватает строк.
+// противоположной стороне лампы. Копию результата включает опция «Дублировать на обратной стороне»,
+// чтобы его видели сидящие с разных сторон: копируются число и монетка, у 1d6 в конце броска на обратной
+// стороне появляется второй кубик с выпавшей гранью. Катящиеся шестиугольник и кубик остаются в одном
+// экземпляре. Пока фигура катится, видна одна последняя цифра, число целиком - только в итоге.
+// Две цифры идут крупным шрифтом, три (только 100 на 1d100) - цифрами 3x5, у единицы при этом
+// срезана верхняя точка: иначе не хватает строк.
 //
 // Пока кубик на лампе, два клика кнопкой возвращают к эффекту. С включённой опцией
 // «Повторный бросок кнопкой лампы» один клик бросает тот же кубик ещё раз, без неё
@@ -24,9 +27,9 @@
 #define DICE_TYPES          (8U)
 #define DICE_SEQ_LENGTH     (14U)                           // промежуточные значения анимации, последнее - результат
 #define DICE_SIDE_SHIFT     (WIDTH / 2U)                    // сдвиг копии на противоположную сторону лампы
-#define DICE_HEX_RADIUS     (4.0F)                          // радиус шестиугольника: от вершины до вершины 8 колонок; с копией на обратной стороне на полколонки меньше
+#define DICE_HEX_RADIUS     (4.0F)                          // радиус шестиугольника: от вершины до вершины 8 колонок
 #define DICE_HEX_LAPS       (5U)                            // сколько кругов проходит шестиугольник
-#define DICE_CUBE_TURNS     (8U)                            // сколько раз кубик перекатывается; путь 8 граней кратен половине окружности, и кубик останавливается на своей стороне или напротив
+#define DICE_CUBE_TURNS     (8U)                            // сколько раз кубик перекатывается; путь 8 граней по 8 колонок - ровно 4 круга
 #define DICE_COIN_FLIPS     (8U)                            // полуоборотов монетки; добавляется ещё один, если она должна упасть другой стороной
 #define DICE_DIGITS_Y       (HEIGHT / 2U - 3U)              // нижняя строка однозначного числа
 #define DICE_FACE_Y         (HEIGHT / 2U - 4U)              // нижняя строка грани кубика и монетки
@@ -242,9 +245,9 @@ static uint8_t diceCopies()
 // шестиугольник с центром (cx, cy), повёрнутый на angle. Пиксель внутри, если лежит по внутреннюю сторону
 // всех шести граней; номер грани, дальше всех от которой выходит пиксель, задаёт сектор и его оттенок,
 // поэтому поворот виден по цветным секторам. Край на полпикселя сглаживается по расстоянию до грани
-static void diceHexagon(float cx, float cy, float angle, float radius, uint8_t hue)
+static void diceHexagon(float cx, float cy, float angle, uint8_t hue)
 {
-  const float apothem = radius * 0.866F;
+  const float apothem = DICE_HEX_RADIUS * 0.866F;
   float nx[6], ny[6];
   for (uint8_t k = 0U; k < 6U; k++)
   {
@@ -287,17 +290,19 @@ static void diceHexagon(float cx, float cy, float angle, float radius, uint8_t h
   }
 }
 
-// шестиугольник катится по окружности лампы, число стоит на месте и сменяется всё реже.
-// Поворот - 60 градусов на каждую пройденную сторону, число сторон округлено до целого,
-// чтобы шестиугольник остановился на грани; проскальзывание на долю стороны за пять кругов не видно
-static void diceHexRoll(float t, uint8_t center, uint8_t hue, float radius)
+// шестиугольник катится по окружности лампы без проскальзывания: 60 градусов на каждую сторону длиной
+// DICE_HEX_RADIUS; путь кратен стороне, и шестиугольник останавливается на грани
+static void diceHexRoll(float t, uint8_t center, uint8_t hue)
+{
+  float distance = diceEaseOut(t) * DICE_HEX_LAPS * WIDTH;
+  float angle = -distance * PI / (3.0F * DICE_HEX_RADIUS);  // вправо - по часовой стрелке
+  diceHexagon(center + distance, HEIGHT / 2U, angle, hue);
+}
+
+// число стоит на месте и сменяется всё реже, в такт замедлению шестиугольника
+static void diceHexNumber(float t, uint8_t center, uint8_t hue)
 {
   float eased = diceEaseOut(t);
-  float distance = eased * DICE_HEX_LAPS * WIDTH;
-  uint8_t sides = (uint8_t)(DICE_HEX_LAPS * WIDTH / radius + 0.5F);
-  float angle = -eased * sides * PI / 3.0F;                 // вправо - по часовой стрелке
-  diceHexagon(center + distance, HEIGHT / 2U, angle, radius, hue);
-
   uint8_t value = diceSeq[(uint8_t)(eased * (DICE_SEQ_LENGTH - 1U) + 0.5F)];
   if (t < 1.0F)
   {
@@ -307,53 +312,42 @@ static void diceHexRoll(float t, uint8_t center, uint8_t hue, float radius)
   diceNumber(value, center, color);
 }
 
-// грань кубика size x size, сжатая по ширине до width колонок при повороте; яркость фона растёт
-// с шириной - грань поворачивается к свету. Грань 8x8 - с точками 2x2, грань 7x7 (при копии на
-// обратной стороне, чтобы между копиями оставался зазор) - с точками в один пиксель: точки 2x2
-// с промежутками в 7 колонок не укладываются
-static void diceFace(int16_t left, uint8_t width, uint8_t value, uint8_t hue, uint8_t size)
+// грань кубика шириной width колонок (сжатая при повороте), яркость фона растёт с шириной - грань поворачивается к свету
+static void diceFace(int16_t left, uint8_t width, uint8_t value, uint8_t hue)
 {
   uint16_t pips = pgm_read_word(&dicePips[value - 1U]);
   CRGB face = CHSV(hue, 255U, 30U + width * 6U);
   CRGB pip = CHSV(hue, 60U, 255U);
   for (uint8_t c = 0U; c < width; c++)
   {
-    uint8_t sx = c * size / width;
-    for (uint8_t sy = 0U; sy < size; sy++)
+    uint8_t sx = c * 8U / width;
+    for (uint8_t sy = 0U; sy < 8U; sy++)
     {
-      bool isPip;
-      if (size == 8U)
-      {
-        isPip = (sx % 3U != 2U) && (sy % 3U != 2U) && (pips & (1U << ((sy / 3U) * 3U + sx / 3U)));
-      }
-      else
-      {
-        isPip = (sx & 0x01) && (sy & 0x01) && sx < 6U && sy < 6U && (pips & (1U << ((sy / 2U) * 3U + sx / 2U)));
-      }
-      dicePixel(left + c, DICE_FACE_Y + size - 1 - sy, isPip ? pip : face);
+      bool isPip = (sx % 3U != 2U) && (sy % 3U != 2U) && (pips & (1U << ((sy / 3U) * 3U + sx / 3U)));
+      dicePixel(left + c, DICE_FACE_Y + 7 - sy, isPip ? pip : face);
     }
   }
 }
 
 // кубик катится вправо без проскальзывания: за четверть оборота центр сдвигается на ширину грани,
 // видимая грань сжимается, а слева разворачивается следующая
-static void diceCube(float t, uint8_t center, uint8_t hue, uint8_t size)
+static void diceCube(float t, uint8_t center, uint8_t hue)
 {
   float turns = diceEaseOut(t) * DICE_CUBE_TURNS;
   uint8_t k = (uint8_t)turns;
   float phi = (turns - k) * HALF_PI;
   uint8_t current = DICE_SEQ_LENGTH - 1U - DICE_CUBE_TURNS + k;
-  uint8_t wCurrent = (uint8_t)(size * cosf(phi) + 0.5F);
-  uint8_t wNext = (k < DICE_CUBE_TURNS) ? (uint8_t)(size * sinf(phi) + 0.5F) : 0U;
-  int16_t left = center + (int16_t)(turns * size) - (wCurrent + wNext) / 2;
+  uint8_t wCurrent = (uint8_t)(8.0F * cosf(phi) + 0.5F);
+  uint8_t wNext = (k < DICE_CUBE_TURNS) ? (uint8_t)(8.0F * sinf(phi) + 0.5F) : 0U;
+  int16_t left = center + (int16_t)(turns * 8.0F) - (wCurrent + wNext) / 2;
 
   if (wNext)
   {
-    diceFace(left, wNext, (diceSeq[current + 1U] - 1U) % 6U + 1U, hue, size);
+    diceFace(left, wNext, (diceSeq[current + 1U] - 1U) % 6U + 1U, hue);
   }
   if (wCurrent)
   {
-    diceFace(left + wNext, wCurrent, (diceSeq[current] - 1U) % 6U + 1U, hue, size);
+    diceFace(left + wNext, wCurrent, (diceSeq[current] - 1U) % 6U + 1U, hue);
   }
 }
 
@@ -471,16 +465,34 @@ void diceTick()
     ledsClear();
   }
 
-  uint8_t copies = diceCopies();                            // с копией фигуры на колонку уже, иначе две копии по 8 колонок смыкаются в сплошное кольцо
-  for (uint8_t side = 0U; side < copies; side++)
+  // катящаяся фигура одна: две копии по 8 колонок сомкнулись бы в сплошное кольцо. На обратной
+  // стороне повторяется результат: число, вторая монетка, а у 1d6 - кубик с выпавшей гранью в конце броска
+  uint8_t copies = diceCopies();
+  uint8_t back = center + DICE_SIDE_SHIFT;
+  switch (sides)
   {
-    uint8_t sideCenter = center + side * DICE_SIDE_SHIFT;
-    switch (sides)
-    {
-      case 2U:  diceCoin(t, sideCenter, hue); break;
-      case 6U:  diceCube(t, sideCenter, hue, copies > 1U ? 7U : 8U); break;
-      default:  diceHexRoll(t, sideCenter, hue, copies > 1U ? DICE_HEX_RADIUS - 0.5F : DICE_HEX_RADIUS); break;
-    }
+    case 2U:
+      diceCoin(t, center, hue);
+      if (copies > 1U)
+      {
+        diceCoin(t, back, hue);
+      }
+      break;
+    case 6U:
+      diceCube(t, center, hue);
+      if (copies > 1U && diceState == DICE_RESULT)
+      {
+        diceFace(back - 4, 8U, result, hue);
+      }
+      break;
+    default:
+      diceHexRoll(t, center, hue);
+      diceHexNumber(t, center, hue);
+      if (copies > 1U)
+      {
+        diceHexNumber(t, back, hue);
+      }
+      break;
   }
 
   FastLED.setBrightness(bri);
