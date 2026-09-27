@@ -9554,7 +9554,7 @@ void marioRoutine()
 // по диагонали и огибает лампу по горизонтали, боковых стенок нет. Обеими ракетками играет
 // автомат: ракетка идёт к расчётной точке падения мяча с ограниченной скоростью и с ошибкой
 // прицела, поэтому иногда промахивается. Отскок зависит от того, какой частью ракетки отбит мяч.
-// Промах отмечается короткой тусклой вспышкой всей лампы. Партия идёт до 9 очков, в её конце
+// Промах отмечается тусклой вспышкой всей лампы цветом ракеток. Партия идёт до 9 очков, в её конце
 // в месте последнего промаха показывается счёт: верхний игрок сверху, нижний снизу.
 //
 // Мяч 2x2 и ракетки рисуются со сглаживанием: пиксель светится на ту долю, на которую его
@@ -9567,8 +9567,9 @@ void marioRoutine()
 #define PONG_BALL_HALF      (1.0F)                          // половина стороны мяча
 #define PONG_AIM_ERROR      (2.8F)                          // наибольшая ошибка прицела, колонок: при большей ошибке мяч проходит мимо ракетки
 #define PONG_TRAIL_FADE     (90U)                           // сколько яркости прошлого кадра остаётся в следе, из 255
-#define PONG_FLASH_MS       (400U)                          // вспышка после промаха, до следующей подачи
-#define PONG_FLASH_BRIGHT   (50U)                           // яркость вспышки в начале
+#define PONG_FLASH_RISE_MS  (150U)                          // вспышка после промаха разгорается
+#define PONG_FLASH_MS       (900U)                          // и гаснет к этому моменту; затем следующая подача
+#define PONG_FLASH_BRIGHT   (50U)                           // наибольшая яркость вспышки
 #define PONG_SCORE_MS       (2500U)                         // сколько показывается счёт в конце партии
 #define PONG_WIN_SCORE      (9U)
 
@@ -9711,10 +9712,12 @@ void pingPongRoutine()
   }
 
   uint32_t sinceMiss = millis() - missAt;
-  if (sinceMiss < PONG_FLASH_MS)                            // вспышка гаснет с замедлением
+  if (sinceMiss < PONG_FLASH_MS)                            // вспышка разгорается с ускорением и гаснет с замедлением
   {
-    uint8_t fade = 255U - sinceMiss * 255U / PONG_FLASH_MS;
-    fillAll(CHSV(hue + 128U, 255U, scale8(PONG_FLASH_BRIGHT, scale8(fade, fade))));
+    uint8_t level = (sinceMiss < PONG_FLASH_RISE_MS)
+      ? sinceMiss * 255U / PONG_FLASH_RISE_MS
+      : 255U - (sinceMiss - PONG_FLASH_RISE_MS) * 255U / (PONG_FLASH_MS - PONG_FLASH_RISE_MS);
+    fillAll(CHSV(hue, sat, scale8(PONG_FLASH_BRIGHT, scale8(level, level))));
   }
   else if (serve)
   {
