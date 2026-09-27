@@ -41,6 +41,8 @@ static css = `
 // стабильные id виджетов, не привязанных к базе настроек (0xFA00xx - зона id избранных эффектов)
 #define UI_ID_POWER        ("ui_pwr"_h)
 #define UI_ID_EFFECT       ("ui_eff"_h)
+#define UI_ID_EFF_PREV     ("ui_eff_prev"_h)
+#define UI_ID_EFF_NEXT     ("ui_eff_next"_h)
 #define UI_ID_BRIGHTNESS   ("ui_bri"_h)
 #define UI_ID_SPEED        ("ui_spd"_h)
 #define UI_ID_SCALE        ("ui_sca"_h)
@@ -144,6 +146,20 @@ void settingsBuild(sets::Builder& b)
   // --- ЛАМПА ---------------------------------
   {
     sets::Group g(b, "Лампа");
+
+    {
+      sets::Buttons btns(b);                                // переключение по кругу, как двойной и тройной клик кнопкой
+      if (b.Button(UI_ID_EFF_PREV, "Предыдущий"))
+      {
+        lampSetEffect((currentMode + MODE_AMOUNT - 1U) % MODE_AMOUNT);
+        b.reload();                                         // список и ползунки должны подтянуть новый эффект
+      }
+      if (b.Button(UI_ID_EFF_NEXT, "Следующий"))
+      {
+        lampSetEffect((currentMode + 1U) % MODE_AMOUNT);
+        b.reload();
+      }
+    }
 
     bool power = ONflag;
     if (b.Switch(UI_ID_POWER, "Питание", &power))

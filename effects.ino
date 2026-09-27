@@ -9554,14 +9554,16 @@ void marioRoutine()
 // по диагонали и огибает лампу по горизонтали, боковых стенок нет. Обеими ракетками играет
 // автомат: ракетка идёт к расчётной точке падения мяча с ограниченной скоростью и с ошибкой
 // прицела, поэтому иногда промахивается. Отскок зависит от того, какой частью ракетки отбит мяч.
-// После промаха в месте падения мяча на секунду показывается счёт (верхний игрок сверху,
-// нижний снизу); партия идёт до 9 очков.
+// Промах отмечается короткой тусклой вспышкой всей лампы. Партия идёт до 9 очков, в её конце
+// в месте последнего промаха показывается счёт: верхний игрок сверху, нижний снизу.
 // Бегунок Масштаб - цвет ракеток (мяч противоположного оттенка, на 100 - белые ракетки),
-// Скорость - скорость мяча.
+// Скорость - скорость мяча, от 6 до 28 строк в секунду.
 
 #define PONG_PADDLE_WIDTH   (4.0F)                          // ширина ракетки, колонок
 #define PONG_AIM_ERROR      (2.6F)                          // наибольшая ошибка прицела, колонок: при ошибке больше половины ракетки мяч проходит мимо
-#define PONG_SCORE_MS       (1200U)                         // сколько показывается счёт после очка
+#define PONG_FLASH_MS       (400U)                          // вспышка после промаха, до следующей подачи
+#define PONG_FLASH_BRIGHT   (50U)                           // яркость вспышки в начале
+#define PONG_SCORE_MS       (2500U)                         // сколько показывается счёт в конце партии
 #define PONG_WIN_SCORE      (9U)
 
 // разность a - b по окружности лампы, в пределах [-WIDTH/2, WIDTH/2)
@@ -9577,8 +9579,10 @@ void pingPongRoutine()
   static float paddleX[2];                                  // центры ракеток: 0 - нижняя, 1 - верхняя
   static float aimError[2];                                 // ошибка прицела на текущую подачу к ракетке
   static uint8_t score[2];
-  static uint32_t pauseUntil;                               // до этого момента показывается счёт
+  static uint32_t missAt;                                   // момент последнего промаха: от него идут вспышка и показ счёта
+  static uint32_t pauseUntil;                               // до этого момента новой подачи нет
   static bool serve;                                        // после паузы нужна новая подача
+  static bool gameOver;                                     // партия закончилась, показывается счёт
   static float trailX[3], trailY[3];                        // след мяча
 
   if (loadingFlag)
@@ -9592,17 +9596,20 @@ void pingPongRoutine()
     loadingFlag = false;
     score[0] = score[1] = 0U;
     paddleX[0] = paddleX[1] = WIDTH / 2U;
+    missAt = millis() - PONG_FLASH_MS;                      // без вспышки на старте
     pauseUntil = 0U;
     serve = true;
+    gameOver = false;
   }
 
-  float speed = 0.12F + modes[currentMode].Speed * 0.0018F; // строк за кадр 40 мс: от 3 до 14 строк в секунду
+  float speed = 0.24F + modes[currentMode].Speed * 0.0036F; // строк за кадр 40 мс. Быстрее строки за кадр мяч не проскакивает ракетку: отскок проверяется, как только он дошёл до её строки или дальше
 
   if (serve && millis() >= pauseUntil)                      // подача из середины по высоте в случайную сторону
   {
     serve = false;
-    if (score[0] >= PONG_WIN_SCORE || score[1] >= PONG_WIN_SCORE)
+    if (gameOver)
     {
+      gameOver = false;
       score[0] = score[1] = 0U;
     }
     ballX = random8(WIDTH);
@@ -9680,12 +9687,23 @@ void pingPongRoutine()
     if (ballY < 0.0F || ballY > HEIGHT - 1.0F)              // мяч ушёл за торец
     {
       score[ballY < 0.0F ? 1U : 0U]++;
-      pauseUntil = millis() + PONG_SCORE_MS;
+      gameOver = score[0] >= PONG_WIN_SCORE || score[1] >= PONG_WIN_SCORE;
+      missAt = millis();
+      pauseUntil = missAt + PONG_FLASH_MS + (gameOver ? PONG_SCORE_MS : 0U);
       serve = true;
     }
   }
 
-  ledsClear();
+  uint32_t sinceMiss = millis() - missAt;
+  if (sinceMiss < PONG_FLASH_MS)                            // вспышка гаснет с замедлением
+  {
+    uint8_t fade = 255U - sinceMiss * 255U / PONG_FLASH_MS;
+    fillAll(CHSV(hue + 128U, 255U, scale8(PONG_FLASH_BRIGHT, scale8(fade, fade))));
+  }
+  else
+  {
+    ledsClear();
+  }
 
   for (uint8_t p = 0U; p < 2U; p++)
   {
@@ -9696,8 +9714,13 @@ void pingPongRoutine()
     }
   }
 
-  if (serve)                                                // счёт в месте падения мяча
+  if (serve)
   {
+    if (!gameOver || sinceMiss < PONG_FLASH_MS)
+    {
+      return;
+    }
+    // конец партии: счёт в месте последнего промаха
     uint8_t left = (uint8_t)((int16_t)(ballX + 0.5F) + WIDTH - 1U) % WIDTH;
     drawDig3x5(left, HEIGHT / 2U + 1U, score[1] % 10U, CHSV(hue + 128U, 255U, 255U));
     drawDig3x5(left, HEIGHT / 2U - 6U, score[0] % 10U, CHSV(hue + 128U, 255U, 255U));
