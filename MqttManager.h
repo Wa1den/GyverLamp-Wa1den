@@ -77,9 +77,7 @@ bool wolWake(const char* macStr);
 #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 extern uint8_t button_sleep_time;
 #endif
-#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 void getFormattedTime(char *buf);
-#endif
 
 static const char MqttTopicBase[]      PROGMEM = "LedLamp"; // базовая часть топиков
 static const char MqttTopicCmnd[]      PROGMEM = "cmnd";    // часть командных топиков (входящие команды лампе)
@@ -484,12 +482,7 @@ class MqttManager
       }
 
       char timeBuf[9];
-      #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
       getFormattedTime(timeBuf);
-      #else
-      time_t currentTicks = millis() / 1000UL;
-      sprintf_P(timeBuf, PSTR("%02u:%02u:%02u"), hour(currentTicks), minute(currentTicks), second(currentTicks));
-      #endif
 
       char json[CMD_BUFFER_SIZE];
       snprintf_P(json, sizeof(json),
@@ -500,11 +493,7 @@ class MqttManager
         modes[currentMode].Scale,
         ONflag ? "true" : "false",
         espMode,
-        #ifdef USE_NTP
-        "true",
-        #else
-        "false",
-        #endif
+        "true",                                             // useNtp: поле оставлено для совместимости со сценариями, NTP включён всегда
         TimerManager::TimerRunning ? "true" : "false",
         buttonEnabled ? "true" : "false",
         timeBuf,

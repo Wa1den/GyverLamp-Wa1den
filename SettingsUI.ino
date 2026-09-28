@@ -126,32 +126,14 @@ static String uiTimerText()
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
-#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-static bool uiTimeRefresh = false;                          // время задано вручную или запрошена синхронизация: обновить поля времени в «Служебном»
+static bool uiTimeRefresh = false;                          // сменили часовой пояс: обновить поля времени в «Служебном»
 
-// статус синхронизации времени - одна и та же строка в сборке страницы и в живом обновлении
-static const char* uiSyncState()
-{
-  #ifdef USE_NTP
-  return timeSynched ? (ntpServerAddressResolved ? "выполнена (NTP)" : "выполнена (вручную)") : "не выполнена";
-  #else
-  return timeSynched ? "выполнена (вручную)" : "не выполнена";
-  #endif
-}
-#endif
-
-#ifdef USE_MANUAL_TIME_SETTING
-// значение поля ручной установки - текущее время лампы, если оно синхронизировано. Виджет показывает
+// значение поля ручной установки - текущее время лампы, если оно известно. Виджет показывает
 // время с поправкой на часовой пояс браузера, поэтому ему передаётся UTC (иначе время задваивает пояс)
 static uint32_t uiManualTimeValue()
 {
-  if (!timeSynched)
-  {
-    return 0U;
-  }
-  return (uint32_t)localTimeZone.toUTC(getCurrentLocalTime());
+  return timeSynched ? (uint32_t)getCurrentUtcTime() : 0U;
 }
-#endif
 
 void settingsBuild(sets::Builder& b)
 {
@@ -579,11 +561,10 @@ void settingsBuild(sets::Builder& b)
     b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
     b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
 
-    #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
     char timeBuf[9];
     getFormattedTime(timeBuf);
     b.Label(UI_ID_LAMP_TIME, "Время лампы", timeBuf);      // поля времени обновляются на открытой странице, см. settingsSyncTick
-    b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", uiSyncState());
+    b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", clockSyncState());
 
     uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
     if (b.Select(UI_ID_TZ_OFFSET, "Часовой пояс", timezoneList(), &tzIndex))
@@ -597,27 +578,20 @@ void settingsBuild(sets::Builder& b)
       lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
       uiTimeRefresh = true;
     }
-    #ifdef USE_NTP
     b.Input(kk::ntp_host, "NTP сервер");
     if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))
     {
-      pendingNtpSync = true;                                // синхронизация выполнится в loop (применит и новый адрес сервера), результат - в Журнале
-      uiTimeRefresh = true;
+      clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
     }
-    #endif //USE_NTP
-    #endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
-    #ifdef USE_MANUAL_TIME_SETTING
     uint32_t unixTime = uiManualTimeValue();
     if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
     {
       if (unixTime > 0)
       {
         lampSetManualTime(unixTime);
-        uiTimeRefresh = true;
       }
     }
-    #endif //USE_MANUAL_TIME_SETTING
 
     {
       sets::Buttons btns(b);
@@ -841,39 +815,25 @@ void settingsSyncTick()
     sett.updater().update(UI_ID_DICE_RESULT, diceResult);
   }
 
-  #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-  // поля времени в «Служебном». Часы обновляются каждую секунду, статус синхронизации и поле ручной установки
-  // обновляются при смене статуса, после ручной установки и после выполненной синхронизации по кнопке.
-  // Поле ручной установки каждую секунду не обновляется, чтобы не менять значение, пока его вводят
+  // поля времени в «Служебном». Часы обновляются каждую секунду, статус синхронизации и поле ручной установки -
+  // после каждой установки часов (NTP или вручную) и смены часового пояса. Поле ручной установки каждую
+  // секунду не обновляется, чтобы не менять значение, пока его вводят
   char timeBuf[9];
   getFormattedTime(timeBuf);
-  const char* syncState = uiSyncState();
-  static const char* lastSyncState = nullptr;               // строки статуса - литералы из uiSyncState, их можно сравнивать указателями
-  #ifdef USE_NTP
-  bool syncPending = pendingNtpSync;                        // синхронизация по кнопке ещё в очереди loop: обновлять поля после неё, а не до
-  #else
-  bool syncPending = false;
-  #endif
-  if (syncState != lastSyncState || (uiTimeRefresh && !syncPending))
+  static uint16_t lastClockSetCount = 0U;
+  if (clockSetCount != lastClockSetCount || uiTimeRefresh)
   {
-    lastSyncState = syncState;
-    if (!syncPending)
-    {
-      uiTimeRefresh = false;
-    }
+    lastClockSetCount = clockSetCount;
+    uiTimeRefresh = false;
     sett.updater()
         .update(UI_ID_LAMP_TIME, timeBuf)
-        .update(UI_ID_SYNC_STATE, syncState)
-        #ifdef USE_MANUAL_TIME_SETTING
-        .update(UI_ID_SET_TIME, uiManualTimeValue())
-        #endif
-        ;
+        .update(UI_ID_SYNC_STATE, clockSyncState())
+        .update(UI_ID_SET_TIME, uiManualTimeValue());
   }
   else
   {
     sett.updater().update(UI_ID_LAMP_TIME, timeBuf);
   }
-  #endif //#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
   #ifdef USE_AUTO_BRIGHTNESS
   static uint16_t lastAbRaw = 0xFFFFU;

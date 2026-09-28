@@ -225,13 +225,8 @@ void changePower()
 void noTimeWarning(){
   for (uint8_t i = 0; i < WIDTH; i++) leds[XY(i, 0U)] = CRGB::Black;
   uint8_t z = millis() / 1000U;
-  #ifdef USE_NTP
-    leds[XY(z % WIDTH , 0U)] = espMode ? CRGB::Red : CRGB::Blue; // если при включенном NTP время не получено, будем красным цветом мигать
-    leds[XY((z + WIDTH / 2U) % WIDTH , 0U)] = espMode ? CRGB::Red : CRGB::Blue;
-  #else  
-    leds[XY(z % WIDTH , 0U)] = espMode ? CRGB::Yellow : CRGB::Blue; // иначе скромно жёлтым - нормальная ситуация при отсутствии NTP
-    leds[XY((z + WIDTH / 2U) % WIDTH , 0U)] = espMode ? CRGB::Yellow : CRGB::Blue;
-  #endif //USE_NTP
+  leds[XY(z % WIDTH , 0U)] = espMode ? CRGB::Red : CRGB::Blue; // время не получено: красным в режиме клиента WiFi, синим в режиме точки доступа
+  leds[XY((z + WIDTH / 2U) % WIDTH , 0U)] = espMode ? CRGB::Red : CRGB::Blue;
 }
 void noTimeWarningShow(){
   noTimeWarning();

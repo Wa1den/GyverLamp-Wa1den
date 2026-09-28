@@ -33,15 +33,9 @@ void ledsClear();                                           // очистка к
 #include <GyverButton.h>
 #endif
 #include "fonts.h"
-#ifdef USE_NTP
-#include <NTPClient.h>
-#endif
-#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-#include <Timezone.h>
-#endif
 #include <TimeLib.h>
 
-extern bool timeSynched;                                    // определены ниже/в time.ino; нужны классу журнала
+extern bool timeSynched;                                    // определён ниже, getCurrentLocalTime - в Clock.h; нужны классу журнала
 time_t getCurrentLocalTime();
 
 void crashTailPut(char c);                                  // след журнала для разбора перезагрузок, определён ниже
@@ -239,6 +233,7 @@ void crashTraceReport()
 #include "TimerManager.h"
 #include "Storage.h"                                        // хранилище настроек на LittleFS/GyverDB
 #include "FavoritesManager.h"
+#include "Clock.h"                                          // системные часы, SNTP, часовой пояс
 
 
 // --- ИНИЦИАЛИЗАЦИЯ ОБЪЕКТОВ ----------
@@ -255,31 +250,9 @@ NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // 
 #define COLOR_WIRE_1  ((COLOR_ORDER >> 3) & 0x07)
 #define COLOR_WIRE_2  (COLOR_ORDER & 0x07)
 
-#ifdef USE_NTP
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, NTP_ADDRESS, 0, NTP_INTERVAL); // объект, запрашивающий время с ntp сервера; в нём смещение часового пояса не используется (перенесено в объект localTimeZone); здесь всегда должно быть время UTC
-  #ifdef PHONE_N_MANUAL_TIME_PRIORITY
-    bool stillUseNTP = true;
-  #endif    
-#endif
-
-#if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-TimeChangeRule utcRule = { "", week_t::Last, dow_t::Sun, month_t::Mar, 1U, 0 };
-Timezone localTimeZone(utcRule);                            // часовой пояс и летнее время задаются в веб-интерфейсе, правила ставит timezoneApply() при старте
-#endif
-
 timerMinim timeTimer(3000);
-bool ntpServerAddressResolved = false;
 bool timeSynched = false;
 uint32_t lastTimePrinted = 0U;
-
-#if defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-time_t manualTimeShift;
-#endif
-
-#ifdef GET_TIME_FROM_PHONE
-time_t phoneTimeLastSync;
-#endif
 
 uint8_t selectedSettings = 0U;
 #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
@@ -346,10 +319,6 @@ bool pendingWolWake = false;                                // запрошен�
 bool pendingWolResub = false;                               // изменены настройки дополнительного WOL-топика - нужно обновить MQTT-подписку
 bool pendingShowIp = false;                                 // подключились к новой WiFi сети - показать IP бегущей строкой (обрабатывается в loop)
 uint32_t buttonFeedbackAt = 0U;                             // момент последнего касания кнопки (для световой волны-отклика, см. ledsShow)
-#ifdef USE_NTP
-bool pendingNtpSync = false;                                // запрошена принудительная синхронизация времени из веб-интерфейса (выполняется из loop)
-String ntpServerName;                                       // адрес NTP сервера из хранилища настроек; NTPClient хранит указатель, поэтому строка должна жить всё время работы
-#endif //USE_NTP
 
 void setup()
 {
@@ -433,9 +402,7 @@ void setup()
     &(FavoritesManager::SaveFavoritesToStorage),
     &(restoreSettings)); // восстановление настроек эффектов по умолчанию выполняется в обработчике инициализации Storage
   LOG.printf_P(PSTR("Рабочий режим лампы: ESP_MODE = %d\n"), espMode);
-  #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-  timezoneApply();                                          // часовой пояс и летнее время из настроек
-  #endif
+  clockSetup();                                             // часовой пояс и сервер времени из настроек; синхронизация начнётся, когда поднимется сеть
 
   if (needResetWifiOnStart)                                 // сброс сохранённых SSID и пароля при старте с зажатой кнопкой, если разрешено (ESP_RESET_ON_START)
   {
@@ -456,17 +423,6 @@ void setup()
   ESP.wdtFeed();
 
 
-  // NTP
-  #ifdef USE_NTP
-  ntpServerName = (String)db[kk::ntp_host];                 // адрес NTP сервера из хранилища настроек (по умолчанию NTP_ADDRESS)
-  if (!ntpServerName.length())
-  {
-    ntpServerName = NTP_ADDRESS;
-  }
-  timeClient.begin();                                       // имя сервера в NTPClient не передаём: после резолва ему отдаётся уже IP
-                                                            // (иначе он резолвит имя при каждой отправке пакета и блокирует loop на 10 сек)
-  ESP.wdtFeed();
-  #endif
 
 
   // MQTT
@@ -531,12 +487,8 @@ void loop()
     &currentMode, modes, &(FavoritesManager::SaveFavoritesToStorage));
   LOOP_STAGE("сохранение настроек");
 
-  //#ifdef USE_NTP
-  #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-  //if (millis() > 30 * 1000U) можно попытаться оттянуть срок первой попытки синхронизации времени на 30 секунд, чтобы роутер успел не только загрузиться, но и соединиться с интернетом
-    timeTick();
-  #endif
-  LOOP_STAGE("время/NTP");
+  timeTick();
+  LOOP_STAGE("время");
 
   #ifdef ESP_USE_BUTTON
   //if (buttonEnabled) в процедуре ведь есть эта проверка
@@ -556,10 +508,7 @@ void loop()
       &ONflag,
       &currentMode,
       &loadingFlag
-      //#ifdef USE_NTP
-      #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
       , &dawnFlag
-      #endif
       #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       , &random_on
       , &selectedSettings

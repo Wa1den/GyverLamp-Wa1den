@@ -135,8 +135,7 @@ void serviceTextTick()
 
 void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периодический вывод времени бегущей строкой; onDemand - по требованию, вывод текущего времени; иначе - вывод времени по расписанию
 {
-  //#if defined(USE_NTP) && defined(PRINT_TIME)               // вывод, только если используется синхронизация времени и если заказан его вывод бегущей строкой
-  #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
+  #ifdef PRINT_TIME
 
   if (!timeSynched)
   {
@@ -215,7 +214,7 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
 uint8_t getBrightnessForPrintTime(uint32_t thisTime, bool ONflag)     // определение яркости для вывода времени бегущей строкой в зависимости от ESP_MODE, USE_NTP, успешности синхронизации времени,
                                                                       // текущего времени суток, настроек дневного/ночного времени и того, включена ли сейчас матрица
 {
-  #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
+  #ifdef PRINT_TIME
 
   if (!timeSynched || ONflag)
   {

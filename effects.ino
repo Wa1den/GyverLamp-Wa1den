@@ -7646,11 +7646,7 @@ void earthRoutine()
   if (timeSynched)
   {
     uint32_t utcSec;
-    #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
-    utcSec = (uint32_t)localTimeZone.toUTC(getCurrentLocalTime()) % 86400UL;
-    #else
-    utcSec = (uint32_t)getCurrentLocalTime() % 86400UL;
-    #endif
+    utcSec = (uint32_t)getCurrentUtcTime() % 86400UL;
     // долгота подсолнечной точки: в полдень UTC солнце над Гринвичем (сезонное склонение не учитывается)
     uint16_t sunA = (uint16_t)(((129600UL - utcSec) % 86400UL) * 32768UL / 43200UL) + 32768U;
     for (uint8_t c = 0U; c < 16U; c++)

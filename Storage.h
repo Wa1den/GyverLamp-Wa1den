@@ -197,9 +197,7 @@ class Storage
       db.init(kk::ab_dark, (uint16_t)0);
       db.init(kk::ab_light, (uint16_t)1023);
       #endif //USE_AUTO_BRIGHTNESS
-      #ifdef USE_NTP
       db.init(kk::ntp_host, NTP_ADDRESS);
-      #endif //USE_NTP
       db.init(kk::tz_offset, (int16_t)TIMEZONE_OFFSET_DEFAULT);
       db.init(kk::tz_dst, (uint8_t)TIMEZONE_DST_DEFAULT);
       db.init(kk::wol_mac, "");
