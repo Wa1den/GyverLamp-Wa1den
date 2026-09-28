@@ -75,6 +75,65 @@ boolean fillString(const char* text, CRGB letterColor, boolean itsText)
   return false;
 }
 
+// Служебная строка: IP-адрес (5 кликов) и время (6 кликов или по расписанию PRINT_TIME).
+// Раньше она выводилась циклом, из которого лампа не выходила, пока текст не убежит: адрес
+// бежал до 9 секунд, и всё это время не отвечали ни кнопка, ни страница настроек, ни MQTT.
+// Теперь строка рисуется из effectsTick вместо эффекта, по шагу за вызов, и на выключенной лампе
+// тоже, а любой клик кнопкой её обрывает и дальше срабатывает как обычно.
+static char serviceText[24];
+static CRGB serviceColor;
+static uint8_t serviceBrightness;
+static bool serviceActive = false;
+
+bool serviceTextActive()
+{
+  return serviceActive;
+}
+
+void serviceTextStart(const char* text, CRGB color, uint8_t brightness)
+{
+  strncpy(serviceText, text, sizeof(serviceText) - 1U);
+  serviceText[sizeof(serviceText) - 1U] = '\0';
+  serviceColor = color;
+  serviceBrightness = brightness;
+  serviceActive = true;
+  loadingFlag = true;                                       // fillString начинает строку с правого края
+
+  #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)          // матрица должна быть включена на время вывода текста
+  digitalWrite(MOSFET_PIN, MOSFET_LEVEL);
+  #endif
+}
+
+void serviceTextStop()
+{
+  if (!serviceActive)
+  {
+    return;
+  }
+  serviceActive = false;
+  FastLED.setBrightness(modes[currentMode].Brightness);
+  loadingFlag = true;                                       // эффект перерисовывается с начала
+  if (!ONflag)                                              // на выключенной лампе не остаётся обрывка строки
+  {
+    ledsClear();
+    ledsShow();
+  }
+
+  #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)          // сигнал MOSFET соответственно состоянию матрицы или будильника
+  digitalWrite(MOSFET_PIN, ONflag || (dawnFlag && !manualOff) ? MOSFET_LEVEL : !MOSFET_LEVEL);
+  #endif
+}
+
+// вызывается из effectsTick вместо эффекта, пока serviceTextActive()
+void serviceTextTick()
+{
+  FastLED.setBrightness(serviceBrightness);
+  if (fillString(serviceText, serviceColor, false))
+  {
+    serviceTextStop();
+  }
+}
+
 
 void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периодический вывод времени бегущей строкой; onDemand - по требованию, вывод текущего времени; иначе - вывод времени по расписанию
 {
@@ -149,21 +208,7 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
     lastTimePrinted = thisTime;
     char stringTime[10U];                                   // буффер для выводимого текста, его длина должна быть НЕ МЕНЬШЕ, чем длина текста + 1
     sprintf_P(stringTime, PSTR("-> %u:%02u"), (uint8_t)((thisTime - thisTime % 60U) / 60U), (uint8_t)(thisTime % 60U));
-    loadingFlag = true;
-    FastLED.setBrightness(getBrightnessForPrintTime(thisTime, ONflag));
-    delay(1);
-
-    #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)        // установка сигнала в пин, управляющий MOSFET транзистором, матрица должна быть включена на время вывода текста
-    digitalWrite(MOSFET_PIN, MOSFET_LEVEL);
-    #endif
-
-    while (!fillString(stringTime, letterColor, false)) { delay(1); ESP.wdtFeed(); }
-
-    #if defined(MOSFET_PIN) && defined(MOSFET_LEVEL)        // установка сигнала в пин, управляющий MOSFET транзистором, соответственно состоянию вкл/выкл матрицы или будильника
-    digitalWrite(MOSFET_PIN, ONflag || (dawnFlag && !manualOff) ? MOSFET_LEVEL : !MOSFET_LEVEL);
-    #endif
-
-    loadingFlag = true;
+    serviceTextStart(stringTime, letterColor, getBrightnessForPrintTime(thisTime, ONflag));
   }
 
   #endif

@@ -16,6 +16,11 @@ void effectsTick()
 {
   if (!dawnFlag)
   {
+    if (serviceTextActive())                                // служебная строка (IP, время) идёт поверх всего, в том числе на выключенной лампе (runningText.ino)
+    {
+      serviceTextTick();
+      return;
+    }
     if (countdownActive())                                  // обратный отсчёт рисуется вместо эффекта (countdown.ino)
     {
       countdownTick();
