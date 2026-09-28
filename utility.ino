@@ -1,5 +1,36 @@
 // служебные функции
 
+// ================== ОБОРУДОВАНИЕ ==================
+// Подключение матрицы, порядок цветов и лимит тока задаются на странице настроек (Служебное > Оборудование)
+// и применяются на ходу. Размер матрицы (WIDTH, HEIGHT) остаётся в Config.h: от него зависят размеры
+// массивов во всех эффектах.
+
+static uint8_t hwMatrixConn = 0U;                           // угол подключения и направление ленты, см. hwMatrixConnections в SettingsUI.ino
+static bool hwMatrixParallel = false;                       // разводка ленты: зигзаг или параллельная
+static uint8_t hwWire[3] = {1U, 0U, 2U};                    // каналы RgbColor(R, G, B) для NeoGrbFeature в порядке hw_color_order
+static uint16_t hwCurrentLimit = 2000U;                     // мА, 0 - без лимита
+
+// порядок цветов ленты: какой канал кадра (0 - R, 1 - G, 2 - B) уходит по проводу первым, вторым, третьим
+static const uint8_t hwColorOrders[6][3] PROGMEM = {
+  {0U, 1U, 2U}, {0U, 2U, 1U}, {1U, 0U, 2U}, {1U, 2U, 0U}, {2U, 0U, 1U}, {2U, 1U, 0U}  // RGB, RBG, GRB, GBR, BRG, BGR
+};
+
+// настройки оборудования из базы - в переменные, которыми пользуются XY и ledsShow
+void hwApply()
+{
+  hwMatrixConn = (uint8_t)db[kk::hw_matrix_conn] % 8U;
+  hwMatrixParallel = (bool)db[kk::hw_matrix_parallel];
+  hwCurrentLimit = (uint16_t)db[kk::hw_current_limit];
+
+  // NeoGrbFeature отправляет по проводу байты (G, R, B) из RgbColor(R, G, B), поэтому первый байт провода
+  // передаётся вторым параметром, второй - первым
+  uint8_t order = (uint8_t)db[kk::hw_color_order] % 6U;
+  hwWire[0] = pgm_read_byte(&hwColorOrders[order][1]);
+  hwWire[1] = pgm_read_byte(&hwColorOrders[order][0]);
+  hwWire[2] = pgm_read_byte(&hwColorOrders[order][2]);
+  loadingFlag = true;                                       // эффекты, которые рисуют кадр один раз, перерисуются
+}
+
 // ================== ВЫВОД НА ЛЕНТУ ==================
 // Кадр выводится через аппаратный UART1 (NeoPixelBus), а не битбангингом FastLED:
 // WiFi на ESP8266 использует NMI-прерывания, которые нельзя запретить, и они портили
@@ -20,9 +51,10 @@ void ledsShow()
     brightness = scale8(brightness, autoBriFactor);
   }
   #endif //USE_AUTO_BRIGHTNESS
-  #if (CURRENT_LIMIT > 0)
-  brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * CURRENT_LIMIT); // автоматическое снижение яркости по лимиту тока (5В * CURRENT_LIMIT мА)
-  #endif
+  if (hwCurrentLimit)
+  {
+    brightness = calculate_max_brightness_for_power_mW(leds, NUM_LEDS, brightness, 5UL * hwCurrentLimit); // снижение яркости по лимиту тока (5 В * мА)
+  }
 
   #ifdef BUTTON_PRESS_FEEDBACK
   // анимация "нажатия": световая полоса продавливается сверху вниз с разгоном и
@@ -74,7 +106,7 @@ void ledsShow()
       }
       #endif //BUTTON_PRESS_FEEDBACK
       uint8_t channel[3] = {scale8(c.r, brightness), scale8(c.g, brightness), scale8(c.b, brightness)};
-      RgbColor color(channel[COLOR_WIRE_1], channel[COLOR_WIRE_0], channel[COLOR_WIRE_2]);
+      RgbColor color(channel[hwWire[0]], channel[hwWire[1]], channel[hwWire[2]]);
       if (ledStrip.GetPixelColor(i) != color)
       {
         ledStrip.SetPixelColor(i, color);
@@ -153,65 +185,30 @@ uint32_t getPixColorXY(uint8_t x, uint8_t y)
   return getPixColor(XY(x, y));
 }
 
-// ************* НАСТРОЙКА МАТРИЦЫ *****
-#if (CONNECTION_ANGLE == 0 && STRIP_DIRECTION == 0)
-#define _WIDTH WIDTH
-#define THIS_X x
-#define THIS_Y y
-
-#elif (CONNECTION_ANGLE == 0 && STRIP_DIRECTION == 1)
-#define _WIDTH HEIGHT
-#define THIS_X y
-#define THIS_Y x
-
-#elif (CONNECTION_ANGLE == 1 && STRIP_DIRECTION == 0)
-#define _WIDTH WIDTH
-#define THIS_X x
-#define THIS_Y (HEIGHT - y - 1)
-
-#elif (CONNECTION_ANGLE == 1 && STRIP_DIRECTION == 3)
-#define _WIDTH HEIGHT
-#define THIS_X (HEIGHT - y - 1)
-#define THIS_Y x
-
-#elif (CONNECTION_ANGLE == 2 && STRIP_DIRECTION == 2)
-#define _WIDTH WIDTH
-#define THIS_X (WIDTH - x - 1)
-#define THIS_Y (HEIGHT - y - 1)
-
-#elif (CONNECTION_ANGLE == 2 && STRIP_DIRECTION == 3)
-#define _WIDTH HEIGHT
-#define THIS_X (HEIGHT - y - 1)
-#define THIS_Y (WIDTH - x - 1)
-
-#elif (CONNECTION_ANGLE == 3 && STRIP_DIRECTION == 2)
-#define _WIDTH WIDTH
-#define THIS_X (WIDTH - x - 1)
-#define THIS_Y y
-
-#elif (CONNECTION_ANGLE == 3 && STRIP_DIRECTION == 1)
-#define _WIDTH HEIGHT
-#define THIS_X y
-#define THIS_Y (WIDTH - x - 1)
-
-#else
-!!!!!!!!!!!!!!!!!!!!!!!!!!!   смотрите инструкцию: https://alexgyver.ru/wp-content/uploads/2018/11/scheme3.jpg
-!!!!!!!!!!!!!!!!!!!!!!!!!!!   такого сочетания CONNECTION_ANGLE и STRIP_DIRECTION не бывает
-#define _WIDTH WIDTH
-#define THIS_X x
-#define THIS_Y y
-#pragma message "Wrong matrix parameters! Set to default"
-
-#endif
-
-// получить номер пикселя в ленте по координатам
-// библиотека FastLED тоже использует эту функцию
+// номер пикселя в ленте по координатам (x - по окружности лампы, y - снизу вверх).
+// Подключение hwMatrixConn: угол, из которого идёт лента, и направление первого ряда -
+// 0 левый нижний вправо, 1 левый нижний вверх, 2 левый верхний вправо, 3 левый верхний вниз,
+// 4 правый верхний влево, 5 правый верхний вниз, 6 правый нижний влево, 7 правый нижний вверх.
+// tx - позиция вдоль ряда ленты, ty - номер ряда, w - длина ряда
 uint16_t XY(uint8_t x, uint8_t y)
 {
-  if (!(THIS_Y & 0x01) || MATRIX_TYPE)               // Even rows run forwards
-    return (THIS_Y * _WIDTH + THIS_X);
-  else                                                  
-    return (THIS_Y * _WIDTH + _WIDTH - THIS_X - 1);  // Odd rows run backwards
+  uint8_t tx, ty, w;
+  switch (hwMatrixConn)
+  {
+    case 1:  w = HEIGHT; tx = y;              ty = x;              break;
+    case 2:  w = WIDTH;  tx = x;              ty = HEIGHT - y - 1; break;
+    case 3:  w = HEIGHT; tx = HEIGHT - y - 1; ty = x;              break;
+    case 4:  w = WIDTH;  tx = WIDTH - x - 1;  ty = HEIGHT - y - 1; break;
+    case 5:  w = HEIGHT; tx = HEIGHT - y - 1; ty = WIDTH - x - 1;  break;
+    case 6:  w = WIDTH;  tx = WIDTH - x - 1;  ty = y;              break;
+    case 7:  w = HEIGHT; tx = y;              ty = WIDTH - x - 1;  break;
+    default: w = WIDTH;  tx = x;              ty = y;              break;
+  }
+  if (!(ty & 0x01) || hwMatrixParallel)                     // чётные ряды зигзага и все ряды параллельной разводки идут вперёд
+  {
+    return ty * w + tx;
+  }
+  return ty * w + w - tx - 1;                               // нечётные ряды зигзага - в обратную сторону
 }
 
 // если у вас матрица необычной формы с зазорами/вырезами, либо просто маленькая, тогда вам придётся переписать функцию XY() под себя

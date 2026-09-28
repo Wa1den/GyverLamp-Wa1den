@@ -21,7 +21,7 @@
 //   Кнопка             группа
 //   Автояркость        меню
 //   Сеть               меню: WiFi, точка доступа, MQTT, Wake-on-LAN
-//   Служебное          меню > Журнал
+//   Служебное          меню > Оборудование, Журнал
 
 SettingsGyverWS sett("GyverLamp", &db);
 
@@ -609,6 +609,35 @@ void settingsBuild(sets::Builder& b)
       {
         pendingRestart = true;
       }
+    }
+
+    {
+      sets::Menu m(b, "Оборудование");                      // задаётся один раз после прошивки, применяется сразу
+      if (b.Select(kk::hw_matrix_conn, "Начало ленты",
+                   F("левый нижний угол, вправо;левый нижний угол, вверх;левый верхний угол, вправо;левый верхний угол, вниз;"
+                     "правый верхний угол, влево;правый верхний угол, вниз;правый нижний угол, влево;правый нижний угол, вверх")))
+      {
+        hwApply();
+      }
+      if (b.Select(kk::hw_matrix_parallel, "Ряды ленты", "зигзагом;параллельно"))
+      {
+        hwApply();
+      }
+      if (b.Select(kk::hw_color_order, "Порядок цветов", "RGB;RBG;GRB;GBR;BRG;BGR"))
+      {
+        hwApply();
+      }
+      if (b.Number(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", nullptr, 0, 10000))
+      {
+        hwApply();
+      }
+      #ifdef ESP_USE_BUTTON
+      if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
+      {
+        buttonApply();
+      }
+      #endif
+      b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
     }
 
     {

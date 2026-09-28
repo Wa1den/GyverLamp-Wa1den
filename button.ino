@@ -7,9 +7,19 @@ static bool startButtonHolding = false;                     // флаг: кно�
 static bool breakButtonHolding = true;                      // флаг: кнопка была отпущена после включения лампы в режим Белый свет (удерживанием кнопки)
 #endif
 
+static uint8_t buttonType = 1U;                             // 0 - нет кнопки, 1 - сенсорная, 2 - механическая
+
+// тип кнопки со страницы настроек (Служебное > Оборудование): подтяжка пина и антидребезг
+void buttonApply()
+{
+  buttonType = (uint8_t)db[kk::hw_button];
+  touch.setType(buttonType == 2U ? HIGH_PULL : LOW_PULL);   // механическая замыкает пин на GND и подтянута к питанию, сенсорный модуль сам выдаёт уровень
+  touch.setDebounce(buttonType == 2U ? 55U : 20U);          // мс; контакты механической кнопки дребезжат дольше
+}
+
 void buttonTick()
 {
-  if (!buttonEnabled)                                       // события кнопки не обрабатываются, если она заблокирована
+  if (!buttonEnabled || buttonType == 0U)                   // кнопка заблокирована или не подключена: без неё пин ловит наводки
   {
     return;
   }

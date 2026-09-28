@@ -41,6 +41,14 @@ DB_KEYS(kk,
     running_text,                                           // текст эффекта Бегущая строка
     run_text_ip,                                            // вкл/выкл "Писать текущий IP" в эффекте Бегущая строка
 
+    // Оборудование (Служебное > Оборудование)
+    hw_matrix_conn,                                         // угол подключения и направление ленты: 0-7, см. hwMatrixConnections
+    hw_matrix_parallel,                                     // разводка ленты: false - зигзаг, true - параллельная
+    hw_color_order,                                         // порядок цветов ленты: 0-5, см. hwColorOrders
+    hw_current_limit,                                       // лимит тока ленты, мА; 0 - без лимита
+    hw_button,                                              // кнопка: 0 - нет, 1 - сенсорная, 2 - механическая
+    hw_power_restore,                                       // после подачи питания включаться, если лампа была включена
+
     // Обратный отсчёт
     cd_seconds,                                             // интервал, секунды (1-5999, до 99:59)
     cd_bri,                                                 // яркость цифр
@@ -179,6 +187,12 @@ class Storage
       #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
       db.init(kk::run_text_ip, false);
+      db.init(kk::hw_matrix_conn, (uint8_t)0);
+      db.init(kk::hw_matrix_parallel, false);
+      db.init(kk::hw_color_order, (uint8_t)2);              // GRB - порядок WS2812B
+      db.init(kk::hw_current_limit, (uint16_t)2000);
+      db.init(kk::hw_button, (uint8_t)1);
+      db.init(kk::hw_power_restore, false);
       db.init(kk::cd_seconds, (uint16_t)60);
       db.init(kk::cd_bri, (uint8_t)40);
       db.init(kk::cd_hue, (uint8_t)0);
@@ -246,13 +260,10 @@ class Storage
       readFavoritesSettings();
 
       *espMode = (uint8_t)db[kk::esp_mode];
-      #ifdef DONT_TURN_ON_AFTER_SHUTDOWN
-      // после подачи питания лампа стартует выключенной, но после намеренной программной
+      // без опции «Включаться после подачи питания» лампа стартует выключенной, но после намеренной программной
       // перезагрузки (OTA, кнопка "Перезагрузка", смена режима WiFi) состояние восстанавливается
-      *onFlag = (ESP.getResetReason() == F("Software/System restart")) ? (bool)db[kk::lamp_on] : false;
-      #else
-      *onFlag = (bool)db[kk::lamp_on];
-      #endif
+      bool softRestart = ESP.getResetReason() == F("Software/System restart");
+      *onFlag = (softRestart || (bool)db[kk::hw_power_restore]) ? (bool)db[kk::lamp_on] : false;
       *dawnMode = (uint8_t)db[kk::dawn_mode];
       *currentMode = (uint8_t)db[kk::current_mode];
       if (*buttonEnabled) *buttonEnabled = (bool)db[kk::button_enabled]; // если кнопка уже заблокирована при старте (BUTTON_LOCK_ON_START), сохранённое значение не разблокирует её

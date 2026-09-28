@@ -243,12 +243,6 @@ CRGB leds[NUM_LEDS];
 #endif
 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // аппаратный вывод на ленту: UART1 TX = GPIO2 = LED_PIN
 
-// Порядок цветов ленты. NeoGrbFeature отправляет по проводу байты (G, R, B) из переданного RgbColor(R, G, B),
-// поэтому ledsShow переставляет каналы так, чтобы на провод ушёл порядок COLOR_ORDER. Цифры восьмеричного
-// значения FastLED EOrder - номера каналов (0 - R, 1 - G, 2 - B) в порядке отправки: GRB = 0102
-#define COLOR_WIRE_0  ((COLOR_ORDER >> 6) & 0x07)
-#define COLOR_WIRE_1  ((COLOR_ORDER >> 3) & 0x07)
-#define COLOR_WIRE_2  (COLOR_ORDER & 0x07)
 
 timerMinim timeTimer(3000);
 bool timeSynched = false;
@@ -263,11 +257,7 @@ uint8_t button_sleep_time = 1U;
 #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
 #ifdef ESP_USE_BUTTON
-#if (BUTTON_IS_SENSORY == 1)
-GButton touch(BTN_PIN, LOW_PULL, NORM_OPEN);  // для сенсорной кнопки LOW_PULL
-#else
-GButton touch(BTN_PIN, HIGH_PULL, NORM_OPEN); // для физической (не сенсорной) кнопки HIGH_PULL. ну и кнопку нужно ставить без резистора в разрыв между пинами D2 и GND
-#endif
+GButton touch(BTN_PIN, LOW_PULL, NORM_OPEN);                // тип кнопки задаётся на странице настроек, см. buttonApply
 #endif //ESP_USE_BUTTON
 
 #ifdef OTA
@@ -356,28 +346,6 @@ void setup()
   #endif
 
 
-  // КНОПКА
-  #if defined(ESP_USE_BUTTON)
-  touch.setStepTimeout(BUTTON_STEP_TIMEOUT);
-  touch.setClickTimeout(BUTTON_CLICK_TIMEOUT);
-  touch.setDebounce(BUTTON_SET_DEBOUNCE);
-    #if ESP_RESET_ON_START
-    delay(1000);                                            // ожидание инициализации модуля кнопки ttp223 (по спецификации 250мс)
-    if (digitalRead(BTN_PIN))
-    {
-      needResetWifiOnStart = true;                          // сброс SSID и пароля выполнится после инициализации хранилища настроек (ниже в setup)
-      LOG.println(F("Запрошен сброс настроек WiFi (старт с зажатой кнопкой)"));
-    }
-    ESP.wdtFeed();
-    #elif defined(BUTTON_LOCK_ON_START) && (BUTTON_IS_SENSORY == 1) // с механическими кнопками надо считывать инвертированный сигнал, но смысла нет
-    delay(1000);                                            // ожидание инициализации модуля кнопки ttp223 (по спецификации 250мс)
-    if (digitalRead(BTN_PIN))
-      buttonEnabled = false;
-    ESP.wdtFeed();
-    #endif
-  #endif
-
-
   // ЛЕНТА/МАТРИЦА
   ledStrip.Begin();                                         // вывод на ленту через аппаратный UART1 (GPIO2); FastLED остаётся для математики эффектов
   FastLED.setBrightness(BRIGHTNESS);                        // глобальная яркость хранится в FastLED и применяется в ledsShow (вместе с лимитом по току CURRENT_LIMIT)
@@ -403,6 +371,31 @@ void setup()
     &(restoreSettings)); // восстановление настроек эффектов по умолчанию выполняется в обработчике инициализации Storage
   LOG.printf_P(PSTR("Рабочий режим лампы: ESP_MODE = %d\n"), espMode);
   clockSetup();                                             // часовой пояс и сервер времени из настроек; синхронизация начнётся, когда поднимется сеть
+  hwApply();                                                // подключение матрицы, порядок цветов, лимит тока
+
+
+  // КНОПКА
+  #ifdef ESP_USE_BUTTON
+  touch.setStepTimeout(BUTTON_STEP_TIMEOUT);
+  touch.setClickTimeout(BUTTON_CLICK_TIMEOUT);
+  buttonApply();
+  if ((uint8_t)db[kk::hw_button] == 1U)                     // сенсорная кнопка: TTP223 после подачи питания готов через 250 мс
+  {
+    delay(300);
+    #if ESP_RESET_ON_START
+    if (digitalRead(BTN_PIN))
+    {
+      needResetWifiOnStart = true;
+      LOG.println(F("Запрошен сброс настроек WiFi (старт с зажатой кнопкой)"));
+    }
+    #elif defined(BUTTON_LOCK_ON_START)
+    if (digitalRead(BTN_PIN))                               // касание при старте или неподключённый модуль: кнопка блокируется до перезагрузки
+    {
+      buttonEnabled = false;
+    }
+    #endif
+  }
+  #endif //ESP_USE_BUTTON
 
   if (needResetWifiOnStart)                                 // сброс сохранённых SSID и пароля при старте с зажатой кнопкой, если разрешено (ESP_RESET_ON_START)
   {
