@@ -73,7 +73,8 @@ void ledsShow()
         c.b = qadd8(c.b, feedbackGlow[y]);
       }
       #endif //BUTTON_PRESS_FEEDBACK
-      RgbColor color(scale8(c.r, brightness), scale8(c.g, brightness), scale8(c.b, brightness));
+      uint8_t channel[3] = {scale8(c.r, brightness), scale8(c.g, brightness), scale8(c.b, brightness)};
+      RgbColor color(channel[COLOR_WIRE_1], channel[COLOR_WIRE_0], channel[COLOR_WIRE_2]);
       if (ledStrip.GetPixelColor(i) != color)
       {
         ledStrip.SetPixelColor(i, color);

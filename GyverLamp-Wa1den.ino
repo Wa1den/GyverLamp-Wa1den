@@ -561,7 +561,14 @@ CRGB leds[NUM_LEDS];
 #if (LED_PIN != 2U)
 #error "Вывод на ленту идёт через аппаратный UART1, его TX жёстко закреплён за GPIO2 (D4). Для другого пина нужен другой метод NeoPixelBus."
 #endif
-NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // аппаратный вывод на ленту: UART1 TX = GPIO2 = LED_PIN; порядок цветов GRB = COLOR_ORDER
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip(NUM_LEDS); // аппаратный вывод на ленту: UART1 TX = GPIO2 = LED_PIN
+
+// Порядок цветов ленты. NeoGrbFeature отправляет по проводу байты (G, R, B) из переданного RgbColor(R, G, B),
+// поэтому ledsShow переставляет каналы так, чтобы на провод ушёл порядок COLOR_ORDER. Цифры восьмеричного
+// значения FastLED EOrder - номера каналов (0 - R, 1 - G, 2 - B) в порядке отправки: GRB = 0102
+#define COLOR_WIRE_0  ((COLOR_ORDER >> 6) & 0x07)
+#define COLOR_WIRE_1  ((COLOR_ORDER >> 3) & 0x07)
+#define COLOR_WIRE_2  (COLOR_ORDER & 0x07)
 
 #ifdef USE_NTP
 WiFiUDP ntpUDP;
