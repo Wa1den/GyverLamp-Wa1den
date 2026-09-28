@@ -38,12 +38,10 @@ void madnessNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(9U);
         setModeSettings(30U+tmp*tmp, 20U+random8(41U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     scale = modes[currentMode].Scale;
@@ -65,12 +63,10 @@ void rainbowNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(10U);
         setModeSettings(20U+tmp*tmp, 1U+random8(23U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = RainbowColors_p;
@@ -85,11 +81,9 @@ void rainbowStripeNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(8U+random8(17U), 1U+random8(9U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = RainbowStripeColors_p;
@@ -104,11 +98,9 @@ void zebraNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(12U+random8(16U), 1U+random8(9U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     // 'black out' all 16 palette entries...
@@ -130,11 +122,9 @@ void forestNoiseRoutine()
   if (loadingFlag)
   {
     loadingFlag = false;
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(70U+random8(31U), 2U+random8(24U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     currentPalette = ForestColors_p;
     scale = modes[currentMode].Scale;
@@ -148,11 +138,9 @@ void oceanNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(6U+random8(25U), 4U+random8(8U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = OceanColors_p;
@@ -168,12 +156,10 @@ void plasmaNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(10U);
         setModeSettings(20U+tmp*tmp, 1U+random8(27U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = PartyColors_p;
@@ -188,11 +174,9 @@ void cloudsNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(15U+random8(36U), 1U+random8(10U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = CloudColors_p;
@@ -207,12 +191,10 @@ void lavaNoiseRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(9U);
         setModeSettings(10U+tmp*tmp, 5U+random8(16U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     currentPalette = LavaColors_p;

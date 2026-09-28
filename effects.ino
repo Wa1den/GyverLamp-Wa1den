@@ -59,13 +59,11 @@ const uint8_t CENTER_Y_MINOR = (HEIGHT / 2) - ((HEIGHT - 1) & 0x01); // цент
 const uint8_t CENTER_X_MAJOR =   WIDTH / 2  + (WIDTH % 2);           // центр матрицы по ИКСУ, сдвинутый в большую сторону, если ширина чётная
 const uint8_t CENTER_Y_MAJOR =  HEIGHT / 2  + (HEIGHT % 2);          // центр матрицы по ИГРЕКУ, сдвинутый в большую сторону, если высота чётная
 
-#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 void setModeSettings(uint8_t Scale = 0U, uint8_t Speed = 0U){
   modes[currentMode].Scale = Scale ? Scale : pgm_read_byte(&defaultSettings[currentMode][2]);
   modes[currentMode].Speed = Speed ? Speed : pgm_read_byte(&defaultSettings[currentMode][1]);
   selectedSettings = 0U;
 }
-#endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
 
 // ------------------------------ Дополнительные функции рисования ----------------------
@@ -297,11 +295,9 @@ const TProgmemRGBPalette16 *firePalettes[] = {
 void sparklesRoutine()
 {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(4U+random8(97U), 99U+random8(125U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     for (uint16_t i = 0; i < NUM_LEDS; i++)
@@ -374,11 +370,9 @@ void fadePixel(uint8_t i, uint8_t j, uint8_t step)          // новый фей
 // 50 чуть больше половины будет долетать. для цветных вариантов жидкости так более эффектно
 
 void fire2012WithPalette() {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(7U) ? 46U+random8(26U) : 100U, 195U+random8(40U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   //    bool fire_water = modes[currentMode].Scale <= 50;
   //    uint8_t COOLINGNEW = fire_water ? modes[currentMode].Scale * 2  + 20 : (100 - modes[currentMode].Scale ) *  2 + 20 ;
@@ -457,11 +451,9 @@ static const uint8_t hueMask[8][16] PROGMEM =
 void fireRoutine(bool isColored) // <- ******* для оригинальной прошивки Gunner47 ******* (раскомментить/закоментить)
 {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(30U) ? 1U+random8(100U) : 100U, 200U+random8(35U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //ledsClear();
@@ -643,14 +635,12 @@ void rainbowHorVertRoutine(bool isVertical) {
   }
 }
 void rainbowRoutine() {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       uint8_t tmp = 7U+random8(50U);
       if (tmp>14) tmp += 19U;
       if (tmp>67) tmp += 6U;
       setModeSettings(tmp , 150U+random8(86U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   hue += 4U;
   if (modes[currentMode].Scale < 34U)           // если масштаб до 34
@@ -711,11 +701,9 @@ void drawCircle(int x0, int y0, int radius, const CRGB &color){
 //uint8_t pulse_hue; заменено на hue из общих переменных
 
 void pulseRoutine(uint8_t PMode) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 170U+random8(62U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     CRGB _pulse_color;
   
@@ -1655,11 +1643,9 @@ static const uint8_t aquariumGIF[25][32][32] PROGMEM =
 void poolRoutine()
 {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(47U+random8(28U), 201U+random8(38U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     hue = modes[currentMode].Scale * 2.55;
@@ -1708,11 +1694,9 @@ void poolRoutine()
 void colorsRoutine2()
 {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(255U), 210U+random8(46U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     deltaValue = 255U - modes[currentMode].Speed + 1U;
@@ -1773,11 +1757,9 @@ void colorRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 96U+random8(160));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //ledsClear(); нафига тут это было?!
@@ -1791,11 +1773,9 @@ void colorRoutine()
 // ------------- снегопад ----------
 void snowRoutine()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(88U+random8(9U), 170U+random8(36U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   
   // сдвигаем всё вниз
   for (uint8_t x = 0U; x < WIDTH; x++)
@@ -1827,7 +1807,6 @@ void snowRoutine()
 
 void stormRoutine2()// (bool isColored) // сворачиваем 2 эффекта в 1
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       uint8_t tmp = 175U+random8(39U);
       if (tmp & 0x01)
@@ -1835,7 +1814,6 @@ void stormRoutine2()// (bool isColored) // сворачиваем 2 эффект
       else
         setModeSettings(50U+random8(24U), tmp);
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
 bool isColored = modes[currentMode].Speed & 0x01; // сворачиваем 2 эффекта в 1
   // заполняем головами комет
@@ -1878,11 +1856,9 @@ bool isColored = modes[currentMode].Speed & 0x01; // сворачиваем 2 э
 // ------------- матрица ---------------
 void matrixRoutine()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(90U), 165U+random8(66U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   for (uint8_t x = 0U; x < WIDTH; x++)
   {
@@ -1946,7 +1922,6 @@ void matrixRoutine()
 
 void butterflysRoutine(bool isColored)
 {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         if (isColored){
           uint8_t tmp = 66U+random8(83U);
@@ -1955,7 +1930,6 @@ void butterflysRoutine(bool isColored)
         else
           setModeSettings(random8(21U) ? (random8(3U) ? 2U+random8(98U) : 1U) : 100U, 20U+random8(155U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   bool isWings = modes[currentMode].Speed & 0x01;
   if (loadingFlag)
@@ -2147,11 +2121,9 @@ void lightersRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(14U+random8(43U), 100U+random8(81U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //randomSeed(millis());
@@ -2212,11 +2184,9 @@ void ballsRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U) , 190U+random8(31U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
 
@@ -2282,11 +2252,9 @@ const uint8_t paintHeight = HEIGHT - BORDERTHICKNESS * 2;
 
 void lightBallsRoutine()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(100U) , 230U+random8(16U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   // Apply some blurring to whatever's already on the matrix
   // Note that we never actually clear the matrix, we just constantly
@@ -2322,11 +2290,9 @@ void ballRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(13U+random8(88U) , 155U+random8(46U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //ledsClear();
@@ -2448,11 +2414,9 @@ void whiteColorStripeRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(11U+random8(83U), 1U + random8(255U / WIDTH + 1U) * WIDTH);
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     ledsClear();
@@ -2679,7 +2643,6 @@ void MoveFractionalNoiseY(int8_t amplitude = 1, float shift = 0) {
 void MultipleStream() { // 2 comets
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         hue = random8();
         hue2 = hue + 85U;
@@ -2689,10 +2652,6 @@ void MultipleStream() { // 2 comets
         hue = 0U; // 0xFF0000
         hue2 = 43U; // 0xFFFF00
       }
-    #else
-      hue = 0U; // 0xFF0000
-      hue2 = 43U; // 0xFFFF00
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     trackingObjectState[0] = WIDTH / 8;
@@ -2735,7 +2694,6 @@ if (xx < WIDTH && yy < HEIGHT)
 void MultipleStream2() { // 3 comets
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         hue = random8();
         hue2 = hue + 85U;
@@ -2747,11 +2705,6 @@ void MultipleStream2() { // 3 comets
         hue2 = 43U; // 0xFFFF00
         deltaHue = 171U; //0x0000FF;
       }
-    #else
-      hue = 0U; // 0xFF0000
-      hue2 = 43U; // 0xFFFF00
-      deltaHue = 171U; //0x0000FF;
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     trackingObjectState[0] = WIDTH / 8;
@@ -2793,11 +2746,9 @@ if (xx < WIDTH && yy < HEIGHT)
 }
 
 void MultipleStream3() { // Fireline
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(26U), 180U+random8(45U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   blurScreen(20); // без размытия как-то пиксельно, по-моему...
   //dimAll(160); // < -- затухание эффекта для последующего кадров
@@ -2817,11 +2768,9 @@ void MultipleStream3() { // Fireline
 }
 
 void MultipleStream5() { // Fractorial Fire
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(26U), 180U+random8(45U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   blurScreen(20); // без размытия как-то пиксельно, по-моему...
   //dimAll(140); // < -- затухание эффекта для последующего кадрв
@@ -2860,11 +2809,9 @@ void MultipleStream4() { // Comet
 }
 
 void MultipleStream8() { // Windows ))
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(2U) ? 1U : 2U+random8(99U), 155U+random8(76U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   if (loadingFlag){
     loadingFlag = false;
     if (modes[currentMode].Scale > 1U)
@@ -2900,11 +2847,9 @@ void MultipleStream8() { // Windows ))
 
 // Кометы обычные
 void RainbowCometRoutine() {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(10U+random8(91U), 185U+random8(51U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   dimAll(254U); // < -- затухание эффекта для последующего кадра
   CRGB _eNs_color = CHSV(millis() / modes[currentMode].Scale * 2, 255, 255);
@@ -2926,11 +2871,9 @@ void RainbowCometRoutine() {
 
 // Кометы белые и одноцветные
 void ColorCometRoutine() {      // <- ******* для оригинальной прошивки Gunner47 ******* (раскомментить/закоментить)
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(20U) ? 1U+random8(99U) : 100U, 185U+random8(51U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   
   dimAll(254U); // < -- затухание эффекта для последующего кадра
   CRGB _eNs_color = CRGB::White;
@@ -2980,11 +2923,9 @@ float bballsVImpact0 = SQRT_VARIANT( -2 * bballsGRAVITY * bballsH0 );  // Impact
 void BBallsRoutine() {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(26U+random8(32U), random8(3U) ? ((random8(4U) ? 127U : 0U) + 9U + random8(12U)) : (random8(4U) ? 255U : 127U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //ledsClear();
@@ -3094,14 +3035,12 @@ uint8_t mapcos8(uint8_t theta, uint8_t lowest = 0, uint8_t highest = 255) {
 void spiroRoutine() {
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           uint8_t rnd = random8(6U);
           if (rnd > 1U) rnd++;
           if (rnd > 3U) rnd++;
           setModeSettings(rnd*11U+3U, random8(10U) ? 2U+random8(26U) : 255U);
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();
@@ -3178,11 +3117,9 @@ if (x2<WIDTH && y2<HEIGHT) // добавил проверки. не знаю, п
 void MetaBallsRoutine() {
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           setModeSettings(random8(8U)*11U+1U+random8(11U), 50U+random8(121U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();
@@ -3259,12 +3196,10 @@ void Sinusoid3Routine()
 {
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           uint8_t tmp = random8(100U);
           setModeSettings(tmp + 1U, 4U+random8(183U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
 
@@ -3599,7 +3534,6 @@ extern const TProgmemRGBPalette16 WaterfallColors4in1_p FL_PROGMEM = {
 };
 
 void fire2012WithPalette4in1() {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       uint8_t tmp = random(3U);
       if (tmp == 0U)
@@ -3610,7 +3544,6 @@ void fire2012WithPalette4in1() {
         tmp = 80U+random8(4U);
       setModeSettings(tmp, 185U+random8(40U)); // 16-31, 48, 80-83 - остальное отстой
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   uint8_t rCOOLINGNEW = constrain((uint16_t)(modes[currentMode].Scale % 16) * 32 / HEIGHT + 16, 1, 255) ;
   // Array of temperature readings at each simulation cell
@@ -3662,11 +3595,9 @@ void fire2012WithPalette4in1() {
 // от @Shaitan
 void RainRoutine()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(10U) ? 2U+random8(99U) : 1U , 185U+random8(52U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   
   for (uint8_t x = 0U; x < WIDTH; x++)
   {
@@ -3705,11 +3636,9 @@ void PrismataRoutine() {
   if (loadingFlag)
   {
     loadingFlag = false;
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 35U+random8(100U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     setCurrentPalette();
 
@@ -3735,11 +3664,9 @@ void PrismataRoutine() {
 
 // ============= ЭФФЕКТ БЕГУЩАЯ СТРОКА ===============
 void text_running() {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 50U+random8(100U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     char ipBuf[16];                                         // хватает на "255.255.255.255"
     const char* text = runningTextSource(ipBuf, sizeof(ipBuf)); // текст из настроек либо текущий IP лампы
@@ -4217,14 +4144,12 @@ bool predatorPresent = true;
 void flockRoutine(bool predatorIs) {
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           //setModeSettings(random8(8U)*11U+1U+random8(11U), 1U+random8(255U));
           uint8_t tmp = random8(5U);// 0, 1, 5, 6, 7 - остальные 4 палитры с чёрным цветом - стая будет исчезать периодически (2, 3, 4, 8)
           if (tmp > 1U) tmp += 3U;
           setModeSettings(tmp*11U+2U+random8(10U), 1U+random8(255U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();
@@ -4318,7 +4243,6 @@ static const uint8_t ff_scale = 26; // чем больше этот параме
 void whirlRoutine(bool oneColor) {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         if (oneColor)
           setModeSettings(random8(30U) ? 1U+random8(99U) : 100U, 221U+random8(32U));
@@ -4328,7 +4252,6 @@ void whirlRoutine(bool oneColor) {
           setModeSettings(tmp*11U+3U, 221U+random8(32U));
         }
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -4396,13 +4319,11 @@ void whirlRoutine(bool oneColor) {
 void WaveRoutine() {
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           uint8_t tmp = random8(5U);// 0, 1, 5, 6, 7 - остальные 4 палитры с чёрным цветом - будет мерцать (2, 3, 4, 8)
           if (tmp > 1U) tmp += 3U;
           setModeSettings(tmp*11U+1U+random8(4U), 220U+random8(17U)*2U);
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();//а вот тут явно накосячено. палитры наложены на угол поворота несинхронно, но исправлять особого смысла нет
@@ -4498,11 +4419,9 @@ void Fire2018_2() {
 //  const uint8_t CENTER_Y_MAJOR =  HEIGHT / 2 + (HEIGHT % 2);
 //  const uint8_t CENTER_X_MAJOR =  WIDTH / 2  + (WIDTH % 2) ;
 
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(50U), 195U+random8(44U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
 
   // some changing values
@@ -4605,13 +4524,11 @@ void fire2012again()
   if (loadingFlag)
   {
     loadingFlag = false;
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = 17U+random8(55U);
         if (tmp>22) tmp += 28;
         setModeSettings(tmp, 185U+random8(50U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     if (modes[currentMode].Scale > 100) modes[currentMode].Scale = 100; // чтобы не было проблем при прошивке без очистки памяти
     if (modes[currentMode].Scale > 50) 
@@ -4828,11 +4745,9 @@ uint8_t myScale8(uint8_t x) { // даёт масштабировать кажд�
                      #ifdef USE_BLYNK
                        void coloredRain() // внимание! этот эффект заточен на работу бегунка Масштаб в диапазоне от 0 до 255. пока что единственный, поэтому для Блинка всё пересчитываем.
                        {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(1U+random8(100U) , 165U+random8(76U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
                          if (modes[currentMode].Scale > 100U) modes[currentMode].Scale = 100U;
                          if (modes[currentMode].Scale * 2.55 > 247U)
                            rain(60, 200, map8(42,5,100), myScale8(modes[currentMode].Scale * 2.55), solidRainColor, false, false, false);
@@ -4842,11 +4757,9 @@ uint8_t myScale8(uint8_t x) { // даёт масштабировать кажд�
 
                        void simpleRain()
                        {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(2U) ? 2U+random8(7U) : 8U+random8(70U), 220U+random8(22U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   
                          if (modes[currentMode].Scale > 100U) modes[currentMode].Scale = 100U;
                          rain(60, 180,(modes[currentMode].Scale * 2.55 -1) * 2.58, 30, solidRainColor, true, true, false);
@@ -4854,11 +4767,9 @@ uint8_t myScale8(uint8_t x) { // даёт масштабировать кажд�
 
                        void stormyRain()
                        {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(2U) ? 2U+random8(15U) : 17U+random8(64U), 220U+random8(22U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
                          if (modes[currentMode].Scale > 100U) modes[currentMode].Scale = 100U;
                          rain(60, 160, (modes[currentMode].Scale * 2.55 -1) * 2.58, 30, solidRainColor, true, true, true);
@@ -4867,13 +4778,11 @@ uint8_t myScale8(uint8_t x) { // даёт масштабировать кажд�
                      
 void coloredRain() // внимание! этот эффект заточен на работу бегунка Масштаб в диапазоне от 0 до 255. пока что единственный.
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       uint8_t tmp = 1U+random8(255U);
       if ((tmp%4U == 0U) && (tmp%8U != 0U)) tmp--;
       setModeSettings(tmp, 165U+random8(76U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   // я хз, как прикрутить а 1 регулятор и длину хвостов и цвет капель
   // ( Depth of dots, maximum brightness, frequency of new dots, length of tails, color, splashes, clouds, ligthening )
@@ -4886,11 +4795,9 @@ void coloredRain() // внимание! этот эффект заточен н�
 
 void simpleRain()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(2U) ? 2U+random8(7U) : 9U+random8(70U), 220U+random8(22U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   // ( Depth of dots, maximum brightness, frequency of new dots, length of tails, color, splashes, clouds, ligthening )
   //rain(60, 200, map8(intensity,2,60), 10, solidRainColor, true, true, false);
@@ -4899,11 +4806,9 @@ void simpleRain()
 
 void stormyRain()
 {
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       setModeSettings(random8(2U) ? 2U+random8(15U) : 17U+random8(64U), 220U+random8(22U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   // ( Depth of dots, maximum brightness, frequency of new dots, length of tails, color, splashes, clouds, ligthening )
   //rain(0, 90, map8(intensity,0,150)+60, 10, solidRainColor, true, true, true);
@@ -4921,11 +4826,9 @@ void stormyRain()
 void twinklesRoutine(){
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           setModeSettings(random8(8U)*11U+2U+random8(9U) , 180U+random8(69U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();
@@ -4983,11 +4886,9 @@ PVector gravity = PVector(0, -0.0125);
 void bounceRoutine()
 {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(9U)*11U+3U+random8(9U), random8(4U) ? 3U+random8(26U) : 255U);
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -5062,11 +4963,9 @@ void ringsRoutine(){
     uint8_t h, x, y;
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           setModeSettings(90U+random8(6U), 175U+random8(61U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       
       loadingFlag = false;
       setCurrentPalette();
@@ -5174,13 +5073,11 @@ void cube2dRoutine(){
     
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           uint8_t tmp = random8(9U)*11U+random8(8U); // масштаб 1-7, палитры все 9 
           if (tmp == 45U) tmp = 100U; //+ белый цвет
           setModeSettings(tmp, 175U+random8(66U));
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       setCurrentPalette();
@@ -5509,11 +5406,9 @@ void drawDig3x5(uint8_t x, uint8_t y, uint8_t num, CRGB color){ // uint8_t hue, 
 void clockRoutine(){
     if (loadingFlag)
     {
-      #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
         if (selectedSettings){
           setModeSettings(random8(20) ? 7U+random8(86U) : 100U, modes[currentMode].Speed);
         }
-      #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
       loadingFlag = false;
       poleX = (modes[currentMode].Speed - 1U) % WIDTH; //смещение цифр по горизонтали
@@ -5657,12 +5552,10 @@ void clockRoutine(){ // чтобы цифры были не в столбик, �
 void MultipleStreamSmoke(bool isColored){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(9U);
         setModeSettings(isColored ? 1U+tmp*tmp : (random8(10U) ? 1U+random8(99U) : 100U), 145U+random8(56U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     hue2 = 0U;
@@ -5809,11 +5702,6 @@ void PicassoPosition(){
 }
 
 void PicassoRoutine(){
-  #if false//defined(singleUSE_RANDOM_SETS_IN_APP) || defined(singleRANDOM_SETTINGS_IN_CYCLE_MODE)
-    if (selectedSettings){
-      setModeSettings(17U+random8(64U) , 190U+random8(41U));
-    }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   PicassoGenerate(false);
   PicassoPosition();
@@ -5836,11 +5724,6 @@ void PicassoRoutine(){
 }
 
 void PicassoRoutine2(){
-  #if false//defined(singleUSE_RANDOM_SETS_IN_APP) || defined(singleRANDOM_SETTINGS_IN_CYCLE_MODE)
-    if (selectedSettings){
-      setModeSettings(17U+random8(27U) , 185U+random8(46U));
-    }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
   
   PicassoGenerate(false);
   PicassoPosition();
@@ -5864,11 +5747,6 @@ void PicassoRoutine2(){
 }
 
 void PicassoRoutine3(){
-  #if false//defined(singleUSE_RANDOM_SETS_IN_APP) || defined(singleRANDOM_SETTINGS_IN_CYCLE_MODE)
-    if (selectedSettings){
-      setModeSettings(19U+random8(31U) , 150U+random8(63U));
-    }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   PicassoGenerate(false);
   PicassoPosition();
@@ -5892,7 +5770,6 @@ void PicassoRoutine3(){
 }
 
 void picassoSelector(){
-  #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     if (selectedSettings){
       uint8_t tmp = random8(3U);
       if (tmp == 2U)
@@ -5902,7 +5779,6 @@ void picassoSelector(){
       else
         setModeSettings(73U+random8(10U) , 150U+random8(63U));
     }
-  #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
 
   if (loadingFlag)
@@ -5999,11 +5875,9 @@ void LeapersRoutine(){
   //unsigned num = map(scale, 0U, 255U, 6U, sizeof(boids) / sizeof(*boids));
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(8U)*11U+5U+random8(7U) , 185U+random8(56U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();    
@@ -6067,11 +5941,9 @@ void LavaLampRoutine(){
   //unsigned num = map(scale, 0U, 255U, 6U, sizeof(boids) / sizeof(*boids));
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(30U) ? (random8(3U) ? 2U+random8(98U) : 1U) : 100U, 50U+random8(196U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     
     loadingFlag = false;
     //enlargedObjectNUM = (modes[currentMode].Scale - 1U) / 99.0 * (enlargedOBJECT_MAX_COUNT - 1U) + 1U;
@@ -6158,11 +6030,9 @@ void shadowsRoutine() {
     loadingFlag = false;
   }
 */
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U, 1U+random8(255U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   static uint16_t sPseudotime = 0;
   static uint16_t sLastMillis = 0;
@@ -6245,11 +6115,9 @@ void DNARoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 1U+random8(200U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     loadingFlag = false;
     step = map8(modes[currentMode].Speed, 10U, 60U);
     hue = modes[currentMode].Scale;
@@ -6313,12 +6181,10 @@ else
 void snakesRoutine(){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(8U);
         setModeSettings(8U+tmp*tmp, 20U+random8(120U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     speedfactor = (float)modes[currentMode].Speed / 555.0f + 0.001f;
@@ -6960,7 +6826,6 @@ void fillMyPal16(uint8_t hue, bool isInvert = false){
 void LiquidLampRoutine(bool isColored){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         //1-9,31-38,46-48,93-99
         //1-17,28-38,44-48,89-99
@@ -6970,7 +6835,6 @@ void LiquidLampRoutine(bool isColored){
         if (tmp > 48U) tmp += 44U;
         setModeSettings(isColored ? tmp : 27U+random8(54U), 30U+random8(170U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     
     loadingFlag = false;
     speedfactor = modes[currentMode].Speed / 64.0 + 0.1; // 127 БЫЛО
@@ -7080,11 +6944,9 @@ void popcornRestart_rocket(uint8_t r) {
 
 void popcornRoutine() {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(9U)*11U+3U+random8(9U), 5U+random8(67U)*2U+(random8(4U)?0U:1U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     loadingFlag = false;
     speedfactor = fmap((float)modes[currentMode].Speed, 1., 255., 0.25, 1.0);
     //speedfactor = (float)modes[currentMode].Speed / 127.0f + 0.001f;
@@ -7215,7 +7077,6 @@ uint8_t calcNeighbours(uint8_t x, uint8_t y, uint8_t n) {
 
 void oscillatingRoutine() {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(6U); // 4 палитры по 6? (0, 1, 6, 7) + цвет + смена цвета
         if (tmp < 4U){
@@ -7228,7 +7089,6 @@ void oscillatingRoutine() {
           tmp = 100U;
         setModeSettings(tmp, 185U+random8(40U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     step = 0U;
@@ -7364,11 +7224,9 @@ void oscillatingRoutine() {
 
 void fire2020Routine2(){
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 195U+random8(40U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     if (modes[currentMode].Scale > 100U) modes[currentMode].Scale = 100U; // чтобы не было проблем при прошивке без очистки памяти
@@ -7431,7 +7289,6 @@ void fire2020Routine2(){
 
 void LLandRoutine(){
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(6U);
         if (tmp > 1U) tmp += 3U;
@@ -7439,7 +7296,6 @@ void LLandRoutine(){
         if (tmp > 97U) tmp = 94U;
         setModeSettings(tmp, 200U+random8(46U));// масштаб 4-11, палитры 0, 1, 5, 6, 7, 8 (кроме 2, 3, 4)
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -7471,13 +7327,11 @@ void LLandRoutine(){
 void attractRoutine() {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(8U);
         if (tmp > 3U) tmp++;
         setModeSettings(tmp*11U+3U+random8(9U), 180U+random8(56U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -7541,11 +7395,9 @@ void newMatrixRoutine()
 {
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(30U) ? (random8(40U) ? 2U+random8(99U) : 1U) : 100U, 12U+random8(68U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
    
     loadingFlag = false;
     setCurrentPalette();
@@ -7611,11 +7463,9 @@ void newMatrixRoutine()
 void smokeballsRoutine(){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(9U)*11U+3U+random8(9U), 1U+random8(255U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -7699,11 +7549,9 @@ void nexusReset(uint8_t i){
 void nexusRoutine(){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(2U) ? 11U+random8(15U) : 26U+random8(55U), 1U+random8(161U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     loadingFlag = false;
     speedfactor = fmap(modes[currentMode].Speed, 1, 255, 0.1, .33);//(float)modes[currentMode].Speed / 555.0f + 0.001f;
     
@@ -7817,11 +7665,9 @@ void pacifica_deepen_colors(CRGB *leds)
 
 void pacificRoutine()
 {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(100U, 1U+random8(255U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
   // Increment the four "color index start" counters, one for each wave layer.
   // Each is incremented at a different speed, and the speeds vary over time.
@@ -7908,11 +7754,9 @@ void starfield2Emit(uint8_t i){
 void starfield2Routine(){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(25U+random8(76U), 185U + random8(30U)*2U + (random8(6U) ? 0U : 1U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //speedfactor = (float)modes[currentMode].Speed / 510.0f + 0.001f;    
@@ -7976,11 +7820,9 @@ void fairyEmit(uint8_t i) //particlesEmit(Particle_Abstract *particle, ParticleS
 void fairyRoutine(){
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(14U+random8(87U), 190U + random8(40U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //speedfactor = (float)modes[currentMode].Speed / 510.0f + 0.001f;    
@@ -8304,11 +8146,9 @@ void fountainsRoutine(){
 
 void sandRoutine(){
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U) , 140U+random8(100U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //setCurrentPalette();
@@ -8376,13 +8216,11 @@ void sandRoutine(){
 
 void spiderRoutine() {
  if (loadingFlag) {
-   #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
      if (selectedSettings){
        uint8_t tmp = random8(5U);
        if (tmp > 1U) tmp += 3U;
        setModeSettings(tmp*11U+3U+random8(7U), 1U+random8(180U));
      }
-   #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
    
    loadingFlag = false;
    setCurrentPalette();
@@ -8477,11 +8315,9 @@ unsigned long polarTimer;
 
 void polarRoutine() {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(3U) ? 1U+random8(99U) : 100U, 1U+random8(170U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //setCurrentPalette();
@@ -8560,11 +8396,9 @@ void spheresRoutine() {
 
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(random8(8U)*11U+6U+random8(6U), 1U+random8(255U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     setCurrentPalette();
@@ -8656,14 +8490,12 @@ void magmaRoutine(){
   //unsigned num = map(scale, 0U, 255U, 6U, sizeof(boids) / sizeof(*boids));
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         //палитры 0,1,5,6,7
         uint8_t tmp = random8(6U);
         if (tmp>1U) tmp+=3U;
         setModeSettings(tmp*11U+2U+random8(7U) , 185U+random8(48U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     //setCurrentPalette();    
@@ -8770,7 +8602,6 @@ void wu_pixel_maxV(int16_t item){
 void execStringsFlame(){ // внимание! эффект заточен на бегунок Масштаб с диапазоном от 0 до 255
   int16_t i,j;
   if (loadingFlag){ 
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       #ifdef USE_BLYNK
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 20U+random8(236U)); // у Блинка бегунок Масштаб всегда от 1 до 100
@@ -8780,7 +8611,6 @@ void execStringsFlame(){ // внимание! эффект заточен на �
         setModeSettings(1U+random8(255U), 20U+random8(236U)); // на свякий случай пусть будет от 1 до 255, а не от нуля
       }
       #endif
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     enlargedObjectNUM = (modes[currentMode].Speed - 1U) / 254.0 * (trackingOBJECT_MAX_COUNT - 1U) + 1U;
@@ -8876,13 +8706,11 @@ void execStringsFlame(){ // внимание! эффект заточен на �
 void Fire2021Routine(){
   static uint16_t f21cx[WIDTH], f21cz[WIDTH];               // координаты окружности в пространстве шума (цилиндрическая выборка, см. ниже)
   if (loadingFlag){ 
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = 1U+random8(89U); // пропускаем белую палитру
         if (tmp > 44U) tmp += 11U;
         setModeSettings(tmp, 42U+random8(155U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     if (modes[currentMode].Scale > 100U) modes[currentMode].Scale = 100U; // чтобы не было проблем при прошивке без очистки памяти
@@ -8951,12 +8779,10 @@ void Fire2021Routine(){
 // https://editor.soulmatelights.com/gallery/843-squares-and-dots
 /*void squaresNdotsRoutine() {
   if (loadingFlag) {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings) {
         // scale | speed
         setModeSettings(1U + random8(100U), 1U + random8(255U));
       }
-    #endif
     loadingFlag = false;
     shtukX = WIDTH / 3U + 1U;
     shtukY = HEIGHT / 3U + 1U;
@@ -8997,7 +8823,6 @@ void lumenjerRoutine() {
   if (loadingFlag)
   {
     loadingFlag = false;
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         uint8_t tmp = random8(17U); //= random8(19U);
         if (tmp > 2U) tmp += 2U;
@@ -9005,7 +8830,6 @@ void lumenjerRoutine() {
         if (tmp > 100U) tmp = 100U;
         setModeSettings(tmp, 190U+random8(56U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
     
     if (modes[currentMode].Scale > 100) modes[currentMode].Scale = 100; // чтобы не было проблем при прошивке без очистки памяти    
     if (modes[currentMode].Scale > 50) 
@@ -9058,11 +8882,9 @@ void snakeGameRoutine()
 
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 150U+random8(90U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     blinkPhase = 1U;                                        // старт через ветку перезапуска ниже
@@ -9266,11 +9088,9 @@ void earthRoutine()
 
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(20U+random8(81U), 60U+random8(160U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
   }
@@ -9409,11 +9229,9 @@ void marioRoutine()
 
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(10U + random8(81U), 60U + random8(160U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     obsX = 16.0F + random8(16U);
@@ -9618,11 +9436,9 @@ void pingPongRoutine()
 
   if (loadingFlag)
   {
-    #if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
       if (selectedSettings){
         setModeSettings(1U+random8(100U), 80U+random8(120U));
       }
-    #endif //#if defined(USE_RANDOM_SETS_IN_APP) || defined(RANDOM_SETTINGS_IN_CYCLE_MODE)
 
     loadingFlag = false;
     score[0] = score[1] = 0U;
