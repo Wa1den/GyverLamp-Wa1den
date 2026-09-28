@@ -64,6 +64,7 @@ static css = `
 #define UI_ID_DICE(i)      (0xD1CE00UL + (i))
 #define UI_ID_DICE_RESULT  ("ui_dice_res"_h)
 #define UI_ID_DICE_EXIT    ("ui_dice_exit"_h)
+#define UI_ID_TIMER_STATE  ("ui_tmr_state"_h)
 #define UI_ID_TIMER_MIN    ("ui_tmr_min"_h)
 #define UI_ID_TIMER_START  ("ui_tmr_go"_h)
 #define UI_ID_TIMER_STOP   ("ui_tmr_off"_h)
@@ -110,6 +111,17 @@ static String uiCountdownText()
     text += F(" (пауза)");
   }
   return text;
+}
+
+// состояние таймера выключения - одна строка в сборке страницы и в живом обновлении
+static String uiTimerText()
+{
+  if (!TimerManager::TimerRunning)
+  {
+    return F("отключен");
+  }
+  int32_t left = max((int32_t)(TimerManager::TimeToFire - millis()), (int32_t)0);
+  return String(F("осталось ")) + (left / 60000L + 1) + F(" мин");
 }
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
@@ -363,14 +375,7 @@ void settingsBuild(sets::Builder& b)
   {
     sets::Group g(b, "Таймер выключения");
 
-    if (TimerManager::TimerRunning)
-    {
-      b.LabelNum("Осталось, мин", (uint32_t)max((int32_t)(TimerManager::TimeToFire - millis()), (int32_t)0) / 60000UL + 1U);
-    }
-    else
-    {
-      b.Label("Состояние", "отключен");
-    }
+    b.Label(UI_ID_TIMER_STATE, "Состояние", uiTimerText()); // обновляется на открытой странице, см. settingsSyncTick
 
     b.Number(UI_ID_TIMER_MIN, "Минут", &uiSleepMinutes, 1, 255);
 
@@ -818,6 +823,14 @@ void settingsSyncTick()
   {
     lastCountdownText = countdownLeft;
     sett.updater().update(UI_ID_CD_LEFT, countdownLeft);
+  }
+
+  static String lastTimerText;                              // таймер выключения: запуск, отключение, оставшиеся минуты
+  String timerText = uiTimerText();
+  if (timerText != lastTimerText)
+  {
+    lastTimerText = timerText;
+    sett.updater().update(UI_ID_TIMER_STATE, timerText);
   }
 
   static String lastDiceText;                               // поле "Результат" кубиков: бросок идёт или его итог
