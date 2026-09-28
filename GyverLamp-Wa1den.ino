@@ -647,7 +647,7 @@ unsigned char matrixValue[8][16]; //это массив для эффекта О
 bool TimerManager::TimerRunning = false;
 bool TimerManager::TimerHasFired = false;
 uint8_t TimerManager::TimerOption = 1U;
-uint64_t TimerManager::TimeToFire = 0ULL;
+uint32_t TimerManager::TimeToFire = 0U;
 
 uint8_t FavoritesManager::FavoritesRunning = 0;
 uint16_t FavoritesManager::Interval = DEFAULT_FAVORITES_INTERVAL;

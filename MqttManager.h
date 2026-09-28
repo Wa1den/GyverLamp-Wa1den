@@ -443,7 +443,7 @@ class MqttManager
       else if (!strncmp_P(cmd, PSTR("TMR_SET"), 7))         // формат: "TMR_SET 1 3 300" (вкл/выкл, номер опции в списке, секунды до выключения)
       {
         bool timerOn = atoi(cmd + 8) != 0;
-        uint32_t seconds = (strlen(cmd) > 12U) ? strtoul(cmd + 12, NULL, 10) : 0UL;
+        uint32_t seconds = (strlen(cmd) > 12U) ? min(strtoul(cmd + 12, NULL, 10), 86400UL) : 0UL; // не больше суток: момент срабатывания сравнивается знаковой разностью millis()
         if (timerOn && seconds > 0UL)
         {
           TimerManager::TimerOption = (uint8_t)atoi(cmd + 10);

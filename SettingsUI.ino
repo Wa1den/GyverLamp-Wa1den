@@ -365,7 +365,7 @@ void settingsBuild(sets::Builder& b)
 
     if (TimerManager::TimerRunning)
     {
-      b.LabelNum("Осталось, мин", (uint32_t)((TimerManager::TimeToFire - millis()) / 60000ULL) + 1U);
+      b.LabelNum("Осталось, мин", (uint32_t)max((int32_t)(TimerManager::TimeToFire - millis()), (int32_t)0) / 60000UL + 1U);
     }
     else
     {

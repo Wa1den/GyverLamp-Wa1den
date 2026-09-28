@@ -20,7 +20,7 @@ class FavoritesManager
     static uint16_t Dispersion;                             // дополнительный динамический (случайный) интервал (время между сменами эффектов)
     static uint8_t UseSavedFavoritesRunning;                // флаг, определяющий, нужно ли использовать сохранённое значение FavoritesRunning при перезапуске; еслин нет, "избранное" будет выключено при старте
     static uint8_t FavoriteModes[MODE_AMOUNT];              // массив, каждый элемент которого соответствует флагу "эффект №... добавлен в избранные"
-    static uint32_t nextModeAt;                             // ближайшее время переключения на следующий избранный эффект (millis())
+    static uint32_t nextModeAt;                             // millis() следующего переключения, 0 - ещё не назначено
 
     static void SetStatus(char* statusText)                 // помещает в statusText состояние режима работы избранных эффектов
     {
@@ -109,7 +109,7 @@ class FavoritesManager
         return false;
       }
 
-      if (millis() >= nextModeAt)
+      if ((int32_t)(millis() - nextModeAt) >= 0)          // знаковая разность переживает переполнение millis()
       {
         *currentMode = getNextFavoriteMode(currentMode);
         *loadingFlag = true;
@@ -323,6 +323,7 @@ class FavoritesManager
 
     static uint32_t getNextTime()                           // определяет время следующего переключения на следующий избранный эффект
     {
-      return millis() + Interval * 1000 + random(0, Dispersion + 1) * 1000;
+      uint32_t at = millis() + Interval * 1000UL + random(0, Dispersion + 1) * 1000UL;
+      return at ? at : 1U;                                  // 0 означает "не назначено"
     }
 };

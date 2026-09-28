@@ -185,7 +185,7 @@ void lampSetSleepTimer(uint16_t minutes)
 void lampClearSleepTimer()
 {
   TimerManager::TimerRunning = false;
-  TimerManager::TimeToFire = 0ULL;
+  TimerManager::TimeToFire = 0U;
   mqttRequestPublish();
 }
 

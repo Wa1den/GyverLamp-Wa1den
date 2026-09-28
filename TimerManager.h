@@ -7,7 +7,7 @@ class TimerManager
     static bool TimerRunning;                               // флаг "таймер взведён"
     static bool TimerHasFired;                              // флаг "таймер отработал"
     static uint8_t TimerOption;                             // индекс элемента в списке List Picker'а
-    static uint64_t TimeToFire;                             // время, в которое должен сработать таймер (millis)
+    static uint32_t TimeToFire;                             // millis() срабатывания; сравнивается знаковой разностью, поэтому переживает переполнение millis() раз в 49,7 суток
 
     static void HandleTimer(                                // функция, обрабатывающая срабатывание таймера, гасит матрицу
       bool* ONflag,
@@ -17,7 +17,7 @@ class TimerManager
     {
       if (!TimerManager::TimerHasFired &&
            TimerManager::TimerRunning &&
-           millis() >= TimerManager::TimeToFire)
+           (int32_t)(millis() - TimerManager::TimeToFire) >= 0)
       {
         #ifdef GENERAL_DEBUG
         LOG.print(F("Выключение по таймеру\n\n"));
@@ -28,7 +28,7 @@ class TimerManager
         ledsClear();
         delay(2);
         ledsShow();
-        *ONflag = !(*ONflag);
+        *ONflag = false;
         changePower();
         *settChanged = true;
         *eepromTimeout = millis();

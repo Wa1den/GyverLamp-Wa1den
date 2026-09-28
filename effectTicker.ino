@@ -200,7 +200,7 @@ void changePower()
 
   TimerManager::TimerRunning = false;
   TimerManager::TimerHasFired = false;
-  TimerManager::TimeToFire = 0ULL;
+  TimerManager::TimeToFire = 0U;
   #ifdef AUTOMATIC_OFF_TIME      
     if (ONflag){
       TimerManager::TimerRunning = true;
