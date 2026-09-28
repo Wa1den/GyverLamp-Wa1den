@@ -3,9 +3,9 @@
  * 11.07.2019
  * Класс, который отслеживает действия пользователя по запросу обновления прошивки по воздуху и выполняет эту прошивку.
  * Запрос на обновление - это вызов метода RequestOtaUpdate(), его нужно поместить, например, в обработчик нажатия кнопки, приёма UDP пакета и т.д.
- * Для обновления пользователь должен ДВАЖДЫ запросить обновление в течение заданного промежутка времени (CONFIRMATION_TIMEOUT) во избежание случайного перехода в режим обновления.
+ * Запрос подтверждается удержанием кнопки после четырёх кликов (button.ino): случайная серия кликов удержания не даёт, поэтому режим обновления включается с первого запроса.
  * Режим обновления - это прослушивание специального порта (ESP_OTA_PORT) в ожидании команды обновления прошивки по воздуху (по сети).
- * Режим обновления работает параллельно с основным режимом функционирования, только при ESP_MODE == 1 (WiFi клиент), т.к. требует доступа к ESP по локальной сети и при подключенной кнопке (в данном сетапе, т.к. он вызывается кнопкой).
+ * Режим обновления работает параллельно с основным режимом функционирования, в режиме клиента WiFi и точки доступа.
  * Режим обновления активен в течение заданного промежутка времени (ESP_CONF_TIMEOUT). Потом ESP автоматически перезагружается.
  * Обновление производится из Arduino IDE: меню Инструменты - Порт - <Выбрать обнаруженный СЕТЕВОЙ COM порт из списка> (если он не обнаружен, значит что-то настроено неправильно), затем обычная команда "Загрузка" для прошивки.
  * Для включения опции обновления по воздуху в основном файле должен быть определён идентификатор OTA "#define OTA" и режим "#define ESP_MODE (1U)" (а также в данном проекте должна быть подключена кнопка).
@@ -17,13 +17,11 @@
 #include <ESP8266mDNS.h>
 #include "Storage.h"                                        // hostName() - имя лампы в локальной сети
 
-#define CONFIRMATION_TIMEOUT  (30U)                         // время в сеундах, в течение которого нужно дважды подтвердить старт обновлениЯ по воздуху (иначе сброс в None)
 
 enum OtaPhase                                               // определение стадий процесса обновления по воздуху: нет, получено первое подтверждение, получено второе подтверждение, получено второе подтверждение - в процессе, обновление окончено
 {
   None = 0,
-  GotFirstConfirm,
-  GotSecondConfirm,
+  Requested,
   InProgress,
   Done
 };
@@ -39,63 +37,29 @@ class OtaManager
       this->showWarningDelegate = showWarningDelegate;
     }
 
-    bool RequestOtaUpdate()                                 // пользователь однократно запросил обновление по воздуху; возвращает true, когда переходит в режим обновления - startOtaUpdate()
+    bool RequestOtaUpdate()                                 // включает режим обновления; возвращает true, если он не был включён
     {
-/*      if (espMode != 1U) интересно, зачем было запрещать обновление через точку доступа?!
+      if (OtaFlag != OtaPhase::None)
       {
-        #ifdef GENERAL_DEBUG
-        LOG.print(F("Запрос обновления по воздуху поддерживается только в режиме ESP_MODE = 1\n"));
-        #endif
-
-        return false;
-      }
-*/
-
-      if (OtaFlag == OtaPhase::None)
-      {
-        OtaFlag = OtaPhase::GotFirstConfirm;
-        momentOfFirstConfirmation = millis();
-
-        #ifdef GENERAL_DEBUG
-        LOG.print(F("Получено первое подтверждение обновления по воздуху\nОжидание второго подтверждения\n"));
-        #endif
-
         return false;
       }
 
-      if (OtaFlag == OtaPhase::GotFirstConfirm)
-      {
-        OtaFlag = OtaPhase::GotSecondConfirm;
-        momentOfOtaStart = millis();
+      OtaFlag = OtaPhase::Requested;
+      momentOfOtaStart = millis();
 
-        #ifdef GENERAL_DEBUG
-        LOG.print(F("Получено второе подтверждение обновления по воздуху\nСтарт режима обновления\n"));
-        #endif
+      #ifdef GENERAL_DEBUG
+      LOG.print(F("Старт режима обновления по воздуху
+"));
+      #endif
 
-        showWarningDelegate(CRGB::Yellow, 2000U, 500U);     // мигание жёлтым цветом 2 секунды (2 раза) - готовность к прошивке
-        startOtaUpdate();
-        return true;
-      }
-
-      return false;
+      showWarningDelegate(CRGB::Yellow, 2000U, 500U);       // мигание жёлтым цветом 2 секунды (2 раза) - готовность к прошивке
+      startOtaUpdate();
+      return true;
     }
 
     void HandleOtaUpdate()
     {
-      if (OtaFlag == OtaPhase::GotFirstConfirm &&
-          millis() - momentOfFirstConfirmation >= CONFIRMATION_TIMEOUT * 1000)
-      {
-        OtaFlag = OtaPhase::None;
-        momentOfFirstConfirmation = 0;
-
-        #ifdef GENERAL_DEBUG
-        LOG.print(F("Таймаут ожидания второго подтверждения превышен\nСброс флага в исходное состояние\n"));
-        #endif
-
-        return;
-      }
-
-      if ((OtaFlag == OtaPhase::GotSecondConfirm || OtaFlag == OtaPhase::InProgress) &&
+      if ((OtaFlag == OtaPhase::Requested || OtaFlag == OtaPhase::InProgress) &&
           millis() - momentOfOtaStart >= ESP_CONF_TIMEOUT * 1000)
       {
         OtaFlag = OtaPhase::None;
@@ -119,8 +83,7 @@ class OtaManager
     }
 
   private:
-    uint64_t momentOfFirstConfirmation = 0;                 // момент времени, когда получено первое подтверждение и с которого начинается отсчёт ожидания второго подтверждения
-    uint64_t momentOfOtaStart = 0;                          // момент времени, когда развёрнута WiFi точка доступа для обновления по воздуху
+    uint32_t momentOfOtaStart = 0;                          // момент времени, когда развёрнута WiFi точка доступа для обновления по воздуху
     ShowWarningDelegate showWarningDelegate;
 
     void startOtaUpdate()
@@ -155,7 +118,6 @@ class OtaManager
       ArduinoOTA.onEnd([this]()
       {
         OtaFlag = OtaPhase::Done;
-        momentOfFirstConfirmation = 0;
         momentOfOtaStart = 0;
 
         #ifdef GENERAL_DEBUG
@@ -174,7 +136,6 @@ class OtaManager
       ArduinoOTA.onError([this](ota_error_t error)
       {
         OtaFlag = OtaPhase::None;
-        momentOfFirstConfirmation = 0;
         momentOfOtaStart = 0;
 
         #ifdef GENERAL_DEBUG

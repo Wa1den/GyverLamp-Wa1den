@@ -156,22 +156,6 @@ void buttonTick()
   }
 
 
-  // четырёхкратное нажатие
-  else if (clickCount == 4U)
-  {
-    #ifdef OTA
-    if (otaManager.RequestOtaUpdate())
-    {
-      ONflag = true;
-      currentMode = EFF_MATRIX;                             // принудительное включение режима "Матрица" для индикации перехода в режим обновления по воздуху
-      //ledsClear();
-      //delay(1);
-      changePower();
-    }
-    #endif
-  }
-
-
   // пятикратное нажатие
   else if (clickCount == 5U)                                     // вывод IP на лампу
   {
@@ -189,38 +173,48 @@ void buttonTick()
   }
 
 
-  // семикратное нажатие
-  else if (clickCount == 7U)  // if (ONflag &&                   // смена рабочего режима лампы: с WiFi точки доступа на WiFi клиент или наоборот
-  {
-    #ifdef RESET_WIFI_ON_ESP_MODE_CHANGE
-      if (espMode) resetWifiSettings();                             // сброс сохранённых SSID и пароля (сброс настроек подключения к роутеру)
-    #endif
-    espMode = (espMode == 0U) ? 1U : 0U;
-    Storage::SaveEspMode(&espMode);
-
-    #ifdef GENERAL_DEBUG
-    LOG.printf_P(PSTR("Рабочий режим лампы изменён и сохранён в энергонезависимую память\nНовый рабочий режим: ESP_MODE = %d, %s\nРестарт...\n"),
-      espMode, espMode == 0U ? F("WiFi точка доступа") : F("WiFi клиент (подключение к роутеру)"));
-    delay(1000);
-    #endif
-
-    showWarning(CRGB::Red, 3000U, 500U);                    // мигание красным цветом 3 секунды - смена рабочего режима лампы, перезагрузка
-    ESP.restart();
-  }
-
-
   // кнопка только начала удерживаться
   //if (ONflag && touch.isHolded())
   if (touch.isHolded()) // пускай для выключенной лампы удержание кнопки включает белую лампу
   {
     brightDirection = !brightDirection;
     startButtonHolding = true;
+
+    // служебные жесты подтверждаются удержанием после серии: при быстром переключении эффектов
+    // клики сливаются в серии по 4-7, но удержания в конце у них нет
+    switch (touch.getHoldClicks())
+    {
+      case 4U:                                              // обновление по воздуху
+      {
+        #ifdef OTA
+        if (otaManager.RequestOtaUpdate())
+        {
+          ONflag = true;
+          currentMode = EFF_MATRIX;                         // эффект Матрица - признак режима обновления
+          changePower();
+        }
+        #endif
+        break;
+      }
+
+      case 7U:                                              // смена режима WiFi: точка доступа или клиент, с перезагрузкой
+      {
+        #ifdef RESET_WIFI_ON_ESP_MODE_CHANGE
+        if (espMode) resetWifiSettings();                   // сброс сохранённых SSID и пароля роутера
+        #endif
+        espMode = (espMode == 0U) ? 1U : 0U;
+        Storage::SaveEspMode(&espMode);
+        showWarning(CRGB::Red, 3000U, 500U);                // мигание красным 3 секунды перед перезагрузкой
+        ESP.restart();
+        break;
+      }
+    }
   }
 
 
   // кнопка нажата и удерживается
 //  if (ONflag && touch.isStep())
-if (touch.isStep())
+if (touch.isStep() && touch.getHoldClicks() < 3U)            // после 3 и более кликов удержание - подтверждение служебного жеста, а не регулировка
   if (ONflag
       #ifdef BUTTON_PAUSE_AFTER_TURN_ON
       && breakButtonHolding
