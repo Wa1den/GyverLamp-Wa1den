@@ -325,7 +325,7 @@ bool buttonEnabled = true; // это важное первоначальное �
 bool needResetWifiOnStart = false;                          // запрошен сброс настроек WiFi при старте с зажатой кнопкой (см. ESP_RESET_ON_START)
 bool pendingWifiConnect = false;                            // запрошено подключение к WiFi сети из веб-интерфейса (кнопка "Подключить"); обрабатывается в wifiTick()
 
-unsigned char matrixValue[8][16]; //это массив для эффекта Огонь. что он тут делает? - хз
+unsigned char matrixValue[8][16];                           // буфер эффекта Огонь
 
 bool TimerManager::TimerRunning = false;
 bool TimerManager::TimerHasFired = false;
@@ -567,8 +567,6 @@ void loop()
       ))
   {
     FastLED.setBrightness(modes[currentMode].Brightness);
-    //ledsClear(); из-за этой странной строчки между эффектами лампа полностью тухла. зачем так делать?!
-    //delay(1); и из-за этой ещё
   }
 
   #if USE_MQTT

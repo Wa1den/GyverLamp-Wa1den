@@ -94,7 +94,7 @@ void DrawLineF(float x1, float y1, float x2, float y2, CRGB color){
   float signX = x1 < x2 ? 0.5 : -0.5;
   float signY = y1 < y2 ? 0.5 : -0.5;
 
-  while (x1 != x2 || y1 != y2) { // (true) - а я то думаю - "почему функция часто вызывает вылет по вачдогу?" А оно вон оно чё, Михалычь!
+  while (x1 != x2 || y1 != y2) {                            // условие вместо while (true), с которым функция часто вызывала перезагрузку по сторожу
       if ((signX > 0 && x1 > x2+signX) || (signX < 0 && x1 < x2+signX)) break;
       if ((signY > 0 && y1 > y2+signY) || (signY < 0 && y1 < y2+signY)) break;
       drawPixelXYF(x1, y1, color); // интересно, почему тут было обычное drawPixelXY() ???
@@ -365,7 +365,6 @@ void fireRoutine(bool isColored) // <- ******* для оригинальной �
 
     loadingFlag = false;
     generateLine();
-    //memset(matrixValue, 0, sizeof(matrixValue)); без очистки
     pcnt = 0;
   }
   if (pcnt >= 30) {                                         // внутренний делитель кадров для поднимающегося пламени
@@ -548,7 +547,6 @@ void drawCircle(int x0, int y0, int radius, const CRGB &color){
 
 //CRGBPalette16 palette; не используется
 // uint8_t currentRadius = 4; будет pcnt
-//uint16_t _rc; вроде, не используется
 //uint8_t _pulse_hue; заменено на deltaHue из общих переменных
 //uint8_t _pulse_hueall; заменено на hue2 из общих переменных
 //uint8_t _pulse_delta; заменено на deltaHue2 из общих переменных
@@ -561,9 +559,6 @@ void pulseRoutine(uint8_t PMode) {
 
     CRGB _pulse_color;
   
-    // palette = RainbowColors_p; не используется
-    //const uint8_t limitSteps = 6U; не используется
-    //static const float fadeRate = 0.8; не используется
 
     dimAll(248U);
     uint8_t _sat;
@@ -1581,7 +1576,6 @@ void colorsRoutine2()
         step = 0U;
       }
       else
-//        EVERY_N_SECONDS(SECONDS_DELAY){   // не компилируется такое, блин
 //        EVERY_N_MILLIS(12) {              // и такое тоже
         if (hue2 >= DELAY_MULTIPLIER) {
           step++;
@@ -1601,7 +1595,6 @@ void colorRoutine()
       }
 
     loadingFlag = false;
-    //ledsClear(); нафига тут это было?!
 
     fillAll(CHSV(modes[currentMode].Scale * 2.55, modes[currentMode].Speed, 255U));
   }
@@ -1875,7 +1868,7 @@ void butterflysRoutine(bool isColored)
     
     if (trackingObjectState[i] == 255U)
     {
-      if (step == i && random8(2U) == 0U)//(step == 0U && ((pcnt + i) & 0x01))
+      if (step == i && random8(2U) == 0U)
       {
         trackingObjectState[i] = random8(220U,244U);
         trackingObjectSpeedX[i] = (float)random8(101U) / 20.0f + 1.0f;
@@ -1928,9 +1921,6 @@ void butterflysRoutine(bool isColored)
 // ------------- светлячки --------------
 //#define LIGHTERS_AM           (100U)  // для экономии памяти берём trackingOBJECT_MAX_COUNT
 ///////#define trackingOBJECT_MAX_COUNT
-//int32_t angle[LIGHTERS_AM];она нигде не используется. нафига она тут?!
-//int32_t speedV[LIGHTERS_AM]; она нигде не используется. нафига она тут?!
-//int8_t angleSpeed[LIGHTERS_AM]; она нигде не используется. нафига она тут?!
 void lightersRoutine()
 {
   if (loadingFlag)
@@ -2434,7 +2424,7 @@ void MultipleStream4() { // Comet
   MoveFractionalNoiseY(5, -0.5);
 }
 
-void MultipleStream8() { // Windows ))
+void MultipleStream8() {
     if (selectedSettings){
       setModeSettings(random8(2U) ? 1U : 2U+random8(99U), 155U+random8(76U));
     }
@@ -2584,7 +2574,6 @@ void BBallsRoutine() {
       }
     }
 
-    //trackingObjectPosY[i] = round( bballsHi * (HEIGHT - 1) / bballsH0); были жалобы, что эффект вылетает
     trackingObjectPosY[i] = constrain(round( bballsHi * (HEIGHT - 1) / bballsH0), 0, HEIGHT - 1);             // Map "h" to a "pos" integer index position on the LED strip
     if (trackingObjectIsShift[i] && (trackingObjectPosY[i] == HEIGHT - 1)) {                  // если мячик получил право, то пускай сдвинется на максимальной высоте 1 раз
       trackingObjectIsShift[i] = false;
@@ -3955,7 +3944,7 @@ void Fire2018_2() {
 
   // draw lowest line - seed the fire
   for (uint8_t x = 0; x < WIDTH; x++) {
-    ledsbuff[XY(x, HEIGHT - 1)].r =  noise3d[0][WIDTH - 1 - x][CENTER_Y_MAJOR - 1]; // хз, почему взято с середины. вожможно, нужно просто с 7 строки вне зависимости от высоты матрицы
+    ledsbuff[XY(x, HEIGHT - 1)].r =  noise3d[0][WIDTH - 1 - x][CENTER_Y_MAJOR - 1];
   }
 
 
@@ -4254,7 +4243,6 @@ void coloredRain() // внимание! этот эффект заточен н�
       setModeSettings(tmp, 165U+random8(76U));
     }
 
-  // я хз, как прикрутить а 1 регулятор и длину хвостов и цвет капель
   // ( Depth of dots, maximum brightness, frequency of new dots, length of tails, color, splashes, clouds, ligthening )
   if (modes[currentMode].Scale > 247U)
     rain(60, 200, map8(42,5,100), myScale8(modes[currentMode].Scale), solidRainColor, false, false, false);
@@ -4347,7 +4335,6 @@ void twinklesRoutine(){
 // Aurora : https://github.com/pixelmatix/aurora/blob/master/PatternBounce.h
 // Copyright(c) 2014 Jason Coon
 // v1.0 - Updating for GuverLamp v1.7 by Palpalych 14.04.2020
-//#define e_bnc_COUNT (WIDTH) // теперь enlargedObjectNUM. хз, почему использовалась ширина матрицы тут, если по параметру идёт обращение к массиву boids, у которого может быть меньший размер
 #define e_bnc_SIDEJUMP (true)
 PVector gravity = PVector(0, -0.0125);
 void bounceRoutine()
@@ -4382,7 +4369,6 @@ void bounceRoutine()
     if (boid.location.x >= WIDTH) boid.location.x = boid.location.x - WIDTH; // это только
     else if (boid.location.x < 0) boid.location.x = boid.location.x + WIDTH; // для субпиксельной версии
     CRGB color = ColorFromPalette(*curPalette, boid.colorIndex); // boid.colorIndex + hue
-    //drawPixelXYFseamless(boid.location.x, boid.location.y, color); вот это я тупанул
     drawPixelXYF(boid.location.x, boid.location.y, color);
 
     if (boid.location.y <= 0)
@@ -4430,7 +4416,6 @@ void ringsRoutine(){
         shiftValue[i] = 0U; //random8(WIDTH); само прокрутится постепенно
         step = 0U;
         //do { // песец конструкцию придумал бредовую
-        //  step = WIDTH - 3U - random8((WIDTH - 3U) * 2U); само присвоится при первом цикле
         deltaValue = random8(deltaHue);
       }
       
@@ -4451,7 +4436,7 @@ void ringsRoutine(){
             {
               deltaValue = random8(deltaHue);
               do {
-                step = WIDTH - 3U - random8((WIDTH - 3U) * 2U); // проворот кольца от хз до хз 
+                step = WIDTH - 3U - random8((WIDTH - 3U) * 2U); // случайный проворот кольца в любую сторону
               } while (step < WIDTH / 5U || step > 255U - WIDTH / 5U);
             }
           else
@@ -4972,7 +4957,7 @@ void MultipleStreamSmoke(bool isColored){
         hue2 = 0U;
         hue = random8();
       }
-    if (deltaHue & 0x01)//((deltaHue >> 2U) == 0U) // какой-то умножитель охота подключить к задержке смены цвета, но хз какой...
+    if (deltaHue & 0x01)
       hue2++;
 
     hsv2rgb_spectrum(CHSV(hue, 255U, 127U), color);
@@ -5945,7 +5930,6 @@ void popcornRoutine() {
     // bounce off the floor?
     if (trackingObjectPosY[r] < 0 && trackingObjectSpeedY[r] < -0.7) { // 0.7 вычислено в экселе. скорость свободного падения ниже этой не падает. если ниже, значит ещё есть ускорение
       trackingObjectSpeedY[r] = (-trackingObjectSpeedY[r]) * 0.9375;//* 240) >> 8;
-      //trackingObjectPosY[r] = trackingObjectSpeedY[r]; чё это значило вообще?!
       trackingObjectPosY[r] = -trackingObjectPosY[r];
     }
 
@@ -6314,7 +6298,6 @@ void newMatrixRoutine()
       trackingObjectPosY[i] = random8(HEIGHT);
       trackingObjectSpeedY[i] = random8(150, 250) / 100.; 
       trackingObjectState[i] = random8(127U, 255U);
-      //trackingObjectHue[i] = hue; не похоже, что цвет используется
     }
    hue = modes[currentMode].Scale * 2.55;
   } 
@@ -6349,7 +6332,6 @@ void newMatrixRoutine()
       trackingObjectPosY[i] = random8(HEIGHT - HEIGHT /2, HEIGHT);
       trackingObjectSpeedY[i] = random8(150, 250) / 100.; 
       trackingObjectState[i] = random8(127U, 255U);
-      //trackingObjectHue[i] = hue; не похоже, что цвет используется
     }
   }
 }
@@ -6386,7 +6368,6 @@ void smokeballsRoutine(){
     }
   }
   
-  //dimAll(240); фиксированное число - очень плохо, когда матрицы разной высоты // fadeToBlackBy(leds, NUM_LEDS, 10);
   fadeToBlackBy(leds, NUM_LEDS, 128U / HEIGHT);
 if (modes[currentMode].Speed & 0x01)
   blurScreen(20);
@@ -6599,7 +6580,6 @@ void pacificRoutine()
 // https://www.youtube.com/watch?v=S6novCRlHV8&t=51s
 //#include <ParticleSys.h>
 //при попытке вытащить из этой библиотеки только минимально необходимое выяснилось, что там очередной (третий) вариант реализации субпиксельной графики.
-//ну его нафиг. лучше будет повторить визуал имеющимися в прошивке средствами.
 
 void particlesUpdate2(uint8_t i){
   //age
@@ -6621,7 +6601,6 @@ void particlesUpdate2(uint8_t i){
 void starfield2Emit(uint8_t i){
   if (hue++ & 0x01)
     hue2++;//counter++;
-  //source->update(g); хз зачем это было в оригинале - там только смерть source.isAlive высчитывается, вроде
 
   trackingObjectPosX[i] = WIDTH * 0.5;//CENTER_X_MINOR;// * RENDERER_RESOLUTION; //  particle->x = source->x;
   trackingObjectPosY[i] = HEIGHT * 0.5;//CENTER_Y_MINOR;// * RENDERER_RESOLUTION; //  // particle->y = source->y;
@@ -6653,7 +6632,6 @@ void starfield2Routine(){
   }
   step = deltaValue; //счётчик количества частиц в очереди на зарождение в этом цикле
   //renderer.fade(leds); = fadeToBlackBy(128); = dimAll(255-128)
-  //dimAll(255-128/.25*speedfactor); ахах-ха. очередной эффект, к которому нужно будет "подобрать коэффициенты"
   dimAll(127);
 
   //go over particles and update matrix cells on the way
@@ -6779,7 +6757,6 @@ void fairyRoutine(){
 
 
   //renderer.fade(leds); = fadeToBlackBy(128); = dimAll(255-128)
-  //dimAll(255-128/.25*speedfactor); очередной эффект, к которому нужно будет "подобрать коэффициенты"
     dimAll(127);
 
   //go over particles and update matrix cells on the way
@@ -6894,7 +6871,7 @@ void spiderRoutine() {
    pcnt = (modes[currentMode].Scale - 1U) % 11U + 1U; // количество линий от 1 до 11 для каждой из 9 палитр
    speedfactor = fmap(modes[currentMode].Speed, 1, 255, 20., 2.); 
  }
- if (hue2++ & 0x01 && deltaHue++ & 0x01 && deltaHue2++ & 0x01) hue++; // хз. как с 60ю кадрами в секунду скорость замедлять...
+ if (hue2++ & 0x01 && deltaHue++ & 0x01 && deltaHue2++ & 0x01) hue++; // оттенок сдвигается раз в 8 кадров
  dimAll(205);
  float time_shift = millis() & 0x7FFFFF; // overflow protection proper by SottNick
  time_shift /= speedfactor;
@@ -6972,7 +6949,6 @@ void polarRoutine() {
 
     loadingFlag = false;
 
-    //emitterX = fmap((float)HEIGHT, 8, 32, 28, 12); такое работало с горем пополам только для матриц до 32 пикселей в высоту
     emitterX = 400. / HEIGHT; // а это - максимум без яркой засветки крайних рядов матрицы (сверху и снизу)
     
     ff_y = map(WIDTH, 8, 64, 310, 63);
@@ -6982,7 +6958,7 @@ void polarRoutine() {
   }
   
 if (modes[currentMode].Scale == 100){
-  if (hue2++ & 0x01 && deltaHue++ & 0x01 && deltaHue2++ & 0x01) hue++; // это ж бред, но я хз. как с 60ю кадрами в секунду можно эффективно скорость замедлять...
+  if (hue2++ & 0x01 && deltaHue++ & 0x01 && deltaHue2++ & 0x01) hue++; // оттенок сдвигается раз в 8 кадров
   fillMyPal16_2((uint8_t)((modes[currentMode].Scale - 1U) * 2.55) + hue, modes[currentMode].Scale & 0x01);
 }
 else

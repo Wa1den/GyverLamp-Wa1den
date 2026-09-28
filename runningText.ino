@@ -138,7 +138,7 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
   //#if defined(USE_NTP) && defined(PRINT_TIME)               // вывод, только если используется синхронизация времени и если заказан его вывод бегущей строкой
   #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
 
-  if (!timeSynched)     // хз зачем было так сложно
+  if (!timeSynched)
   {
     showWarning(CRGB::Red, 4000U, 500U);                    // мигание красным цветом 4 секунды
     return;
@@ -217,7 +217,7 @@ uint8_t getBrightnessForPrintTime(uint32_t thisTime, bool ONflag)     // опр�
 {
   #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
 
-  if (!timeSynched || ONflag)     // хз зачем было так сложно
+  if (!timeSynched || ONflag)
   {
     return modes[currentMode].Brightness;
   }

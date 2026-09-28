@@ -94,7 +94,7 @@ if (espMode == 1U){
       }
 
 #ifdef PHONE_N_MANUAL_TIME_PRIORITY
-if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это проверять. по-моему, resolveNtpServerAddress вообще никому не нужен и используется, как ping
+if (stillUseNTP)
 #endif      
       if (timeClient.update()){
          #ifdef WARNING_IF_NO_TIME
