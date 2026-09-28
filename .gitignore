@@ -10,3 +10,6 @@ build/
 *.log
 Thumbs.db
 desktop.ini
+
+# Собранная прошивка (build.sh)
+dist/

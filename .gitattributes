@@ -1,0 +1,10 @@
+# В репозитории и в рабочей копии - LF. Без этого файла рабочие копии с core.autocrlf=true
+# получали CRLF, и правка скриптом, не знающим об этом, переписывала файл целиком.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.bin binary
+*.rar binary
+*.cer binary
+*.key binary

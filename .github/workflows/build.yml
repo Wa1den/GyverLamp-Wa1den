@@ -1,0 +1,49 @@
+# Сборка прошивки тем же build.sh, что и локально.
+# На каждый push и pull request в master - проверка, что прошивка собирается.
+# При публикации релиза собранный bin прикладывается к нему: заметки пишутся вручную, файл - отсюда.
+name: build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Кэш ядра esp8266
+        uses: actions/cache@v4
+        with:
+          path: ~/.arduino15
+          key: arduino15-esp8266-3.1.2
+
+      - name: Сборка
+        run: bash build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/*.bin
+
+      - name: Прошивка в релиз
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(sed -n 's/^#define FIRMWARE_VERSION *"\([^"]*\)".*/\1/p' Version.h)"
+          if [ "v$VERSION" != "${{ github.event.release.tag_name }}" ]; then
+            echo "Тег ${{ github.event.release.tag_name }} не совпадает с версией $VERSION в Version.h" >&2
+            exit 1
+          fi
+          gh release upload "${{ github.event.release.tag_name }}" dist/*.bin --clobber
