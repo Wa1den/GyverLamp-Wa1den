@@ -36,8 +36,6 @@ const char* runningTextSource(char* ipBuf, size_t ipBufSize)
 
 boolean fillString(const char* text, CRGB letterColor, boolean itsText)
 {
-  //CRGB letterColor = CHSV(modes[EFF_TEXT].Scale * 2.5 * 2.5, 255U, 255U);
-//Serial.println(text);
   if (!text || !strlen(text)) { return true; }
   if (loadingFlag && !itsText) {
     offset = WIDTH;                                         // перемотка в правый край
@@ -140,7 +138,6 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
   //#if defined(USE_NTP) && defined(PRINT_TIME)               // вывод, только если используется синхронизация времени и если заказан его вывод бегущей строкой
   #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
 
-//  if (espMode != 1U || !ntpServerAddressResolved || !timeSynched)     // вывод только в режиме WiFi клиента и только, если имя сервера времени разрезолвлено
   if (!timeSynched)     // хз зачем было так сложно
   {
     showWarning(CRGB::Red, 4000U, 500U);                    // мигание красным цветом 4 секунды
@@ -218,10 +215,8 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
 uint8_t getBrightnessForPrintTime(uint32_t thisTime, bool ONflag)     // определение яркости для вывода времени бегущей строкой в зависимости от ESP_MODE, USE_NTP, успешности синхронизации времени,
                                                                       // текущего времени суток, настроек дневного/ночного времени и того, включена ли сейчас матрица
 {
-  //#if defined(USE_NTP) && defined(PRINT_TIME)
   #if defined(USE_NTP) && defined(PRINT_TIME) || defined(USE_MANUAL_TIME_SETTING) && defined(PRINT_TIME) || defined(GET_TIME_FROM_PHONE) && defined(PRINT_TIME)
 
-  //if (espMode != 1U || !ntpServerAddressResolved || ONflag)
   if (!timeSynched || ONflag)     // хз зачем было так сложно
   {
     return modes[currentMode].Brightness;

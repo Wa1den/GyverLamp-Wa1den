@@ -88,8 +88,6 @@ void buttonTick()
     loadingFlag = true;
     settChanged = true;
     eepromTimeout = millis();
-    //ledsClear();
-    //delay(1);
 
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       if (random_on && FavoritesManager::FavoritesRunning)
@@ -139,8 +137,6 @@ void buttonTick()
     loadingFlag = true;
     settChanged = true;
     eepromTimeout = millis();
-    //ledsClear();
-    //delay(1);
 
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       if (random_on && FavoritesManager::FavoritesRunning)
@@ -174,7 +170,6 @@ void buttonTick()
 
 
   // кнопка только начала удерживаться
-  //if (ONflag && touch.isHolded())
   if (touch.isHolded()) // пускай для выключенной лампы удержание кнопки включает белую лампу
   {
     brightDirection = !brightDirection;
@@ -213,7 +208,6 @@ void buttonTick()
 
 
   // кнопка нажата и удерживается
-//  if (ONflag && touch.isStep())
 if (touch.isStep() && touch.getHoldClicks() < 3U)            // после 3 и более кликов удержание - подтверждение служебного жеста, а не регулировка
   if (ONflag
       #ifdef BUTTON_PAUSE_AFTER_TURN_ON

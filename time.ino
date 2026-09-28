@@ -45,21 +45,12 @@ void ntpRetryFailed(const __FlashStringHelper* reason)
 
 #if defined(USE_NTP) || defined(USE_MANUAL_TIME_SETTING) || defined(GET_TIME_FROM_PHONE)
 
-/* оптимизируем структуру данных и их обработчик
-static CHSV dawnColor = CHSV(0, 0, 0);                                    // цвет "рассвета"
-static CHSV dawnColorMinus1 = CHSV(0, 0, 0);                              // для большей плавности назначаем каждый новый цвет только 1/10 всех диодов; каждая следующая 1/10 часть будет "оставать" на 1 шаг
-static CHSV dawnColorMinus2 = CHSV(0, 0, 0);
-static CHSV dawnColorMinus3 = CHSV(0, 0, 0);
-static CHSV dawnColorMinus4 = CHSV(0, 0, 0);
-static CHSV dawnColorMinus5 = CHSV(0, 0, 0);
-static CHSV dawnColor = CHSV(0, 0, 0);*/
 static CRGB dawnColor[6];
 
 static uint8_t dawnCounter = 0;                                           // счётчик первых 10 шагов будильника
 
 void timeTick()
 {
-  //if (espMode == 1U) // рассвет то должнен работать, если время лампа уже получила
   {
     if (timeTimer.isReady())
     {
@@ -105,8 +96,6 @@ if (espMode == 1U){
 #ifdef PHONE_N_MANUAL_TIME_PRIORITY
 if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это проверять. по-моему, resolveNtpServerAddress вообще никому не нужен и используется, как ping
 #endif      
-//    if (!timeSynched || millis() > ntpTimeLastSync + NTP_INTERVAL) // uint32_t ntpTimeLastSync
-//    {// если прошло более NTP_INTERVAL, значит, можно попытаться получить время с сервера точного времени один разок
       if (timeClient.update()){
          #ifdef WARNING_IF_NO_TIME
            noTimeClear();
@@ -128,7 +117,6 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
       {
         ntpRetryFailed(F("сервер не ответил"));                          // пакет ушёл, но ответа нет (порт 123 закрыт у провайдера, сервер молчит)
       }
-//    }//if (!timeSynched || millis() > ntpTimeLastSync + NTP_INTERVAL)
 }
       #endif //USE_NTP
       
@@ -137,7 +125,6 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
         return;
       }
 
-      //time_t currentLocalTime = localTimeZone.toLocal(timeClient.getEpochTime());
       time_t currentLocalTime = getCurrentLocalTime();
       
       uint8_t thisDay = dayOfWeek(currentLocalTime);
@@ -162,15 +149,6 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
           // величина рассвета 0-255
           int32_t dawnPosition = 255 * ((float)(thisFullTime - (alarms[thisDay].Time - pgm_read_byte(&dawnOffsets[dawnMode])) * 60) / (pgm_read_byte(&dawnOffsets[dawnMode]) * 60));
           dawnPosition = constrain(dawnPosition, 0, 255);
-          /* оптимизируем структуру данных и их обработчик
-          dawnColorMinus5 = dawnCounter > 4 ? dawnColorMinus4 : dawnColorMinus5;
-          dawnColorMinus4 = dawnCounter > 3 ? dawnColorMinus3 : dawnColorMinus4;
-          dawnColorMinus3 = dawnCounter > 2 ? dawnColorMinus2 : dawnColorMinus3;
-          dawnColorMinus2 = dawnCounter > 1 ? dawnColorMinus1 : dawnColorMinus2;
-          dawnColorMinus1 = dawnCounter > 0 ? dawnColor : dawnColorMinus1;
-          dawnColor = CHSV(map(dawnPosition, 0, 255, 10, 35),
-                           map(dawnPosition, 0, 255, 255, 170),
-                           map(dawnPosition, 0, 255, 2, DAWN_BRIGHT));*/
           for (uint8_t j = 5U; j > 0U; j--)
             if (dawnCounter >= j)
               dawnColor[j] = dawnColor[j - 1U];
@@ -178,21 +156,10 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
                            map(dawnPosition, 0, 255, 255, 170),
                            map(dawnPosition, 0, 255, 2, DAWN_BRIGHT));
 
-          /* исправляем переполнение счётчика
-          dawnCounter++;*/
           if (dawnCounter < 5U) dawnCounter++;
           
-          // fill_solid(leds, NUM_LEDS, dawnColor);
           
           for (uint16_t i = 0U; i < NUM_LEDS; i++)
-          /*{ оптимизируем цикл
-            if (i % 6 == 0) leds[i] = dawnColor;                          // 1я 1/10 диодов: цвет текущего шага
-            if (i % 6 == 1) leds[i] = dawnColorMinus1;                    // 2я 1/10 диодов: -1 шаг
-            if (i % 6 == 2) leds[i] = dawnColorMinus2;                    // 3я 1/10 диодов: -2 шага
-            if (i % 6 == 3) leds[i] = dawnColorMinus3;                    // 3я 1/10 диодов: -3 шага
-            if (i % 6 == 4) leds[i] = dawnColorMinus4;                    // 3я 1/10 диодов: -4 шага
-            if (i % 6 == 5) leds[i] = dawnColorMinus5;                    // 3я 1/10 диодов: -5 шагов
-          }*/
             leds[i] = dawnColor[i % 6U];
           FastLED.setBrightness(255);
           delay(1);
@@ -223,12 +190,6 @@ if (stillUseNTP)// && ntpServerAddressResolved) хз, нужно ли это п�
           changePower();                                                  // выключение матрицы или установка яркости текущего эффекта в засисимости от того, была ли включена лампа до срабатывания будильника
         }
         manualOff = false;
-        /* оптимизируем структуру данных и их обработчик
-        dawnColorMinus1 = CHSV(0, 0, 0);
-        dawnColorMinus2 = CHSV(0, 0, 0);
-        dawnColorMinus3 = CHSV(0, 0, 0);
-        dawnColorMinus4 = CHSV(0, 0, 0);
-        dawnColorMinus5 = CHSV(0, 0, 0);*/
         for (uint8_t j = 0U; j < 6U; j++)
           dawnColor[j] = 0;
           
@@ -287,7 +248,6 @@ void resolveNtpServerAddress(bool &ntpServerAddressResolved)              // ф�
 
 void getFormattedTime(char *buf)
 {
-  //time_t currentLocalTime = localTimeZone.toLocal(timeClient.getEpochTime());
   time_t currentLocalTime = getCurrentLocalTime();
   sprintf_P(buf, PSTR("%02u:%02u:%02u"), hour(currentLocalTime), minute(currentLocalTime), second(currentLocalTime));
 }
