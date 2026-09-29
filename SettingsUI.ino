@@ -178,12 +178,12 @@ static void uiBuildLamp(sets::Builder& b)
 
     {
       sets::Buttons btns(b);                                // переключение по кругу, как двойной и тройной клик кнопкой
-      if (b.Button(UI_ID_EFF_PREV, "Предыдущий"))
+      if (b.Button(UI_ID_EFF_PREV, F("Предыдущий")))
       {
         lampSetEffect((currentMode + MODE_AMOUNT - 1U) % MODE_AMOUNT);
         b.reload();                                         // список и ползунки должны подтянуть новый эффект
       }
-      if (b.Button(UI_ID_EFF_NEXT, "Следующий"))
+      if (b.Button(UI_ID_EFF_NEXT, F("Следующий")))
       {
         lampSetEffect((currentMode + 1U) % MODE_AMOUNT);
         b.reload();
@@ -191,20 +191,20 @@ static void uiBuildLamp(sets::Builder& b)
     }
 
     bool power = ONflag;
-    if (b.Switch(UI_ID_POWER, "Питание", &power))
+    if (b.Switch(UI_ID_POWER, F("Питание"), &power))
     {
       lampSetPower(power);
     }
 
     uint8_t effect = currentMode;
-    if (b.Select(UI_ID_EFFECT, "Эффект", FPSTR(effectNamesList), &effect))
+    if (b.Select(UI_ID_EFFECT, F("Эффект"), FPSTR(effectNamesList), &effect))
     {
       lampSetEffect(effect);
       b.reload();                                           // перестроить страницу, чтобы ползунки подтянули яркость/скорость/масштаб нового эффекта
     }
 
     uint8_t brightness = modes[currentMode].Brightness;
-    if (b.Slider(UI_ID_BRIGHTNESS, "Яркость", 1, 255, 1, "", &brightness))
+    if (b.Slider(UI_ID_BRIGHTNESS, F("Яркость"), 1, 255, 1, "", &brightness))
     {
       lampSetBrightness(brightness);
     }
@@ -232,30 +232,30 @@ static void uiBuildLamp(sets::Builder& b)
 
   // --- ЦИКЛ (АВТОМАТИЧЕСКАЯ СМЕНА ИЗБРАННЫХ ЭФФЕКТОВ) ---
   {
-    sets::Menu page(b, "Цикл эффектов");                    // отдельная страница: настройки цикла нужны редко
+    sets::Menu page(b, F("Цикл эффектов"));                 // отдельная страница: настройки цикла нужны редко
 
     bool favOn = FavoritesManager::FavoritesRunning != 0;
-    if (b.Switch(UI_ID_FAV_ON, "Включен", &favOn))
+    if (b.Switch(UI_ID_FAV_ON, F("Включен"), &favOn))
     {
       lampSetFavoritesRunning(favOn);
     }
 
     uint16_t interval = FavoritesManager::Interval;
-    if (b.Number(UI_ID_FAV_INTERVAL, "Интервал смены, сек", &interval, 1, 65535))
+    if (b.Number(UI_ID_FAV_INTERVAL, F("Интервал смены, сек"), &interval, 1, 65535))
     {
       FavoritesManager::Interval = interval;
       updateSets();
     }
 
     uint16_t dispersion = FavoritesManager::Dispersion;
-    if (b.Number(UI_ID_FAV_DISP, "Случайный разброс, сек", &dispersion, 0, 65535))
+    if (b.Number(UI_ID_FAV_DISP, F("Случайный разброс, сек"), &dispersion, 0, 65535))
     {
       FavoritesManager::Dispersion = dispersion;
       updateSets();
     }
 
     bool useSaved = FavoritesManager::UseSavedFavoritesRunning != 0;
-    if (b.Switch(UI_ID_FAV_SAVED, "Помнить вкл/выкл после перезагрузки", &useSaved))
+    if (b.Switch(UI_ID_FAV_SAVED, F("Помнить вкл/выкл после перезагрузки"), &useSaved))
     {
       FavoritesManager::UseSavedFavoritesRunning = useSaved ? 1U : 0U;
       updateSets();
@@ -263,7 +263,7 @@ static void uiBuildLamp(sets::Builder& b)
 
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
     bool rndOn = random_on != 0;
-    if (b.Switch(UI_ID_FAV_RANDOM, "Случайные настройки эффектов", &rndOn))
+    if (b.Switch(UI_ID_FAV_RANDOM, F("Случайные настройки эффектов"), &rndOn))
     {
       random_on = rndOn ? 1U : 0U;
       Storage::Save_random_on(&random_on);
@@ -271,7 +271,7 @@ static void uiBuildLamp(sets::Builder& b)
     #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
 
     {
-      sets::Menu m(b, "Эффекты в цикле");
+      sets::Menu m(b, F("Эффекты в цикле"));
 
       if (b.enterMenu() && !favListVisible)                 // пользователь открыл меню, а содержимого ещё нет в сборке -
       {                                                     // строим его и просим страницу обновиться
@@ -292,14 +292,14 @@ static void uiBuildLamp(sets::Builder& b)
       }
       else
       {
-        b.Label("Список", "загрузится при открытии");        // пустое меню вебморда не показывает вовсе, поэтому заглушка обязательна
+        b.Label(F("Список"), F("загрузится при открытии"));  // пустое меню вебморда не показывает вовсе, поэтому заглушка обязательна
       }
     }
   }
 
   // --- БУДИЛЬНИК (РАССВЕТ) -------------------
   {
-    sets::Menu page(b, "Будильник (рассвет)");
+    sets::Menu page(b, F("Будильник (рассвет)"));
 
     for (uint8_t i = 0; i < 7U; i++)
     {
@@ -310,14 +310,14 @@ static void uiBuildLamp(sets::Builder& b)
       }
 
       uint32_t seconds = alarms[i].Time * 60UL;             // виджет времени работает в секундах от начала суток, будильник - в минутах
-      if (b.Time(UI_ID_ALARM_T(i), "Время", &seconds))
+      if (b.Time(UI_ID_ALARM_T(i), F("Время"), &seconds))
       {
         lampSetAlarm(i, alarms[i].State, seconds / 60UL);
       }
     }
 
     uint8_t dawn = dawnMode;
-    if (b.Select(UI_ID_DAWN_MODE, "Рассвет начинается за",
+    if (b.Select(UI_ID_DAWN_MODE, F("Рассвет начинается за"),
                  "5 минут;10 минут;15 минут;20 минут;25 минут;30 минут;40 минут;50 минут;60 минут", &dawn))
     {
       lampSetDawnMode(dawn);
@@ -326,38 +326,38 @@ static void uiBuildLamp(sets::Builder& b)
 
   // --- ОБРАТНЫЙ ОТСЧЁТ ----------------------
   {
-    sets::Menu page(b, "Обратный отсчёт");
+    sets::Menu page(b, F("Обратный отсчёт"));
 
     uint16_t interval = (uint16_t)db[kk::cd_seconds];      // в базе интервал хранится секундами, на странице - минутами и секундами в одной строке
     uint16_t intervalMin = interval / 60U;
     uint16_t intervalSec = interval % 60U;
     {
       sets::Row row(b);
-      bool changed = b.Spinner(UI_ID_CD_MIN, "Минуты", 0, 99, 1, &intervalMin);
-      changed |= b.Spinner(UI_ID_CD_SEC, "Секунды", 0, 59, 1, &intervalSec);
+      bool changed = b.Spinner(UI_ID_CD_MIN, F("Минуты"), 0, 99, 1, &intervalMin);
+      changed |= b.Spinner(UI_ID_CD_SEC, F("Секунды"), 0, 59, 1, &intervalSec);
       if (changed)
       {
         interval = constrain(intervalMin, 0U, 99U) * 60U + constrain(intervalSec, 0U, 59U);
         db.set(kk::cd_seconds, (uint16_t)max(interval, (uint16_t)1U)); // нулевой интервал отсчитывается как одна секунда
       }
     }
-    b.Label(UI_ID_CD_LEFT, "Осталось", uiCountdownText()); // обновляется на открытой странице, см. settingsSyncTick
-    b.Slider(kk::cd_bri, "Яркость", 1, 255, 1);
-    b.Color(kk::cd_color, "Цвет");
-    b.Slider(kk::cd_rot, "Поворот", 0, WIDTH - 1, 1);
-    b.Switch(kk::cd_mirror, "Последние 9 секунд - и на обратной стороне");
+    b.Label(UI_ID_CD_LEFT, F("Осталось"), uiCountdownText()); // обновляется на открытой странице, см. settingsSyncTick
+    b.Slider(kk::cd_bri, F("Яркость"), 1, 255, 1);
+    b.Color(kk::cd_color, F("Цвет"));
+    b.Slider(kk::cd_rot, F("Поворот"), 0, WIDTH - 1, 1);
+    b.Switch(kk::cd_mirror, F("Последние 9 секунд - и на обратной стороне"));
 
     {
       sets::Buttons btns(b);
-      if (b.Button(UI_ID_CD_START, "Старт"))
+      if (b.Button(UI_ID_CD_START, F("Старт")))
       {
         countdownStart();
       }
-      if (b.Button(UI_ID_CD_PAUSE, "Пауза"))
+      if (b.Button(UI_ID_CD_PAUSE, F("Пауза")))
       {
         countdownPause();
       }
-      if (b.Button(UI_ID_CD_STOP, "Стоп"))
+      if (b.Button(UI_ID_CD_STOP, F("Стоп")))
       {
         countdownStop();
       }
@@ -366,7 +366,7 @@ static void uiBuildLamp(sets::Builder& b)
 
   // --- КУБИКИ -------------------------------
   {
-    sets::Menu page(b, "Кубики");
+    sets::Menu page(b, F("Кубики"));
 
     for (uint8_t row = 0U; row < 4U; row++)                 // восемь кубиков в два столбца
     {
@@ -383,15 +383,15 @@ static void uiBuildLamp(sets::Builder& b)
       }
     }
 
-    b.Label(UI_ID_DICE_RESULT, "Результат", diceText());   // обновляется на открытой странице, см. settingsSyncTick
-    b.Slider(kk::dice_bri, "Яркость", 1, 255, 1);
-    b.Slider(kk::dice_speed, "Скорость анимации", 1, 255, 1);
-    b.Color(kk::dice_color, "Цвет");
-    b.Slider(kk::dice_rot, "Поворот", 0, WIDTH - 1, 1);
-    b.Slider(kk::dice_hold, "Показ результата, с (0 - до возврата)", 0, 120, 1);
-    b.Switch(kk::dice_mirror, "Дублировать на обратной стороне");
-    b.Switch(kk::dice_click, "Повторный бросок кнопкой лампы");
-    if (b.Button(UI_ID_DICE_EXIT, "Вернуться к эффекту"))
+    b.Label(UI_ID_DICE_RESULT, F("Результат"), diceText());   // обновляется на открытой странице, см. settingsSyncTick
+    b.Slider(kk::dice_bri, F("Яркость"), 1, 255, 1);
+    b.Slider(kk::dice_speed, F("Скорость анимации"), 1, 255, 1);
+    b.Color(kk::dice_color, F("Цвет"));
+    b.Slider(kk::dice_rot, F("Поворот"), 0, WIDTH - 1, 1);
+    b.Slider(kk::dice_hold, F("Показ результата, с (0 - до возврата)"), 0, 120, 1);
+    b.Switch(kk::dice_mirror, F("Дублировать на обратной стороне"));
+    b.Switch(kk::dice_click, F("Повторный бросок кнопкой лампы"));
+    if (b.Button(UI_ID_DICE_EXIT, F("Вернуться к эффекту")))
     {
       diceExit();
     }
@@ -402,7 +402,7 @@ static void uiBuildLamp(sets::Builder& b)
     sets::Group g(b);                                       // одно поле, заголовок группы не нужен
 
     String text = TextTicker;
-    if (b.Input(UI_ID_TEXT, "Бегущая строка", &text))
+    if (b.Input(UI_ID_TEXT, F("Бегущая строка"), &text))
     {
       lampSetRunningText(text.c_str());
     }
@@ -410,19 +410,19 @@ static void uiBuildLamp(sets::Builder& b)
 
   // --- ТАЙМЕР ВЫКЛЮЧЕНИЯ ---------------------
   {
-    sets::Group g(b, "Таймер выключения");
+    sets::Group g(b, F("Таймер выключения"));
 
-    b.Label(UI_ID_TIMER_STATE, "Состояние", uiTimerText()); // обновляется на открытой странице, см. settingsSyncTick
+    b.Label(UI_ID_TIMER_STATE, F("Состояние"), uiTimerText()); // обновляется на открытой странице, см. settingsSyncTick
 
-    b.Spinner(UI_ID_TIMER_MIN, "Минут", 1, 255, 1, &uiSleepMinutes);
+    b.Spinner(UI_ID_TIMER_MIN, F("Минут"), 1, 255, 1, &uiSleepMinutes);
 
     {
       sets::Buttons btns(b);
-      if (b.Button(UI_ID_TIMER_START, "Запустить"))
+      if (b.Button(UI_ID_TIMER_START, F("Запустить")))
       {
         lampSetSleepTimer(uiSleepMinutes);
       }
-      if (b.Button(UI_ID_TIMER_STOP, "Отключить"))
+      if (b.Button(UI_ID_TIMER_STOP, F("Отключить")))
       {
         lampClearSleepTimer();
       }
@@ -433,36 +433,36 @@ static void uiBuildLamp(sets::Builder& b)
 // сведения о лампе, время, сбросы и разделы настроек
 static void uiBuildSettings(sets::Builder& b)
 {
-  b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
+  b.Label(F("Прошивка"), FIRMWARE_TITLE);                   // см. Version.h
 
-  b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
-  b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
+  b.Label(F("IP адрес"), WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
+  b.LabelNum(F("Свободная память, байт"), ESP.getFreeHeap());
 
   char timeBuf[9];
   getFormattedTime(timeBuf);
-  b.Label(UI_ID_LAMP_TIME, "Время лампы", timeBuf);      // поля времени обновляются на открытой странице, см. settingsSyncTick
-  b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", clockSyncState());
+  b.Label(UI_ID_LAMP_TIME, F("Время лампы"), timeBuf);   // поля времени обновляются на открытой странице, см. settingsSyncTick
+  b.Label(UI_ID_SYNC_STATE, F("Синхронизация времени"), clockSyncState());
 
   uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
-  if (b.Select(UI_ID_TZ_OFFSET, "Часовой пояс", timezoneList(), &tzIndex))
+  if (b.Select(UI_ID_TZ_OFFSET, F("Часовой пояс"), timezoneList(), &tzIndex))
   {
     lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
     uiTimeRefresh = true;
   }
   uint8_t tzDst = db[kk::tz_dst];
-  if (b.Select(UI_ID_TZ_DST, "Переход на летнее время", "нет;Европа;США и Канада", &tzDst))
+  if (b.Select(UI_ID_TZ_DST, F("Переход на летнее время"), F("нет;Европа;США и Канада"), &tzDst))
   {
     lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
     uiTimeRefresh = true;
   }
-  b.Input(kk::ntp_host, "NTP сервер");
-  if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))
+  b.Input(kk::ntp_host, F("NTP сервер"));
+  if (b.Button(UI_ID_NTP_SYNC, F("Синхронизировать время")))
   {
     clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
   }
 
   uint32_t unixTime = uiManualTimeValue();
-  if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
+  if (b.DateTime(UI_ID_SET_TIME, F("Установить время вручную"), &unixTime))
   {
     if (unixTime > 0)
     {
@@ -470,7 +470,7 @@ static void uiBuildSettings(sets::Builder& b)
     }
   }
 
-  if (b.Pass(kk::ui_pass, "Пароль настроек и обновления"))
+  if (b.Pass(kk::ui_pass, F("Пароль настроек и обновления")))
   {
     uiApplyPass();
     b.reload();                                             // с новым паролем страница откроется гостю, пока его не введут
@@ -478,49 +478,49 @@ static void uiBuildSettings(sets::Builder& b)
 
   {
     sets::Buttons btns(b);
-    if (b.Button(UI_ID_FX_RESET, "Сброс эффектов"))
+    if (b.Button(UI_ID_FX_RESET, F("Сброс эффектов")))
     {
       uiConfirmPending = UI_ID_FX_RESET_OK;               // окно подтверждения открывается из settingsTick
     }
-    if (b.Button(UI_ID_WIFI_RESET, "Сброс WiFi"))
+    if (b.Button(UI_ID_WIFI_RESET, F("Сброс WiFi")))
     {
       uiConfirmPending = UI_ID_WIFI_RESET_OK;
     }
-    if (b.Button(UI_ID_REBOOT, "Перезагрузка"))
+    if (b.Button(UI_ID_REBOOT, F("Перезагрузка")))
     {
       pendingRestart = true;
     }
   }
 
   bool confirmed = false;
-  if (b.Confirm(UI_ID_FX_RESET_OK, "Вернуть настройки всех эффектов к значениям по умолчанию?", &confirmed) && confirmed)
+  if (b.Confirm(UI_ID_FX_RESET_OK, F("Вернуть настройки всех эффектов к значениям по умолчанию?"), &confirmed) && confirmed)
   {
     restoreSettings();
     updateSets();
     b.reload();                                           // ползунки должны подтянуть новые значения
   }
-  if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера, вернуть имя и пароль точки доступа к начальным и снять пароль настроек?", &confirmed) && confirmed)
+  if (b.Confirm(UI_ID_WIFI_RESET_OK, F("Забыть сеть роутера, вернуть имя и пароль точки доступа к начальным и снять пароль настроек?"), &confirmed) && confirmed)
   {
     pendingWifiReset = true;
   }
 
   // --- СЕТЬ ----------------------------------
   {
-    sets::Menu page(b, "Сеть");                             // WiFi, точка доступа, Wake-on-LAN
+    sets::Menu page(b, F("Сеть"));                          // WiFi, точка доступа, Wake-on-LAN
 
     // --- WIFI ----------------------------------
     {
-      sets::Group g(b, "WiFi");
-      b.Input(kk::wifi_ssid, "Имя сети (SSID)");
-      b.Pass(kk::wifi_pass, "Пароль");
+      sets::Group g(b, F("WiFi"));
+      b.Input(kk::wifi_ssid, F("Имя сети (SSID)"));
+      b.Pass(kk::wifi_pass, F("Пароль"));
 
-      if (b.Button(kk::wifi_connect, "Подключить"))
+      if (b.Button(kk::wifi_connect, F("Подключить")))
       {
         pendingWifiConnect = true;                          // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
       }
 
       uint8_t mode = espMode;
-      if (b.Select(UI_ID_ESP_MODE, "Режим работы", "Точка доступа;Клиент (через роутер)", &mode))
+      if (b.Select(UI_ID_ESP_MODE, F("Режим работы"), F("Точка доступа;Клиент (через роутер)"), &mode))
       {
         if (mode != espMode)
         {
@@ -531,12 +531,12 @@ static void uiBuildSettings(sets::Builder& b)
       }
 
       bool showIp = (bool)db[kk::run_text_ip];               // бегущая строка показывает адрес лампы; её текст при этом не затирается
-      if (b.Switch(UI_ID_TEXT_IP, "Бегущая строка показывает IP", &showIp))
+      if (b.Switch(UI_ID_TEXT_IP, F("Бегущая строка показывает IP"), &showIp))
       {
         lampSetRunningTextShowIp(showIp);
       }
 
-      b.Input(kk::host_name, "Имя лампы в сети");
+      b.Input(kk::host_name, F("Имя лампы в сети"));
 
       String hostAddress = F("http://");                    // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
       hostAddress += hostName();                            // который лампа получит после перезагрузки, а не введённое в поле
@@ -554,7 +554,7 @@ static void uiBuildSettings(sets::Builder& b)
       hostLink += F("</a></div>");
       b.HTML("", hostLink);
 
-      if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
+      if (b.Button(UI_ID_HOST_APPLY, F("Применить (перезагрузка)")))
       {
         pendingRestart = true;                              // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
       }
@@ -562,11 +562,11 @@ static void uiBuildSettings(sets::Builder& b)
 
     // --- ТОЧКА ДОСТУПА -------------------------
     {
-      sets::Group g(b, "Точка доступа");
-      b.Input(kk::ap_name, "Имя сети (SSID)");
-      b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
+      sets::Group g(b, F("Точка доступа"));
+      b.Input(kk::ap_name, F("Имя сети (SSID)"));
+      b.Pass(kk::ap_pass, F("Пароль (8-63 символа, пусто - без пароля)"));
 
-      if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
+      if (b.Button(UI_ID_AP_APPLY, F("Применить (перезагрузка)")))
       {
         String apPassword = (String)db[kk::ap_pass];
         if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
@@ -583,19 +583,19 @@ static void uiBuildSettings(sets::Builder& b)
     // --- WAKE-ON-LAN ---------------------------
     {
       sets::Group g(b, "Wake-on-LAN");
-      b.Input(kk::wol_mac, "MAC компьютера");
+      b.Input(kk::wol_mac, F("MAC компьютера"));
 
-      if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
+      if (b.Button(UI_ID_WOL_WAKE, F("Разбудить")))
       {
         pendingWolWake = true;                              // отправка выполнится в loop, результат - в Журнале
       }
 
       #if (USE_MQTT)
-      if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
+      if (b.Switch(kk::wol_ext_on, F("Использовать дополнительный топик")))
       {
         pendingWolResub = true;                             // подписка обновится в loop
       }
-      if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
+      if (b.Input(kk::wol_ext_topic, F("Дополнительный топик")))
       {
         pendingWolResub = true;
       }
@@ -607,21 +607,21 @@ static void uiBuildSettings(sets::Builder& b)
   // --- MQTT ----------------------------------
   #if (USE_MQTT)
   {
-    sets::Menu page(b, "MQTT");                           // брокер, топики
-    b.Switch(kk::mqtt_enabled, "Включен");
-    b.Input(kk::mqtt_host, "Адрес брокера");
-    b.Number(kk::mqtt_port, "Порт");
-    b.Input(kk::mqtt_user, "Пользователь");
-    b.Pass(kk::mqtt_pass, "Пароль");
+    sets::Menu page(b, F("MQTT"));                        // брокер, топики
+    b.Switch(kk::mqtt_enabled, F("Включен"));
+    b.Input(kk::mqtt_host, F("Адрес брокера"));
+    b.Number(kk::mqtt_port, F("Порт"));
+    b.Input(kk::mqtt_user, F("Пользователь"));
+    b.Pass(kk::mqtt_pass, F("Пароль"));
 
     if (MqttManager::getTopicInput().length())
     {
       // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
-      b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
+      b.Paragraph(F("Топики"), String(F("Команды: ")) + MqttManager::getTopicInput() +
                             String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
     }
 
-    if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
+    if (b.Button(UI_ID_MQTT_APPLY, F("Применить (перезагрузка)")))
     {
       pendingRestart = true;                              // новые параметры брокера применяются при старте
     }
@@ -631,74 +631,74 @@ static void uiBuildSettings(sets::Builder& b)
   // --- АВТОЯРКОСТЬ ---------------------------
   #ifdef USE_AUTO_BRIGHTNESS
   {
-    sets::Menu page(b, "Автояркость");                      // отдельная страница: настраивается один раз при калибровке
-    b.Switch(kk::ab_on, "Использовать датчик освещённости");
-    b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
+    sets::Menu page(b, F("Автояркость"));                   // отдельная страница: настраивается один раз при калибровке
+    b.Switch(kk::ab_on, F("Использовать датчик освещённости"));
+    b.Slider(kk::ab_min_bri, F("Мин. яркость в темноте, %"), 5, 100, 1);
 
     // двухточечная калибровка под конкретный датчик: рабочий диапазон дешёвых модулей
     // занимает малую часть шкалы 0-1023, поэтому крайние точки запоминаются по факту
     {
       sets::Buttons btns(b);
-      if (b.Button(UI_ID_AB_SET_DARK, "Запомнить темноту"))   // нажать, накрыв датчик
+      if (b.Button(UI_ID_AB_SET_DARK, F("Запомнить темноту")))   // нажать, накрыв датчик
       {
         db.set(kk::ab_dark, autoLightRaw);
         uiLog.printf_P(PSTR("Автояркость: точка темноты = %u\n"), autoLightRaw);
         b.reload();
       }
-      if (b.Button(UI_ID_AB_SET_LIGHT, "Запомнить свет"))     // нажать при обычном дневном освещении (не с фонариком)
+      if (b.Button(UI_ID_AB_SET_LIGHT, F("Запомнить свет")))  // нажать при обычном дневном освещении (не с фонариком)
       {
         db.set(kk::ab_light, autoLightRaw);
         uiLog.printf_P(PSTR("Автояркость: точка света = %u\n"), autoLightRaw);
         b.reload();
       }
     }
-    b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
+    b.Label(F("Точки калибровки (темнота/свет)"), String((uint16_t)db[kk::ab_dark]) + F(" / ") + String((uint16_t)db[kk::ab_light]));
 
-    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // опрашивается только при включённой автояркости; накройте датчик рукой - число должно меняться
-    b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
+    b.LabelNum(UI_ID_AB_RAW, F("Датчик A0 (0-1023)"), autoLightRaw);           // опрашивается только при включённой автояркости; накройте датчик рукой - число должно меняться
+    b.LabelNum(UI_ID_AB_FACTOR, F("Текущий коэффициент, %"), (uint16_t)autoBriFactor * 100U / 255U);
   }
   #endif //USE_AUTO_BRIGHTNESS
 
   {
-    sets::Menu m(b, "Оборудование");                      // задаётся один раз после прошивки, применяется сразу
-    if (b.Select(kk::hw_matrix_conn, "Начало ленты",
+    sets::Menu m(b, F("Оборудование"));                   // задаётся один раз после прошивки, применяется сразу
+    if (b.Select(kk::hw_matrix_conn, F("Начало ленты"),
                  F("левый нижний угол, вправо;левый нижний угол, вверх;левый верхний угол, вправо;левый верхний угол, вниз;"
                    "правый верхний угол, влево;правый верхний угол, вниз;правый нижний угол, влево;правый нижний угол, вверх")))
     {
       hwApply();
     }
-    if (b.Select(kk::hw_matrix_parallel, "Ряды ленты", "зигзагом;параллельно"))
+    if (b.Select(kk::hw_matrix_parallel, F("Ряды ленты"), F("зигзагом;параллельно")))
     {
       hwApply();
     }
-    if (b.Select(kk::hw_color_order, "Порядок цветов", "RGB;RBG;GRB;GBR;BRG;BGR"))
+    if (b.Select(kk::hw_color_order, F("Порядок цветов"), F("RGB;RBG;GRB;GBR;BRG;BGR")))
     {
       hwApply();
     }
-    if (b.Spinner(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", 0, 10000, 100))
+    if (b.Spinner(kk::hw_current_limit, F("Лимит тока, мА (0 - без лимита)"), 0, 10000, 100))
     {
       hwApply();
     }
-    b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
+    b.Switch(kk::hw_power_restore, F("Включаться после подачи питания"));
   }
 
   #ifdef ESP_USE_BUTTON
   {
-    sets::Menu m(b, "Кнопка");                            // действия жестов применяются сразу, кнопка читает их при каждом жесте
-    if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
+    sets::Menu m(b, F("Кнопка"));                         // действия жестов применяются сразу, кнопка читает их при каждом жесте
+    if (b.Select(kk::hw_button, F("Кнопка"), F("нет;сенсорная;механическая")))
     {
       buttonApply();
     }
     bool enabled = buttonEnabled;
-    if (b.Switch(UI_ID_BTN_ENABLED, "Кнопка разблокирована", &enabled))
+    if (b.Switch(UI_ID_BTN_ENABLED, F("Кнопка разблокирована"), &enabled))
     {
       lampSetButtonEnabled(enabled);
     }
-    b.Switch(kk::btn_fav_only, "Листать только эффекты Цикла");
+    b.Switch(kk::btn_fav_only, F("Листать только эффекты Цикла"));
 
     for (uint8_t lampOff = 0U; lampOff < 2U; lampOff++)
     {
-      sets::Group g(b, lampOff ? "Клики на выключенной лампе" : "Клики на включённой лампе");
+      sets::Group g(b, lampOff ? F("Клики на выключенной лампе") : F("Клики на включённой лампе"));
       for (uint8_t i = 0U; i < 7U; i++)
       {
         b.Select(buttonClickKeys[lampOff][i], uiClicksLabel(i + 1U, false), FPSTR(uiButtonClickActions));
@@ -706,7 +706,7 @@ static void uiBuildSettings(sets::Builder& b)
     }
 
     {
-      sets::Group g(b, "Удержание");
+      sets::Group g(b, F("Удержание"));
       for (uint8_t i = 0U; i < 8U; i++)
       {
         // в списке удержания действия идут подряд, а в настройке у действий только для удержания свои номера (Types.h)
@@ -722,7 +722,7 @@ static void uiBuildSettings(sets::Builder& b)
   #endif
 
   {
-    sets::Menu m(b, "Журнал");                            // вложенное меню - журнал скрыт, пока его не откроют
+    sets::Menu m(b, F("Журнал"));                         // вложенное меню - журнал скрыт, пока его не откроют
     b.Log(UI_ID_LOG, uiLog);
   }
 }
@@ -747,7 +747,7 @@ void settingsBuild(sets::Builder& b)
     return;
   }
 
-  if (b.Tabs(UI_ID_TABS, "Лампа;Настройки", &uiTab))        // вкладка собирается на лампе: при переключении страница строится заново
+  if (b.Tabs(UI_ID_TABS, F("Лампа;Настройки"), &uiTab))     // вкладка собирается на лампе: при переключении страница строится заново
   {
     b.reload();
     return;
