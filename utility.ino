@@ -90,7 +90,9 @@ void ledsShow()
   }
   #endif //BUTTON_PRESS_FEEDBACK
 
-  bool frameChanged = false;
+  static bool firstFrame = true;                            // после подачи питания на ленте горят случайные диоды, а буфер NeoPixelBus пуст:
+  bool frameChanged = firstFrame;                           // чёрный кадр совпал бы с буфером, и выключенная лампа так и осталась бы с ними
+  firstFrame = false;
   for (uint8_t y = 0U; y < HEIGHT; y++)
   {
     for (uint8_t x = 0U; x < WIDTH; x++)
