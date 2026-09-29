@@ -61,6 +61,7 @@ DB_KEYS(kk,
     cd_hue,                                                 // до 4.0: оттенок цифр 0-255, переносится в cd_color
     cd_color,                                               // цвет цифр, 0xRRGGBB; вспышки - противоположного оттенка
     cd_rot,                                                 // положение цифр по окружности лампы, колонка 0-15
+    cd_mirror,                                              // последние 9 секунд цифра повторяется на противоположной стороне лампы
 
     // Кубики
     dice_bri,                                               // яркость
@@ -232,6 +233,7 @@ class Storage
       db.init(kk::cd_bri, (uint8_t)40);
       db.init(kk::cd_hue, (uint8_t)0);
       db.init(kk::cd_rot, (uint8_t)0);
+      db.init(kk::cd_mirror, false);
       db.init(kk::dice_bri, (uint8_t)40);
       db.init(kk::dice_speed, (uint8_t)128);
       db.init(kk::dice_hue, (uint8_t)0);

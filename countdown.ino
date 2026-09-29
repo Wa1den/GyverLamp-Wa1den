@@ -4,16 +4,18 @@
 // Пока осталось больше минуты, минуты стоят над секундами цифрами 3x5, в последнюю минуту
 // остаются секунды шрифтом 5x8. В последние 5 секунд на смене каждой секунды фон вспыхивает
 // цветом, противоположным цвету цифр, и каждая следующая вспышка ярче. По окончании фон
-// вспыхивает пять раз на полную яркость, после чего лампа возвращается к эффекту или
-// выключается, если до старта была выключена.
+// вспыхивает пять раз, после чего лампа возвращается к эффекту или выключается, если до старта
+// была выключена. Последние 9 секунд цифра может повторяться на противоположной стороне лампы.
 //
 // Отсчёт прерывается без вспышек, если лампу выключили или сменили эффект - кнопкой,
 // со страницы настроек, по MQTT или таймером выключения.
 
 #define COUNTDOWN_FRAME_MS      (20U)                       // период кадра во время вспышек
-#define COUNTDOWN_FLASH_RISE    (150U)                      // вспышка разгорается, мс
-#define COUNTDOWN_FLASH_FALL    (250U)                      // и гаснет, мс
-#define COUNTDOWN_FINAL_PERIOD  (500U)                      // период финальных вспышек, мс
+#define COUNTDOWN_FLASH_RISE    (250U)                      // вспышка разгорается, мс
+#define COUNTDOWN_FLASH_FALL    (400U)                      // и гаснет, мс
+#define COUNTDOWN_FLASH_PEAK    (96U)                       // наибольшая яркость фона во вспышке из 255: фон занимает всю лампу и
+                                                            // на равной яркости с цифрами слепит; общая яркость отсчёта применяется поверх
+#define COUNTDOWN_FINAL_PERIOD  (700U)                      // период финальных вспышек, мс
 #define COUNTDOWN_FINAL_FLASHES (5U)                        // сколько раз фон вспыхивает по окончании
 #define COUNTDOWN_WARN_SECONDS  (5U)                        // сколько последних секунд отмечается вспышками
 
@@ -88,9 +90,10 @@ void countdownStop()
   }
 }
 
-// яркость вспышки через t мс от её начала: разгорается с нарастающим темпом и гаснет с убывающим
+// яркость вспышки через t мс от её начала: плавно разгорается и плавно гаснет
 static uint8_t countdownFlash(uint32_t t, uint8_t peak)
 {
+  peak = scale8(peak, COUNTDOWN_FLASH_PEAK);
   uint8_t k;
   if (t < COUNTDOWN_FLASH_RISE)
   {
@@ -104,7 +107,7 @@ static uint8_t countdownFlash(uint32_t t, uint8_t peak)
   {
     return 0U;
   }
-  return scale8(peak, scale8(k, k));
+  return scale8(peak, ease8InOutQuad(k));
 }
 
 // цифра шрифтом 5x8 бегущей строки; столбцы переносятся через шов
@@ -150,6 +153,10 @@ static void countdownDraw(uint16_t seconds, uint8_t flash)
   else
   {
     countdownBigDigit((center + WIDTH - 2U) % WIDTH, seconds, color);
+    if ((bool)db[kk::cd_mirror])
+    {
+      countdownBigDigit((center + WIDTH / 2U + WIDTH - 2U) % WIDTH, seconds, color);
+    }
   }
 }
 
@@ -191,14 +198,17 @@ void countdownTick()
   // лента обновляется, только когда картинка изменилась: во время вспышки каждый кадр, иначе раз в секунду
   static uint16_t lastSeconds = 0xFFFFU;
   static uint8_t lastFlash, lastRot, lastBri;
+  static bool lastMirror;
   static uint32_t lastColor;
   uint32_t colorRgb = (uint32_t)db[kk::cd_color];
   uint8_t rot = (uint8_t)db[kk::cd_rot];
   uint8_t bri = (uint8_t)db[kk::cd_bri];
-  if (!loadingFlag && seconds == lastSeconds && flash == lastFlash && colorRgb == lastColor && rot == lastRot && bri == lastBri)
+  bool mirror = (bool)db[kk::cd_mirror];
+  if (!loadingFlag && seconds == lastSeconds && flash == lastFlash && colorRgb == lastColor && rot == lastRot && bri == lastBri && mirror == lastMirror)
   {
     return;
   }
+  lastMirror = mirror;
   lastSeconds = seconds;
   lastFlash = flash;
   lastColor = colorRgb;

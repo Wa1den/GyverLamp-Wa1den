@@ -57,9 +57,9 @@ void ledsShow()
   }
 
   #ifdef BUTTON_PRESS_FEEDBACK
-  // анимация "нажатия": световая полоса продавливается сверху вниз с разгоном и
-  // торможением у нижней точки (ease-in-out), затем отпускается - трогается медленно
-  // и ускоряется к вылету наверх (квадратичная кривая)
+  // анимация "нажатия": сверху вниз нарастает заливка с разгоном и торможением у нижней
+  // точки (ease-in-out), затем убывает обратно - трогается медленно и ускоряется к верху
+  // (квадратичная кривая); нижний край заливки размыт на три строки
   uint8_t feedbackGlow[HEIGHT] = {0};                       // добавка белого свечения по строкам
   uint32_t fbElapsed = millis() - buttonFeedbackAt;
   if (buttonFeedbackAt != 0U && fbElapsed < BUTTON_PRESS_FEEDBACK)
@@ -81,7 +81,7 @@ void ledsShow()
     for (uint8_t y = 0U; y < HEIGHT; y++)
     {
       uint8_t rowFromTop = HEIGHT - 1U - y;
-      uint8_t dist = (rowFromTop > wavePos) ? rowFromTop - wavePos : wavePos - rowFromTop;
+      uint8_t dist = (rowFromTop > wavePos) ? rowFromTop - wavePos : 0U;
       if (dist < 3U)
       {
         feedbackGlow[y] = 140U - dist * 45U;

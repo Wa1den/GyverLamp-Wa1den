@@ -122,6 +122,10 @@ static String uiTimerText()
     return F("отключен");
   }
   int32_t left = max((int32_t)(TimerManager::TimeToFire - millis()), (int32_t)0);
+  if (left < 60000L)                                        // последнюю минуту - в секундах
+  {
+    return String(F("осталось ")) + (left / 1000L + 1) + F(" с");
+  }
   return String(F("осталось ")) + (left / 60000L + 1) + F(" мин");
 }
 
@@ -335,6 +339,7 @@ void settingsBuild(sets::Builder& b)
     b.Slider(kk::cd_bri, "Яркость", 1, 255, 1);
     b.Color(kk::cd_color, "Цвет");
     b.Slider(kk::cd_rot, "Поворот", 0, WIDTH - 1, 1);
+    b.Switch(kk::cd_mirror, "Последние 9 секунд - и на обратной стороне");
 
     {
       sets::Buttons btns(b);
