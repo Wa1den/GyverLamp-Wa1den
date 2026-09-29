@@ -4,6 +4,9 @@
 # Spinner: число между кнопками "-" и "+" открывает окно ввода, как у Number. Штатно спиннер
 # удаляет поле ввода, созданное InputWidget, и ставит вместо него надпись без обработчика.
 #
+# Ключ входа: цвет и окно ввода пароля обновляются при каждой сборке страницы. Штатно только при
+# первой, и после установки пароля ключ не работал до перезагрузки страницы в браузере.
+#
 # Скрипт и стили отдаются с долгим кэшированием, а index.html ссылается на них с меткой сборки
 # (script.js?метка). Метка пересчитывается от содержимого, иначе браузер оставит старый скрипт.
 
@@ -44,15 +47,25 @@ def write(name, text, size_label):
     src = re.sub(size_label + r': \d+ bytes', '%s: %d bytes' % (size_label, len(data)), src)
 
 
+AUTH_OLD = 'this.authF||(this.authF=!0,"granted"in s?'
+AUTH_NEW = '(this.authF=!0,"granted"in s?'
+
+PATCHES = [('Spinner', SPINNER_OLD, SPINNER_NEW), ('ключ входа', AUTH_OLD, AUTH_NEW)]
+
 js = read('settings_script_gz')
-if SPINNER_OLD in js:
-    js = js.replace(SPINNER_OLD, SPINNER_NEW)
+changed = False
+for name, old, new in PATCHES:
+    if old in js:
+        assert js.count(old) == 1, name
+        js = js.replace(old, new)
+        changed = True
+        print(name, '- исправлено')
+    elif new in js:
+        print(name, '- уже исправлено')
+    else:
+        raise SystemExit(name + ': код в новой версии библиотеки другой - правку нужно переписать')
+if changed:
     write('settings_script_gz', js, 'script')
-    print('Spinner исправлен')
-elif SPINNER_NEW in js:
-    print('Spinner уже исправлен')
-else:
-    raise SystemExit('код Spinner в новой версии библиотеки другой - правку нужно переписать')
 
 stamp = hashlib.sha1((js + read('settings_style_gz')).encode('utf-8')).hexdigest()[:20]
 index = read('settings_index_gz')
