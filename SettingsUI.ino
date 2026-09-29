@@ -175,16 +175,24 @@ void settingsBuild(sets::Builder& b)
       lampSetBrightness(brightness);
     }
 
-    uint8_t speed = modes[currentMode].Speed;
-    if (b.Slider(UI_ID_SPEED, "Скорость", 1, 255, 1, "", &speed))
+    String speedLabel = effectSpeedLabel(currentMode);      // подписи ползунков - из реестра эффектов; пустая - эффект ползунок не использует
+    if (speedLabel.length())
     {
-      lampSetSpeed(speed);
+      uint8_t speed = modes[currentMode].Speed;
+      if (b.Slider(UI_ID_SPEED, speedLabel, 1, 255, 1, "", &speed))
+      {
+        lampSetSpeed(speed);
+      }
     }
 
-    uint8_t scale = modes[currentMode].Scale;
-    if (b.Slider(UI_ID_SCALE, "Масштаб", 1, 100, 1, "", &scale))
+    String scaleLabel = effectScaleLabel(currentMode);
+    if (scaleLabel.length())
     {
-      lampSetScale(scale);
+      uint8_t scale = modes[currentMode].Scale;
+      if (b.Slider(UI_ID_SCALE, scaleLabel, 1, 100, 1, "", &scale))
+      {
+        lampSetScale(scale);
+      }
     }
   }
 

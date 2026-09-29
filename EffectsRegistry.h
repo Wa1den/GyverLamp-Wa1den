@@ -1,266 +1,185 @@
 #pragma once
 
-// ==================================================================
-//  EffectsRegistry.h — реестр из 91 эффекта лампы: их номера (EFF_*),
-//  количество (MODE_AMOUNT), настройки по умолчанию (яркость/скорость/
-//  масштаб) и человекочитаемые названия для интерфейса Settings.
+// Реестр эффектов. Каждый эффект описан одной строкой EFFECT_LIST, из неё собираются номера EFF_*,
+// количество MODE_AMOUNT, настройки по умолчанию, названия для страницы настроек, период кадра,
+// подписи ползунков и вызов эффекта в effectsTick (effectTicker.ino).
 //
-//  Если добавляете/удаляете эффект — нужно поменять его в 4 местах:
-//  1. effects.ino — код самого эффекта.
-//  2. EffectsRegistry.h — EFF_* номер, MODE_AMOUNT, defaultSettings[],
-//     effectNamesList (в реестре ниже).
-//  3. effectTicker.ino — вызов процедуры эффекта на нужный EFF_*.
-// ==================================================================
+// Новый эффект добавляется в конец списка: номер эффекта - его позиция, он же номер в MQTT-командах
+// (EFFn) и в названии. При добавлении в конец настройки и отметки Цикла у прежних эффектов сохраняются.
+//
+// Поля: номер, вызов функции эффекта, название, яркость, Скорость, Масштаб по умолчанию,
+// период кадра в мс (0 - кадр раз в 256 - Скорость мс), подписи Скорости и Масштаба на странице
+// настроек (пустая - эффект этот ползунок не использует, и он скрыт). Масштаб у многих эффектов
+// Gunner47 задаёт два параметра: одну из 9 палитр крупным шагом и второй параметр внутри каждых
+// 11 значений - отсюда подписи вида «Палитра и количество».
 
-#define EFF_WHITE_COLOR         ( 0U)    // Белый свет
-#define EFF_COLOR               ( 1U)    // Цвет
-#define EFF_COLORS              ( 2U)    // Смена цвета
-#define EFF_MADNESS             ( 3U)    // Безумие
-#define EFF_CLOUDS               ( 4U)    // Облака
-#define EFF_LAVA                 ( 5U)    // Лава
-#define EFF_PLASMA               ( 6U)    // Плазма
-#define EFF_RAINBOW               ( 7U)    // Радуга 3D
-#define EFF_RAINBOW_STRIPE        ( 8U)    // Павлин
-#define EFF_ZEBRA                 ( 9U)    // Зебра
-#define EFF_FOREST                (10U)    // Лес
-#define EFF_OCEAN                 (11U)    // Океан
-#define EFF_BBALLS                (12U)    // Мячики
-#define EFF_BALLS_BOUNCE          (13U)    // Мячики без границ
-#define EFF_POPCORN                (14U)    // Попкорн
-#define EFF_SPIRO                  (15U)    // Спирали
-#define EFF_PRISMATA                (16U)    // Призмата
-#define EFF_SMOKEBALLS               (17U)    // Дымовые шашки
-#define EFF_FLAME                    (18U)    // Пламя
-#define EFF_FIRE_2021                (19U)    // Огонь 2021
-#define EFF_PACIFIC                  (20U)    // Тихий океан
-#define EFF_SHADOWS                  (21U)    // Тени
-#define EFF_DNA                      (22U)    // ДНК
-#define EFF_FLOCK                    (23U)    // Стая
-#define EFF_FLOCK_N_PR                (24U)    // Стая и хищник
-#define EFF_BUTTERFLYS                 (25U)    // Мотыльки
-#define EFF_BUTTERFLYS_LAMP            (26U)    // Лампа с мотыльками
-#define EFF_SNAKES                     (27U)    // Змейки
-#define EFF_NEXUS                       (28U)    // Nexus
-#define EFF_SPHERES                     (29U)    // Шары
-#define EFF_SINUSOID3                   (30U)    // Синусоид
-#define EFF_METABALLS                   (31U)    // Метаболз
-#define EFF_AURORA                      (32U)    // Северное сияние
+#define EFFECT_LIST(X) \
+  X(EFF_WHITE_COLOR,     whiteColorStripeRoutine(),         "0. Белый свет",   9, 207,  26, 50, "Оттенок и поворот", "Ширина полосы") \
+  X(EFF_COLOR,           colorRoutine(),                    "1. Цвет",   9, 180,  99, 50, "Насыщенность", "Цвет") \
+  X(EFF_COLORS,          colorsRoutine2(),                  "2. Смена цвета",  10, 252,  32, 50, "Скорость", "Шаг смены цвета") \
+  X(EFF_MADNESS,         madnessNoiseRoutine(),             "3. Безумие",  11,  33,  58, 50, "Скорость", "Размер узора") \
+  X(EFF_CLOUDS,          cloudsNoiseRoutine(),              "4. Облака",   8,   4,  34, 50, "Скорость", "Размер узора") \
+  X(EFF_LAVA,            lavaNoiseRoutine(),                "5. Лава",   8,   9,  24, 50, "Скорость", "Размер узора") \
+  X(EFF_PLASMA,          plasmaNoiseRoutine(),              "6. Плазма",  11,  19,  59, 50, "Скорость", "Размер узора") \
+  X(EFF_RAINBOW,         rainbowNoiseRoutine(),             "7. Радуга 3D",  11,  13,  60, 50, "Скорость", "Размер узора") \
+  X(EFF_RAINBOW_STRIPE,  rainbowStripeNoiseRoutine(),       "8. Павлин",  11,   5,  12, 50, "Скорость", "Размер узора") \
+  X(EFF_ZEBRA,           zebraNoiseRoutine(),               "9. Зебра",   7,   8,  21, 50, "Скорость", "Размер узора") \
+  X(EFF_FOREST,          forestNoiseRoutine(),              "10. Лес",   7,   8,  95, 50, "Скорость", "Размер узора") \
+  X(EFF_OCEAN,           oceanNoiseRoutine(),               "11. Океан",   7,   6,  12, 50, "Скорость", "Размер узора") \
+  X(EFF_BBALLS,          BBallsRoutine(),                   "12. Мячики",  24, 255,  26, 15, "Цвет и шлейф", "Количество") \
+  X(EFF_BALLS_BOUNCE,    bounceRoutine(),                   "13. Мячики без границ",  18,  11,  70, 15, "Шлейф", "Палитра и количество") \
+  X(EFF_POPCORN,         popcornRoutine(),                  "14. Попкорн",  19,  32,  16, 15, "Скорость", "Палитра и количество") \
+  X(EFF_SPIRO,           spiroRoutine(),                    "15. Спирали",   9,  46,   3, 15, "Шлейф", "Палитра") \
+  X(EFF_PRISMATA,        PrismataRoutine(),                 "16. Призмата",  17, 100,   2, 15, "Скорость", "Палитра и шлейф") \
+  X(EFF_SMOKEBALLS,      smokeballsRoutine(),               "17. Дымовые шашки",  12,  44,  17, 15, "Скорость", "Количество") \
+  X(EFF_FLAME,           execStringsFlame(),                "18. Пламя",  22,  53,   3, 15, "Количество языков", "Цвет и высота") \
+  X(EFF_FIRE_2021,       Fire2021Routine(),                 "19. Огонь 2021",   9,  51,  11, 15, "Скорость", "Палитра и ширина языков") \
+  X(EFF_PACIFIC,         pacificRoutine(),                  "20. Тихий океан",  55, 127, 100, 15, "Скорость", "") \
+  X(EFF_SHADOWS,         shadowsRoutine(),                  "21. Тени",  39,  77,   1, 15, "Скорость", "Контраст") \
+  X(EFF_DNA,             DNARoutine(),                      "22. ДНК",  15,  77,  95, 15, "Скорость", "Цвет") \
+  X(EFF_FLOCK,           flockRoutine(false),               "23. Стая",  15, 136,   4, 15, "Скорость", "Палитра и шлейф") \
+  X(EFF_FLOCK_N_PR,      flockRoutine(true),                "24. Стая и хищник",  15, 128,  80, 15, "Скорость", "Палитра и шлейф") \
+  X(EFF_BUTTERFLYS,      butterflysRoutine(true),           "25. Мотыльки",  11,  53,  87, 15, "Скорость", "Количество и цвет") \
+  X(EFF_BUTTERFLYS_LAMP, butterflysRoutine(false),          "26. Лампа с мотыльками",   7,  61, 100, 15, "Скорость", "Количество и цвет") \
+  X(EFF_SNAKES,          snakesRoutine(),                   "27. Змейки",   9,  96,  31, 15, "Скорость", "Количество") \
+  X(EFF_NEXUS,           nexusRoutine(),                    "28. Nexus",  19,  60,  20, 15, "Скорость", "Количество") \
+  X(EFF_SPHERES,         spheresRoutine(),                  "29. Шары",   9,  85,  85, 15, "Скорость", "Палитра и количество") \
+  X(EFF_SINUSOID3,       Sinusoid3Routine(),                "30. Синусоид",   7,  89,  83, 15, "Вариант и скорость", "Размер") \
+  X(EFF_METABALLS,       MetaBallsRoutine(),                "31. Метаболз",   7,  85,   3, 15, "Скорость", "Палитра") \
+  X(EFF_AURORA,          polarRoutine(),                    "32. Северное сияние",  12,  73,  38, 15, "Скорость", "Цвет") \
+  X(EFF_SPIDER,          spiderRoutine(),                   "33. Плазменная лампа",   8,  59,  18, 15, "Скорость", "Палитра и количество линий") \
+  X(EFF_LAVALAMP,        LavaLampRoutine(),                 "34. Лавовая лампа",  23, 203,   1, 15, "Скорость", "Цвет") \
+  X(EFF_LIQUIDLAMP,      LiquidLampRoutine(true),           "35. Жидкая лампа",  11,  63,   1, 15, "Скорость", "Цвет и количество") \
+  X(EFF_LIQUIDLAMP_AUTO, LiquidLampRoutine(false),          "36. Жидкая лампа (auto)",  11, 124,  39, 15, "Скорость", "Цвет и количество") \
+  X(EFF_DROPS,           newMatrixRoutine(),                "37. Капли на стекле",  23,  71,  59, 15, "Количество капель", "Цвет") \
+  X(EFF_MATRIX,          matrixRoutine(),                   "38. Матрица",  27, 186,  23,  0, "Скорость", "Плотность") \
+  X(EFF_FIRE_2012,       fire2012again(),                   "39. Огонь 2012",   9, 225,  59,  0, "Скорость", "Палитра") \
+  X(EFF_FIRE_2018,       Fire2018_2(),                      "40. Огонь 2018",  57, 225,  15,  0, "Скорость", "Оттенок") \
+  X(EFF_FIRE_2020,       fire2020Routine2(),                "41. Огонь 2020",   9, 220,  20,  0, "Скорость", "Палитра и ширина языков") \
+  X(EFF_FIRE,            fireRoutine(true),                 "42. Огонь",  22, 225,   1,  0, "Скорость", "Цвет") \
+  X(EFF_WHIRL,           whirlRoutine(true),                "43. Вихри пламени",   9, 240,   1,  0, "Скорость", "Цвет") \
+  X(EFF_WHIRL_MULTI,     whirlRoutine(false),               "44. Разноцветные вихри",   9, 240,  86,  0, "Скорость", "Цвет") \
+  X(EFF_MAGMA,           magmaRoutine(),                    "45. Магма",   9, 198,  20,  0, "Скорость", "Палитра и количество") \
+  X(EFF_LLAND,           LLandRoutine(),                    "46. Кипение",   7, 240,  18,  0, "Скорость", "Палитра и размер") \
+  X(EFF_WATERFALL,       fire2012WithPalette(),             "47. Водопад",   5, 212,  54,  0, "Скорость", "Цвет") \
+  X(EFF_WATERFALL_4IN1,  fire2012WithPalette4in1(),         "48. Водопад 4 в 1",   7, 197,  22,  0, "Скорость", "Вариант и высота") \
+  X(EFF_POOL,            poolRoutine(),                     "49. Бассейн",   8, 222,  63,  0, "Скорость", "Цвет") \
+  X(EFF_PULSE,           pulseRoutine(2U),                  "50. Пульс",  12, 185,   6,  0, "Скорость", "Цвет") \
+  X(EFF_PULSE_RAINBOW,   pulseRoutine(4U),                  "51. Радужный пульс",  11, 185,  31,  0, "Скорость", "Шаг радуги") \
+  X(EFF_PULSE_WHITE,     pulseRoutine(8U),                  "52. Белый пульс",   9, 179,  11,  0, "Скорость", "Оттенок") \
+  X(EFF_OSCILLATING,     oscillatingRoutine(),              "53. Осциллятор",   8, 208, 100,  0, "Скорость", "Палитра или цвет") \
+  X(EFF_FOUNTAIN,        starfield2Routine(),               "54. Источник",  15, 233,  77,  0, "Скорость", "Количество") \
+  X(EFF_FAIRY,           fairyRoutine(),                    "55. Фея",  19, 212,  44,  0, "Скорость", "Количество") \
+  X(EFF_COMET,           RainbowCometRoutine(),             "56. Комета",  16, 220,  28,  0, "Скорость", "Скорость смены цвета") \
+  X(EFF_COMET_COLOR,     ColorCometRoutine(),               "57. Одноцветная комета",  14, 212,  69,  0, "Скорость", "Цвет") \
+  X(EFF_COMET_TWO,       MultipleStream(),                  "58. Две кометы",  27, 186,  19,  0, "Скорость", "Шлейф") \
+  X(EFF_COMET_THREE,     MultipleStream2(),                 "59. Три кометы",  24, 186,   9,  0, "Скорость", "Шлейф") \
+  X(EFF_ATTRACT,         attractRoutine(),                  "60. Притяжение",  21, 203,  65,  0, "Скорость", "Палитра и количество") \
+  X(EFF_FIREFLY,         MultipleStream3(),                 "61. Парящий огонь",  26, 206,  15,  0, "Скорость", "Шлейф") \
+  X(EFF_FIREFLY_TOP,     MultipleStream5(),                 "62. Верховой огонь",  26, 190,  15,  0, "Скорость", "Шлейф") \
+  X(EFF_SNAKE,           MultipleStream8(),                 "63. Радужный змей",  12, 178,   1,  0, "Скорость", "Цвет") \
+  X(EFF_SPARKLES,        sparklesRoutine(),                 "64. Конфетти",  16, 142,  63,  0, "Скорость", "Количество") \
+  X(EFF_TWINKLES,        twinklesRoutine(),                 "65. Мерцание",  25, 236,   4,  0, "Скорость", "Палитра и плотность") \
+  X(EFF_SMOKE,           MultipleStreamSmoke(false),        "66. Дым",   9, 157, 100,  0, "Скорость", "Цвет") \
+  X(EFF_SMOKE_COLOR,     MultipleStreamSmoke(true),         "67. Разноцветный дым",   9, 157,  30,  0, "Скорость", "Период смены цвета") \
+  X(EFF_PICASSO,         picassoSelector(),                 "68. Пикассо",   9, 189,  43,  0, "Скорость", "Вариант и количество") \
+  X(EFF_WAVES,           WaveRoutine(),                     "69. Волны",   9, 236,  80,  0, "Скорость", "Палитра и направление") \
+  X(EFF_SAND,            sandRoutine(),                     "70. Цветные драже",   9, 195,  80,  0, "Скорость", "Насыщенность") \
+  X(EFF_RINGS,           ringsRoutine(),                    "71. Кодовый замок",  10, 222,  92,  0, "Скорость", "Палитра и толщина колец") \
+  X(EFF_CUBE2D,          cube2dRoutine(),                   "72. Кубик Рубика",  10, 231,  89,  0, "Скорость", "Палитра и размер ячеек") \
+  X(EFF_SIMPLE_RAIN,     simpleRain(),                      "73. Тучка в банке",  30, 233,   2,  0, "Скорость", "Плотность дождя") \
+  X(EFF_STORMY_RAIN,     stormyRain(),                      "74. Гроза в банке",  20, 236,  25,  0, "Скорость", "Плотность дождя") \
+  X(EFF_COLOR_RAIN,      coloredRain(),                     "75. Осадки",  15, 198,  99,  0, "Скорость", "Цвет и длина капель") \
+  X(EFF_RAIN,            RainRoutine(),                     "76. Разноцветный дождь",  15, 225,   1,  0, "Скорость", "Цвет") \
+  X(EFF_SNOW,            snowRoutine(),                     "77. Снегопад",   9, 180,  90,  0, "Скорость", "Плотность") \
+  X(EFF_STARFALL,        stormRoutine2(),                   "78. Звездопад / Метель",  20, 199,  54,  0, "Скорость", "Насыщенность и шлейф") \
+  X(EFF_LEAPERS,         LeapersRoutine(),                  "79. Прыгуны",  24, 203,   5,  0, "Скорость", "Палитра и количество") \
+  X(EFF_LIGHTERS,        lightersRoutine(),                 "80. Светлячки",  15, 157,  23,  0, "Скорость", "Количество") \
+  X(EFF_LIGHTER_TRACES,  ballsRoutine(),                    "81. Светлячки со шлейфом",  21, 198,  93,  0, "Скорость", "Цвет") \
+  X(EFF_LUMENJER,        lumenjerRoutine(),                 "82. Люменьер",  14, 223,  40,  0, "Скорость", "Палитра") \
+  X(EFF_PAINTBALL,       lightBallsRoutine(),               "83. Пейнтбол",  11, 236,   7,  0, "Скорость", "Замедление") \
+  X(EFF_RAINBOW_VER,     rainbowRoutine(),                  "84. Радуга",   8, 196,  56,  0, "Скорость", "Направление и закрутка") \
+  X(EFF_CLOCK,           clockRoutine(),                    "85. Часы",   4,   5, 100,  0, "Положение цифр", "Цвет") \
+  X(EFF_TEXT,            text_running(),                    "86. Бегущая строка",  10,  99,  38,  0, "Скорость", "Цвет") \
+  X(EFF_SNAKE_GAME,      snakeGameRoutine(),                "87. Змейка",  14, 190,  30,  0, "Скорость", "Цвет") \
+  X(EFF_EARTH,           earthRoutine(),                    "88. Земля",  14, 150,  60, 40, "Скорость вращения", "Яркость ночной стороны") \
+  X(EFF_MARIO,           marioRoutine(),                    "89. Марио",  14, 150,  50, 40, "Скорость", "Положение героя") \
+  X(EFF_PINGPONG,        pingPongRoutine(),                 "90. Пинг-понг",  14, 120,  30, 20, "Скорость", "Цвет")
 
-#define EFF_SPIDER               (33U)    // Плазменная лампа
-#define EFF_LAVALAMP              (34U)    // Лавовая лампа
-#define EFF_LIQUIDLAMP             (35U)    // Жидкая лампа
-#define EFF_LIQUIDLAMP_AUTO        (36U)    // Жидкая лампа (auto)
-#define EFF_DROPS                  (37U)    // Капли на стекле
-#define EFF_MATRIX                 (38U)    // Матрица
-#define EFF_FIRE_2012               (39U)    // Огонь 2012
-#define EFF_FIRE_2018               (40U)    // Огонь 2018
-#define EFF_FIRE_2020               (41U)    // Огонь 2020
-#define EFF_FIRE                    (42U)    // Огонь
-#define EFF_WHIRL                   (43U)    // Вихри пламени
-#define EFF_WHIRL_MULTI              (44U)    // Разноцветные вихри
-#define EFF_MAGMA                    (45U)    // Магма
-#define EFF_LLAND                    (46U)    // Кипение
-#define EFF_WATERFALL                (47U)    // Водопад
-#define EFF_WATERFALL_4IN1           (48U)    // Водопад 4 в 1
-#define EFF_POOL                     (49U)    // Бассейн
-#define EFF_PULSE                    (50U)    // Пульс
-#define EFF_PULSE_RAINBOW            (51U)    // Радужный пульс
-#define EFF_PULSE_WHITE               (52U)    // Белый пульс
-#define EFF_OSCILLATING                (53U)    // Осциллятор
-#define EFF_FOUNTAIN                   (54U)    // Источник
-#define EFF_FAIRY                      (55U)    // Фея
-#define EFF_COMET                      (56U)    // Комета
-#define EFF_COMET_COLOR                (57U)    // Одноцветная комета
-#define EFF_COMET_TWO                  (58U)    // Две кометы
-#define EFF_COMET_THREE                 (59U)    // Три кометы
-#define EFF_ATTRACT                     (60U)    // Притяжение
+#define EFFECT_ENUM(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)     id,
+#define EFFECT_DEFAULTS(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel) {bri, spd, sca},
+#define EFFECT_NAME(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)     ";" name
+#define EFFECT_FRAME(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)    frame,
+#define EFFECT_SPEED(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)    ";" spdLabel
+#define EFFECT_SCALE(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)    ";" scaLabel
+#define EFFECT_CASE(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)     case id: call; break;
 
-#define EFF_FIREFLY               (61U)    // Парящий огонь
-#define EFF_FIREFLY_TOP             (62U)    // Верховой огонь
-#define EFF_SNAKE                    (63U)    // Радужный змей
-#define EFF_SPARKLES                  (64U)    // Конфетти
-#define EFF_TWINKLES                   (65U)    // Мерцание
-#define EFF_SMOKE                      (66U)    // Дым
-#define EFF_SMOKE_COLOR                 (67U)    // Разноцветный дым
-#define EFF_PICASSO                     (68U)    // Пикассо
-#define EFF_WAVES                       (69U)    // Волны
-#define EFF_SAND                        (70U)    // Цветные драже
-#define EFF_RINGS                       (71U)    // Кодовый замок
-#define EFF_CUBE2D                      (72U)    // Кубик Рубика
-#define EFF_SIMPLE_RAIN                 (73U)    // Тучка в банке
-#define EFF_STORMY_RAIN                 (74U)    // Гроза в банке
-#define EFF_COLOR_RAIN                  (75U)    // Осадки
-#define EFF_RAIN                        (76U)    // Разноцветный дождь
-#define EFF_SNOW                        (77U)    // Снегопад
-#define EFF_STARFALL                    (78U)    // Звездопад / Метель
-#define EFF_LEAPERS                     (79U)    // Прыгуны
-#define EFF_LIGHTERS                    (80U)    // Светлячки
-#define EFF_LIGHTER_TRACES              (81U)    // Светлячки со шлейфом
-#define EFF_LUMENJER                    (82U)    // Люменьер
-#define EFF_PAINTBALL                   (83U)    // Пейнтбол
-#define EFF_RAINBOW_VER                 (84U)    // Радуга
-#define EFF_CLOCK                       (85U)    // Часы
-#define EFF_TEXT                        (86U)    // Бегущая строка
-
-#define EFF_SNAKE_GAME                  (87U)    // Змейка
-#define EFF_EARTH                       (88U)    // Земля
-#define EFF_MARIO                       (89U)    // Марио
-#define EFF_PINGPONG                    (90U)    // Пинг-понг
-
-#define MODE_AMOUNT              (91U)   // количество режимов
-
-// ============= МАССИВ НАСТРОЕК ЭФФЕКТОВ ПО УМОЛЧАНИЮ ===================
-// формат записи: { Яркость, Скорость, Масштаб }
-static const uint8_t defaultSettings[][3] PROGMEM = {
-  {   9, 207,  26}, // Белый свет
-  {   9, 180,  99}, // Цвет
-  {  10, 252,  32}, // Смена цвета
-  {  11,  33,  58}, // Безумие
-  {   8,   4,  34}, // Облака
-  {   8,   9,  24}, // Лава
-  {  11,  19,  59}, // Плазма
-  {  11,  13,  60}, // Радуга 3D
-  {  11,   5,  12}, // Павлин
-  {   7,   8,  21}, // Зебра
-  {   7,   8,  95}, // Лес
-  {   7,   6,  12}, // Океан
-  {  24, 255,  26}, // Мячики
-  {  18,  11,  70}, // Мячики без границ
-  {  19,  32,  16}, // Попкорн
-  {   9,  46,   3}, // Спирали
-  {  17, 100,   2}, // Призмата
-  {  12,  44,  17}, // Дымовые шашки
-  {  22,  53,   3}, // Пламя
-  {   9,  51,  11}, // Огонь 2021
-  {  55, 127, 100}, // Тихий океан
-  {  39,  77,   1}, // Тени
-  {  15,  77,  95}, // ДНК
-  {  15, 136,   4}, // Стая
-  {  15, 128,  80}, // Стая и хищник
-  {  11,  53,  87}, // Мотыльки
-  {   7,  61, 100}, // Лампа с мотыльками
-  {   9,  96,  31}, // Змейки
-  {  19,  60,  20}, // Nexus
-  {   9,  85,  85}, // Шары
-  {   7,  89,  83}, // Синусоид
-  {   7,  85,   3}, // Метаболз
-  {  12,  73,  38}, // Северное сияние
-
-  {   8,  59,  18}, // Плазменная лампа
-  {  23, 203,   1}, // Лавовая лампа
-  {  11,  63,   1}, // Жидкая лампа
-  {  11, 124,  39}, // Жидкая лампа (auto)
-  {  23,  71,  59}, // Капли на стекле
-  {  27, 186,  23}, // Матрица
-  {   9, 225,  59}, // Огонь 2012
-  {  57, 225,  15}, // Огонь 2018
-  {   9, 220,  20}, // Огонь 2020
-  {  22, 225,   1}, // Огонь
-  {   9, 240,   1}, // Вихри пламени
-  {   9, 240,  86}, // Разноцветные вихри
-  {   9, 198,  20}, // Магма
-  {   7, 240,  18}, // Кипение
-  {   5, 212,  54}, // Водопад
-  {   7, 197,  22}, // Водопад 4 в 1
-  {   8, 222,  63}, // Бассейн
-  {  12, 185,   6}, // Пульс
-  {  11, 185,  31}, // Радужный пульс
-  {   9, 179,  11}, // Белый пульс
-  {   8, 208, 100}, // Осциллятор
-  {  15, 233,  77}, // Источник
-  {  19, 212,  44}, // Фея
-  {  16, 220,  28}, // Комета
-  {  14, 212,  69}, // Одноцветная комета
-  {  27, 186,  19}, // Две кометы
-  {  24, 186,   9}, // Три кометы
-  {  21, 203,  65}, // Притяжение
-
-  {  26, 206,  15}, // Парящий огонь
-  {  26, 190,  15}, // Верховой огонь
-  {  12, 178,   1}, // Радужный змей
-  {  16, 142,  63}, // Конфетти
-  {  25, 236,   4}, // Мерцание
-  {   9, 157, 100}, // Дым
-  {   9, 157,  30}, // Разноцветный дым
-  {   9, 189,  43}, // Пикассо
-  {   9, 236,  80}, // Волны
-  {   9, 195,  80}, // Цветные драже
-  {  10, 222,  92}, // Кодовый замок
-  {  10, 231,  89}, // Кубик Рубика
-  {  30, 233,   2}, // Тучка в банке
-  {  20, 236,  25}, // Гроза в банке
-  {  15, 198,  99}, // Осадки
-  {  15, 225,   1}, // Разноцветный дождь
-  {   9, 180,  90}, // Снегопад
-  {  20, 199,  54}, // Звездопад / Метель
-  {  24, 203,   5}, // Прыгуны
-  {  15, 157,  23}, // Светлячки
-  {  21, 198,  93}, // Светлячки со шлейфом
-  {  14, 223,  40}, // Люменьер
-  {  11, 236,   7}, // Пейнтбол
-  {   8, 196,  56}, // Радуга
-  {   4,   5, 100}, // Часы
-  {  10,  99,  38}, // Бегущая строка
-
-  {  14, 190,  30}, // Змейка
-  {  14, 150,  60}, // Земля
-  {  14, 150,  50}, // Марио
-  {  14, 120,  30}  // Пинг-понг
+enum : uint8_t
+{
+  EFFECT_LIST(EFFECT_ENUM)
+  MODE_AMOUNT
 };
 
-// ============= НАЗВАНИЯ ЭФФЕКТОВ ДЛЯ ИНТЕРФЕЙСА SETTINGS ===============
-// Одна строка, имена разделены ';' — то, что ожидает виджет b.Select().
-// Порядок строго соответствует EFF_*/defaultSettings[] выше (индекс = id).
-// Нумерация в названиях с нуля и совпадает с внутренними id и номерами
-// эффектов в MQTT-командах (EFFn, топик effect) - что на экране, то и в топик.
-static const char effectNamesList[] PROGMEM =
-  "0. Белый свет;1. Цвет;2. Смена цвета;3. Безумие;4. Облака;5. Лава;6. Плазма;"
-  "7. Радуга 3D;8. Павлин;9. Зебра;10. Лес;11. Океан;12. Мячики;"
-  "13. Мячики без границ;14. Попкорн;15. Спирали;16. Призмата;"
-  "17. Дымовые шашки;18. Пламя;19. Огонь 2021;20. Тихий океан;21. Тени;22. ДНК;"
-  "23. Стая;24. Стая и хищник;25. Мотыльки;26. Лампа с мотыльками;27. Змейки;"
-  "28. Nexus;29. Шары;30. Синусоид;31. Метаболз;32. Северное сияние;"
-  "33. Плазменная лампа;34. Лавовая лампа;35. Жидкая лампа;"
-  "36. Жидкая лампа (auto);37. Капли на стекле;38. Матрица;39. Огонь 2012;"
-  "40. Огонь 2018;41. Огонь 2020;42. Огонь;43. Вихри пламени;"
-  "44. Разноцветные вихри;45. Магма;46. Кипение;47. Водопад;48. Водопад 4 в 1;"
-  "49. Бассейн;50. Пульс;51. Радужный пульс;52. Белый пульс;53. Осциллятор;"
-  "54. Источник;55. Фея;56. Комета;57. Одноцветная комета;58. Две кометы;"
-  "59. Три кометы;60. Притяжение;61. Парящий огонь;62. Верховой огонь;"
-  "63. Радужный змей;64. Конфетти;65. Мерцание;66. Дым;67. Разноцветный дым;"
-  "68. Пикассо;69. Волны;70. Цветные драже;71. Кодовый замок;72. Кубик Рубика;"
-  "73. Тучка в банке;74. Гроза в банке;75. Осадки;76. Разноцветный дождь;"
-  "77. Снегопад;78. Звездопад / Метель;79. Прыгуны;80. Светлячки;"
-  "81. Светлячки со шлейфом;82. Люменьер;83. Пейнтбол;84. Радуга;85. Часы;"
-  "86. Бегущая строка;87. Змейка;88. Земля;89. Марио;90. Пинг-понг";
+// яркость, Скорость, Масштаб по умолчанию
+static const uint8_t defaultSettings[][3] PROGMEM = {
+  EFFECT_LIST(EFFECT_DEFAULTS)
+};
 
-// Возвращает название эффекта по его номеру (для подписей избранного и т.п.)
-inline String getEffectName(uint8_t effectId)
+static const uint8_t effectFrameMs[] PROGMEM = {
+  EFFECT_LIST(EFFECT_FRAME)
+};
+
+// списки через ';' с ведущим разделителем: так каждая строка списка одинаково начинается с ";"
+static const char effectNamesRaw[] PROGMEM = EFFECT_LIST(EFFECT_NAME);
+static const char effectSpeedLabelsRaw[] PROGMEM = EFFECT_LIST(EFFECT_SPEED);
+static const char effectScaleLabelsRaw[] PROGMEM = EFFECT_LIST(EFFECT_SCALE);
+#define effectNamesList (effectNamesRaw + 1)                // для виджета выбора эффекта: "0. Белый свет;1. Цвет;..."
+
+// элемент списка через ';' из PROGMEM по номеру
+inline String effectListItem(const char* list, uint8_t index)
 {
-  if (effectId >= MODE_AMOUNT) return String();
-  uint8_t skip = effectId;
-  int start = 0;
-  int end = -1;
-  for (uint16_t i = 0; ; i++)
+  if (index >= MODE_AMOUNT)
   {
-    char c = pgm_read_byte(&effectNamesList[i]);
-    if (c == ';' || c == '\0')
-    {
-      if (skip == 0)
-      {
-        end = i;
-        break;
-      }
-      skip--;
-      start = i + 1;
-    }
-    if (c == '\0') break;
+    return String();
   }
-  if (end < 0) return String();
-
-  char buf[64];                                             // кириллица в UTF-8 занимает 2 байта на символ: буфер меньшего размера резал длинные названия посреди символа
-  uint8_t len = min((int)(sizeof(buf) - 1), end - start);
-  memcpy_P(buf, &effectNamesList[start], len);
+  uint16_t i = 0U;
+  for (uint8_t skip = index + 1U; skip; i++)                // пропустить index + 1 разделителей, первый - ведущий
+  {
+    if (pgm_read_byte(&list[i]) == ';')
+    {
+      skip--;
+    }
+  }
+  uint16_t end = i;
+  while (pgm_read_byte(&list[end]) != ';' && pgm_read_byte(&list[end]) != '\0')
+  {
+    end++;
+  }
+  char buf[64];                                             // кириллица в UTF-8 - 2 байта на символ
+  uint8_t len = min((int)(sizeof(buf) - 1), (int)(end - i));
+  memcpy_P(buf, &list[i], len);
   buf[len] = '\0';
   return String(buf);
+}
+
+inline String getEffectName(uint8_t effectId)
+{
+  return effectListItem(effectNamesRaw, effectId);
+}
+
+inline String effectSpeedLabel(uint8_t effectId)
+{
+  return effectListItem(effectSpeedLabelsRaw, effectId);
+}
+
+inline String effectScaleLabel(uint8_t effectId)
+{
+  return effectListItem(effectScaleLabelsRaw, effectId);
+}
+
+// период кадра эффекта, мс
+inline uint16_t effectFramePeriod(uint8_t effectId, uint8_t speed)
+{
+  uint8_t frame = pgm_read_byte(&effectFrameMs[effectId]);
+  return frame ? frame : 256U - speed;
 }
