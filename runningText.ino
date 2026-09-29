@@ -139,7 +139,7 @@ void printTime(uint32_t thisTime, bool onDemand, bool ONflag) // периоди�
 
   if (!timeSynched)
   {
-    showWarning(CRGB::Red, 4000U, 500U);                    // мигание красным цветом 4 секунды
+    warningStart(CRGB::Red, 4000U, 500U);                   // мигание красным цветом 4 секунды
     return;
   }
 

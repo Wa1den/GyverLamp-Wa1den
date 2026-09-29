@@ -278,7 +278,7 @@ void lampStepEffect(int8_t step)
 // включить лампу и взвести таймер выключения на последнее заданное время
 void lampQuickSleepTimer()
 {
-  showWarning(CRGB::Blue, 2000U, 500U);                     // до включения, иначе сперва мелькнут кадры эффекта
+  warningStart(CRGB::Blue, 2000U, 500U);                    // до включения, иначе сперва мелькнут кадры эффекта
   lampSetPower(true);
   lampSetSleepTimer(button_sleep_time);
 }
