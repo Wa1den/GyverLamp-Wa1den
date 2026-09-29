@@ -384,7 +384,10 @@ class SettingsBase {
             case SH("set"):
             case SH("click"):
 #ifndef SETT_NO_DB
-                if (_db && actionh == SH("set")) {
+                // Патч Wa1den: без пароля значение попадает в базу, только если виджет открыт гостю
+                // (сборка ниже его нашла). Штатно запись шла до проверки, и любой клиент менял
+                // любую ячейку базы по id виджета. Код сборки у гостевого виджета видит старое значение
+                if (_db && actionh == SH("set") && granted) {
                     if (_db_update) _db->useUpdates(false);
                     _db->update(idh, value);
                     if (_db_update) _db->useUpdates(true);
@@ -394,6 +397,13 @@ class SettingsBase {
                     Build action(Build::Type::Set, granted, idh, value);
                     Builder b(this, action);
                     _build_cb(b);
+#ifndef SETT_NO_DB
+                    if (_db && actionh == SH("set") && !granted && b.wasSet()) {
+                        if (_db_update) _db->useUpdates(false);
+                        _db->update(idh, value);
+                        if (_db_update) _db->useUpdates(true);
+                    }
+#endif
                     if (b.isReload()) _reload = b.isReload();
                     if (_reload) {
                         _sendReload();

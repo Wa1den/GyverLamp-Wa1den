@@ -470,6 +470,12 @@ static void uiBuildSettings(sets::Builder& b)
     }
   }
 
+  if (b.Pass(kk::ui_pass, "Пароль настроек и обновления"))
+  {
+    uiApplyPass();
+    b.reload();                                             // с новым паролем страница откроется гостю, пока его не введут
+  }
+
   {
     sets::Buttons btns(b);
     if (b.Button(UI_ID_FX_RESET, "Сброс эффектов"))
@@ -493,7 +499,7 @@ static void uiBuildSettings(sets::Builder& b)
     updateSets();
     b.reload();                                           // ползунки должны подтянуть новые значения
   }
-  if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера и вернуть имя и пароль точки доступа к начальным?", &confirmed) && confirmed)
+  if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера, вернуть имя и пароль точки доступа к начальным и снять пароль настроек?", &confirmed) && confirmed)
   {
     pendingWifiReset = true;
   }
@@ -723,8 +729,24 @@ static void uiBuildSettings(sets::Builder& b)
 
 static uint8_t uiTab = 0U;                                  // открытая вкладка; библиотека не различает браузеры, поэтому она одна на лампу
 
+// пароль из настроек; пустой снимает защиту. Без пароля открыта только вкладка «Лампа»,
+// а вкладка «Настройки», обновление прошивки и файлы лампы закрыты (Settings, beginGuest)
+void uiApplyPass()
+{
+  String pass = db[kk::ui_pass];
+  sett.setPass(pass.length() ? Text(pass) : Text());
+}
+
 void settingsBuild(sets::Builder& b)
 {
+  if (!b.build.granted)
+  {
+    b.beginGuest();
+    uiBuildLamp(b);
+    b.endGuest();
+    return;
+  }
+
   if (b.Tabs(UI_ID_TABS, "Лампа;Настройки", &uiTab))        // вкладка собирается на лампе: при переключении страница строится заново
   {
     b.reload();
@@ -834,6 +856,7 @@ void settingsSetup()
                                                             // вызывать можно до подключения к роутеру: MDNS.begin ставит колбэк
                                                             // lwIP и перезапускает ответчик, когда интерфейс поднимается
   sett.onBuild(settingsBuild);
+  uiApplyPass();
   sett.setCustom(uiCustomJs, sizeof(uiCustomJs) - 1);      // браузер скачивает custom.js один раз и перезагружает страницу, дальше берёт его из localStorage
   sett.setUpdatePeriod(3000);                               // период опроса страницы браузером. В варианте с вебсокетом библиотека всё равно
                                                             // отдаёт браузеру 0: виджеты обновляются пушем по вебсокету, а не опросом.

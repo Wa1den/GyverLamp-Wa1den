@@ -29,6 +29,7 @@ DB_KEYS(kk,
     ap_name,                                                // имя собственной точки доступа лампы (пусто - AP_NAME из Config.h)
     ap_pass,                                                // пароль собственной точки доступа (пусто - открытая сеть)
     host_name,                                              // имя лампы в локальной сети (пусто - HOST_NAME из Config.h)
+    ui_pass,                                                // пароль вкладки «Настройки» и обновления прошивки со страницы; пусто - без пароля
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -197,6 +198,7 @@ class Storage
       db.init(kk::ap_name, AP_NAME);
       db.init(kk::ap_pass, AP_PASS);
       db.init(kk::host_name, HOST_NAME);
+      db.init(kk::ui_pass, "");
       db.init(kk::esp_mode, (uint8_t)ESP_MODE);
       db.init(kk::lamp_on, false);
       db.init(kk::dawn_mode, (uint8_t)0);

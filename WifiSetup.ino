@@ -61,7 +61,7 @@ void wifiTick()
   WiFiConnector.tick();
 }
 
-// сброс сохранённых SSID и пароля WiFi сети, а также имени и пароля точки доступа
+// сброс сохранённых SSID и пароля WiFi сети, имени и пароля точки доступа и пароля страницы
 void resetWifiSettings()
 {
   db[kk::wifi_ssid] = "";
@@ -69,5 +69,7 @@ void resetWifiSettings()
   db[kk::ap_name] = AP_NAME;                                // имя и пароль точки доступа тоже возвращаются к значениям из Config.h:
   db[kk::ap_pass] = AP_PASS;                                // иначе забытый пароль точки доступа отрезает доступ к веб-интерфейсу
   db[kk::host_name] = HOST_NAME;                            // имя лампы в сети - часть тех же сетевых настроек
+  db[kk::ui_pass] = "";                                     // забытый пароль страницы снимается тем же сбросом
   db.update();
+  uiApplyPass();
 }
