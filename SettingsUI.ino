@@ -69,6 +69,7 @@ static css = `
 #define UI_ID_TEXT         ("ui_text"_h)
 #define UI_ID_TEXT_IP      ("ui_text_ip"_h)
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
+#define UI_ID_BTN_HOLD(i)  (0xB7B000UL + (i))
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_AP_APPLY     ("ui_ap_app"_h)
 #define UI_ID_HOST_APPLY   ("ui_host_app"_h)
@@ -125,6 +126,29 @@ static String uiTimerText()
 }
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
+
+// действия жестов кнопки по порядку ButtonAction (Types.h); удержанию доступны ещё регулировки и служебные действия
+static const char uiButtonClickActions[] PROGMEM = "ничего;вкл/выкл;следующий эффект;предыдущий эффект;белый свет;"
+  "таймер выключения;Цикл вкл/выкл;показать IP;показать время;бросить кубик;обратный отсчёт: старт/пауза";
+static const char uiButtonHoldActions[] PROGMEM = "ничего;вкл/выкл;следующий эффект;предыдущий эффект;белый свет;"
+  "таймер выключения;Цикл вкл/выкл;показать IP;показать время;бросить кубик;обратный отсчёт: старт/пауза;"
+  "яркость;скорость;масштаб;обновление по воздуху;смена режима WiFi с перезагрузкой";
+
+// «3 клика», «2 клика и удержание», «Удержание»
+static String uiClicksLabel(uint8_t clicks, bool hold)
+{
+  if (clicks == 0U)
+  {
+    return F("Удержание");
+  }
+  String label(clicks);
+  label += clicks == 1U ? F(" клик") : clicks < 5U ? F(" клика") : F(" кликов");
+  if (hold)
+  {
+    label += F(" и удержание");
+  }
+  return label;
+}
 
 static size_t uiConfirmPending = 0U;                        // id окна подтверждения, которое нужно открыть на странице
 static bool uiTimeRefresh = false;                          // сменили часовой пояс: обновить поля времени в «Настройках»
@@ -638,7 +662,12 @@ void settingsBuild(sets::Builder& b)
       {
         hwApply();
       }
-      #ifdef ESP_USE_BUTTON
+      b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
+    }
+
+    #ifdef ESP_USE_BUTTON
+    {
+      sets::Menu m(b, "Кнопка");                            // действия жестов применяются сразу, кнопка читает их при каждом жесте
       if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
       {
         buttonApply();
@@ -648,9 +677,32 @@ void settingsBuild(sets::Builder& b)
       {
         lampSetButtonEnabled(enabled);
       }
-      #endif
-      b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
+      b.Switch(kk::btn_fav_only, "Листать только эффекты Цикла");
+
+      for (uint8_t lampOff = 0U; lampOff < 2U; lampOff++)
+      {
+        sets::Group g(b, lampOff ? "Клики на выключенной лампе" : "Клики на включённой лампе");
+        for (uint8_t i = 0U; i < 7U; i++)
+        {
+          b.Select(buttonClickKeys[lampOff][i], uiClicksLabel(i + 1U, false), FPSTR(uiButtonClickActions));
+        }
+      }
+
+      {
+        sets::Group g(b, "Удержание");
+        for (uint8_t i = 0U; i < 8U; i++)
+        {
+          // в списке удержания действия идут подряд, а в настройке у действий только для удержания свои номера (Types.h)
+          uint8_t action = db[buttonHoldKeys[i]];
+          uint8_t index = action >= BTN_HOLD_ONLY ? action - BTN_HOLD_ONLY + BTN_CLICK_END : action;
+          if (b.Select(UI_ID_BTN_HOLD(i), uiClicksLabel(i, true), FPSTR(uiButtonHoldActions), &index))
+          {
+            db.set(buttonHoldKeys[i], (uint8_t)(index >= BTN_CLICK_END ? index - BTN_CLICK_END + BTN_HOLD_ONLY : index));
+          }
+        }
+      }
     }
+    #endif
 
     {
       sets::Menu m(b, "Журнал");                            // вложенное меню - журнал скрыт, пока его не откроют
@@ -745,9 +797,7 @@ void settingsSetup()
   sets::onProfileEvent(uiProfileEvent);
   #endif
 
-  #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
   uiSleepMinutes = button_sleep_time;                       // последнее использованное время таймера - в поле веб-интерфейса
-  #endif
 
   sett.begin(true, hostName().c_str());                     // запускается после WiFiConnector.connect, иначе не подхватится captive DNS.
                                                             // второй аргумент - имя для mDNS, по нему лампа отвечает на <имя>.local;

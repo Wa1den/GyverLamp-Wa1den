@@ -29,21 +29,23 @@ static CountdownState cdState = CD_IDLE;
 static uint32_t cdEndAt = 0U;                               // millis() окончания отсчёта
 static uint32_t cdRemainMs = 0U;                            // остаток на момент паузы
 static uint32_t cdFinalAt = 0U;                             // millis() начала финальных вспышек
-static bool cdWasOn = false;                                // лампа была включена до старта
-static uint8_t cdMode = 0U;                                 // эффект, поверх которого идёт отсчёт
 
 bool countdownActive()
 {
-  return cdState != CD_IDLE;
+  return overlayCurrent() == OVERLAY_COUNTDOWN;
 }
 
 bool countdownPaused()
 {
-  return cdState == CD_PAUSED;
+  return countdownActive() && cdState == CD_PAUSED;
 }
 
 uint32_t countdownRemainMs()
 {
+  if (!countdownActive())
+  {
+    return 0U;
+  }
   if (cdState == CD_RUNNING)
   {
     int32_t remain = (int32_t)(cdEndAt - millis());
@@ -55,28 +57,21 @@ uint32_t countdownRemainMs()
 // старт с полного интервала; на паузе - продолжение с того же места
 void countdownStart()
 {
-  if (cdState == CD_PAUSED)
+  if (countdownPaused())
   {
     cdEndAt = millis() + cdRemainMs;
     cdState = CD_RUNNING;
     return;
   }
 
-  if (cdState == CD_IDLE)
-  {
-    cdWasOn = diceActive() ? diceAbort() : ONflag;          // отсчёт сменяет кубик и наследует, была ли лампа включена до него
-  }
-  cdMode = currentMode;
-  ONflag = true;                                            // выключенная лампа включается сразу на цифрах, без разгорания эффекта
+  overlayBegin(OVERLAY_COUNTDOWN);
   cdEndAt = millis() + (uint32_t)(uint16_t)db[kk::cd_seconds] * 1000UL;
   cdState = CD_RUNNING;
-  loadingFlag = true;                                       // первый кадр отсчёта рисуется сразу
-  mqttRequestPublish();
 }
 
 void countdownPause()
 {
-  if (cdState == CD_RUNNING)
+  if (countdownActive() && cdState == CD_RUNNING)
   {
     cdRemainMs = countdownRemainMs();
     cdState = CD_PAUSED;
@@ -86,28 +81,11 @@ void countdownPause()
 // возврат к эффекту, поверх которого шёл отсчёт
 void countdownStop()
 {
-  if (cdState == CD_IDLE)
+  if (countdownActive())
   {
-    return;
+    cdState = CD_IDLE;
+    overlayEnd();
   }
-
-  cdState = CD_IDLE;
-  FastLED.setBrightness(modes[currentMode].Brightness);
-  loadingFlag = true;
-  if (!cdWasOn && ONflag)
-  {
-    ONflag = false;
-    changePower();
-  }
-  mqttRequestPublish();
-}
-
-// отсчёт убирается без возврата к эффекту, потому что лампу занимает кубик;
-// возвращает, была ли лампа включена до отсчёта
-bool countdownAbort()
-{
-  cdState = CD_IDLE;
-  return cdWasOn;
 }
 
 // яркость вспышки через t мс от её начала: разгорается с нарастающим темпом и гаснет с убывающим
@@ -175,17 +153,9 @@ static void countdownDraw(uint16_t seconds, uint8_t flash)
   }
 }
 
-// вызывается из effectsTick вместо эффекта, пока countdownActive()
+// кадр отсчёта вместо эффекта (overlay.ino)
 void countdownTick()
 {
-  if (!ONflag || currentMode != cdMode)                     // лампу выключили или сменили эффект - отсчёт отменяется
-  {
-    cdState = CD_IDLE;
-    FastLED.setBrightness(modes[currentMode].Brightness);
-    loadingFlag = true;
-    return;
-  }
-
   static uint32_t lastFrame = 0U;
   if (millis() - lastFrame < COUNTDOWN_FRAME_MS)
   {

@@ -49,6 +49,12 @@ DB_KEYS(kk,
     hw_button,                                              // кнопка: 0 - нет, 1 - сенсорная, 2 - механическая
     hw_power_restore,                                       // после подачи питания включаться, если лампа была включена
 
+    // Кнопка (Настройки > Кнопка): действие каждого жеста, ButtonAction из Types.h
+    btn_fav_only,                                           // следующий и предыдущий эффект - только среди отмеченных для Цикла
+    btn_on1, btn_on2, btn_on3, btn_on4, btn_on5, btn_on6, btn_on7,          // 1-7 кликов на включённой лампе
+    btn_off1, btn_off2, btn_off3, btn_off4, btn_off5, btn_off6, btn_off7,   // 1-7 кликов на выключенной лампе
+    btn_hold0, btn_hold1, btn_hold2, btn_hold3, btn_hold4, btn_hold5, btn_hold6, btn_hold7, // удержание после 0-7 кликов
+
     // Обратный отсчёт
     cd_seconds,                                             // интервал, секунды (1-5999, до 99:59)
     cd_bri,                                                 // яркость цифр
@@ -98,6 +104,15 @@ DB_KEYS(kk,
     mqtt_user,                                              // пользователь MQTT брокера
     mqtt_pass                                               // пароль пользователя MQTT брокера
 );
+
+// ключи действий жестов кнопки: клики на включённой и выключенной лампе, удержание после 0-7 кликов
+static const size_t buttonClickKeys[2][7] = {
+  {kk::btn_on1, kk::btn_on2, kk::btn_on3, kk::btn_on4, kk::btn_on5, kk::btn_on6, kk::btn_on7},
+  {kk::btn_off1, kk::btn_off2, kk::btn_off3, kk::btn_off4, kk::btn_off5, kk::btn_off6, kk::btn_off7}
+};
+static const size_t buttonHoldKeys[8] = {
+  kk::btn_hold0, kk::btn_hold1, kk::btn_hold2, kk::btn_hold3, kk::btn_hold4, kk::btn_hold5, kk::btn_hold6, kk::btn_hold7
+};
 
 #define AP_PASS_MIN_LENGTH    (8U)                          // WiFi не принимает пароль точки доступа короче восьми символов: с более коротким паролем softAP не стартует и лампа остаётся без сети
 #define HOST_NAME_MAX_LENGTH  (32U)                         // WiFi.hostname() не принимает имя длиннее 32 символов
@@ -164,9 +179,7 @@ class Storage
       #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       , uint8_t* random_on
       #endif //ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-      #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       , uint8_t* button_sleep_time
-      #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       , void (*readFavoritesSettings)(), void (*saveFavoritesSettings)(), void (*restoreDefaultSettings)())
     {
       LittleFS.begin();
@@ -191,9 +204,7 @@ class Storage
       #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       db.init(kk::rnd_cycle_on, (uint8_t)RANDOM_SETTINGS_IN_CYCLE_MODE);
       #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
-      #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::btn_sleep_time, (uint8_t)1);
-      #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       db.init(kk::running_text, RUNNING_TEXT_DEFAULT);
       db.init(kk::run_text_ip, false);
       db.init(kk::hw_matrix_conn, (uint8_t)0);
@@ -202,6 +213,21 @@ class Storage
       db.init(kk::hw_current_limit, (uint16_t)2000);
       db.init(kk::hw_button, (uint8_t)1);
       db.init(kk::hw_power_restore, false);
+      db.init(kk::btn_fav_only, false);
+      const uint8_t clickDefaults[2][7] = {
+        {BTN_POWER, BTN_NEXT, BTN_PREV, BTN_NONE, BTN_IP, BTN_TIME, BTN_NONE},
+        {BTN_POWER, BTN_SLEEP, BTN_NONE, BTN_NONE, BTN_IP, BTN_TIME, BTN_NONE}
+      };
+      const uint8_t holdDefaults[8] = {BTN_BRIGHTNESS, BTN_SPEED, BTN_SCALE, BTN_NONE, BTN_OTA, BTN_NONE, BTN_NONE, BTN_WIFI};
+      for (uint8_t i = 0U; i < 8U; i++)
+      {
+        if (i < 7U)
+        {
+          db.init(buttonClickKeys[0][i], clickDefaults[0][i]);
+          db.init(buttonClickKeys[1][i], clickDefaults[1][i]);
+        }
+        db.init(buttonHoldKeys[i], holdDefaults[i]);
+      }
       db.init(kk::cd_seconds, (uint16_t)60);
       db.init(kk::cd_bri, (uint8_t)40);
       db.init(kk::cd_hue, (uint8_t)0);
@@ -281,9 +307,7 @@ class Storage
       #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
       *random_on = (uint8_t)db[kk::rnd_cycle_on];
       #endif //#ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-      #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
       *button_sleep_time = (uint8_t)db[kk::btn_sleep_time];
-      #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
       db.update();                                          // немедленная запись файла, если что-то инициализировалось
     }
@@ -301,12 +325,10 @@ class Storage
     }
     #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
 
-    #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
     static void Save_button_sleep_time(uint8_t* button_sleep_time)
     {
       db.set(kk::btn_sleep_time, *button_sleep_time);
     }
-    #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
     static void SaveModesSettings(uint8_t* currentMode, ModeType modes[])
     {

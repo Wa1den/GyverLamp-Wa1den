@@ -60,19 +60,17 @@ static uint8_t diceCoinStart = 0U;                          // сторона м
 static uint32_t diceStartAt = 0U;
 static uint32_t diceDurationMs = 0U;
 static uint32_t diceResultAt = 0U;
-static bool diceWasOn = false;                              // лампа была включена до броска
-static uint8_t diceMode = 0U;                               // эффект, поверх которого показан кубик
 static bool diceShown = false;
 static uint8_t diceSat = 255U;                              // насыщенность выбранного цвета: белый цвет даёт белые фигуры                              // был хотя бы один бросок - поле «Результат» показывает его
 
 bool diceActive()
 {
-  return diceState != DICE_IDLE;
+  return overlayCurrent() == OVERLAY_DICE;
 }
 
 bool diceRolling()
 {
-  return diceState == DICE_ROLLING;
+  return diceActive() && diceState == DICE_ROLLING;
 }
 
 uint8_t diceSidesOf(uint8_t type)
@@ -92,12 +90,7 @@ void diceRoll(uint8_t type)
     return;
   }
 
-  if (diceState == DICE_IDLE)
-  {
-    diceWasOn = countdownActive() ? countdownAbort() : ONflag; // кубик сменяет обратный отсчёт и наследует, была ли лампа включена до него
-  }
-  diceMode = currentMode;
-  ONflag = true;
+  overlayBegin(OVERLAY_DICE);
   diceType = type;
   db.set(kk::dice_last, type);
 
@@ -119,35 +112,16 @@ void diceRoll(uint8_t type)
   diceStartAt = millis();
   diceState = DICE_ROLLING;
   diceShown = true;
-  loadingFlag = true;
-  mqttRequestPublish();
 }
 
 // возврат к эффекту, поверх которого показан кубик
 void diceExit()
 {
-  if (diceState == DICE_IDLE)
+  if (diceActive())
   {
-    return;
+    diceState = DICE_IDLE;
+    overlayEnd();
   }
-
-  diceState = DICE_IDLE;
-  FastLED.setBrightness(modes[currentMode].Brightness);
-  loadingFlag = true;
-  if (!diceWasOn && ONflag)
-  {
-    ONflag = false;
-    changePower();
-  }
-  mqttRequestPublish();
-}
-
-// кубик убирается без возврата к эффекту, потому что лампу занимает обратный отсчёт;
-// возвращает, была ли лампа включена до кубика
-bool diceAbort()
-{
-  diceState = DICE_IDLE;
-  return diceWasOn;
 }
 
 // результат для поля «Результат» на странице настроек
@@ -160,7 +134,7 @@ String diceText()
   String text = F("1d");
   text += diceSidesOf(diceType);
   text += F(": ");
-  if (diceState == DICE_ROLLING)
+  if (diceRolling())
   {
     text += F("бросок...");
   }
@@ -387,17 +361,9 @@ static void diceCoin(float t, uint8_t center, uint8_t hue)
   }
 }
 
-// вызывается из effectsTick вместо эффекта, пока diceActive()
+// кадр кубика вместо эффекта (overlay.ino)
 void diceTick()
 {
-  if (!ONflag || currentMode != diceMode)                   // лампу выключили или сменили эффект - кубик убирается
-  {
-    diceState = DICE_IDLE;
-    FastLED.setBrightness(modes[currentMode].Brightness);
-    loadingFlag = true;
-    return;
-  }
-
   static uint32_t lastFrame = 0U;
   if (millis() - lastFrame < DICE_FRAME_MS)
   {

@@ -252,9 +252,7 @@ uint8_t selectedSettings = 0U;
 #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
 uint8_t random_on = RANDOM_SETTINGS_IN_CYCLE_MODE;
 #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
-#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 uint8_t button_sleep_time = 1U;
-#endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
 #ifdef ESP_USE_BUTTON
 GButton touch(BTN_PIN, LOW_PULL, NORM_OPEN);                // тип кнопки задаётся на странице настроек, см. buttonApply
@@ -363,9 +361,7 @@ void setup()
     #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
     &random_on,
     #endif //ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-    #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
     &button_sleep_time,
-    #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
     &(FavoritesManager::ReadFavoritesFromStorage),
     &(FavoritesManager::SaveFavoritesToStorage),
     &(restoreSettings)); // восстановление настроек эффектов по умолчанию выполняется в обработчике инициализации Storage
@@ -493,22 +489,15 @@ void loop()
   otaManager.HandleOtaUpdate();                             // ожидание и обработка команды на обновление прошивки по воздуху
   #endif
 
-  TimerManager::HandleTimer(&ONflag, &settChanged,          // обработка событий таймера отключения лампы
-    &eepromTimeout, &changePower);
-
-  if (!countdownActive() && !diceActive() &&               // во время обратного отсчёта и кубика Цикл эффект не переключает, иначе они прервались бы
-      FavoritesManager::HandleFavorites(                    // обработка режима избранных эффектов
-      &ONflag,
-      &currentMode,
-      &loadingFlag
-      , &dawnFlag
-      #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-      , &random_on
-      , &selectedSettings
-      #endif
-      ))
+  if (TimerManager::HandleTimer())
   {
-    FastLED.setBrightness(modes[currentMode].Brightness);
+    lampSleepTimerFired();
+  }
+
+  if (overlayCurrent() == OVERLAY_NONE &&                   // поверх картинки Цикл эффект не переключает, иначе она прервалась бы
+      FavoritesManager::HandleFavorites(&ONflag, &currentMode, &dawnFlag))
+  {
+    lampShowEffect(FavoritesManager::getNextFavoriteMode(&currentMode));
   }
 
   #if USE_MQTT

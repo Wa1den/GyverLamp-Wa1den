@@ -53,8 +53,16 @@ void lampSetEffect(uint8_t effectId)
   }
 
   Storage::SaveModesSettings(&currentMode, modes);          // сохранение настроек эффектов перед переключением
-  currentMode = effectId;
-  updateSets();
+  lampShowEffect(effectId);
+  settChanged = true;
+  eepromTimeout = millis();
+}
+
+// переключить эффект без записи номера в настройки: так переключает Цикл, чтобы не изнашивать флеш
+void lampShowEffect(uint8_t effectId)
+{
+  currentMode = min(effectId, (uint8_t)(MODE_AMOUNT - 1U));
+  loadingFlag = true;
 
   #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
   if (random_on && FavoritesManager::FavoritesRunning)
@@ -64,6 +72,7 @@ void lampSetEffect(uint8_t effectId)
   #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
 
   FastLED.setBrightness(modes[currentMode].Brightness);
+  mqttRequestPublish();
 }
 
 // установить яркость текущего эффекта (1..255)
@@ -170,10 +179,8 @@ void lampSetSleepTimer(uint16_t minutes)
     return;
   }
 
-  #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
-  button_sleep_time = constrain(minutes, 1, 255);           // запоминаем последнее время для быстрого взвода двойным кликом кнопки
+  button_sleep_time = constrain(minutes, 1, 255);           // последнее время - для жеста кнопки и поля на странице
   Storage::Save_button_sleep_time(&button_sleep_time);
-  #endif //#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 
   TimerManager::TimeToFire = millis() + minutes * 60UL * 1000UL;
   TimerManager::TimerRunning = true;
@@ -234,6 +241,161 @@ void lampSetTimezone(int16_t offset, uint8_t dst)
   db.set(kk::tz_offset, offset);
   db.set(kk::tz_dst, dst);
   clockApply();
+}
+
+// сработал таймер выключения; рассвет он не прерывает, лампа останется выключенной после него
+void lampSleepTimerFired()
+{
+  if (dawnFlag)
+  {
+    ONflag = false;
+    updateSets();
+    return;
+  }
+  lampSetPower(false);
+}
+
+// следующий (step = 1) или предыдущий (step = -1) эффект; с настройкой «Только эффекты Цикла» - среди отмеченных для Цикла
+void lampStepEffect(int8_t step)
+{
+  bool favoritesOnly = (bool)db[kk::btn_fav_only];
+  uint8_t mode = currentMode;
+  for (uint8_t i = 0U; i < MODE_AMOUNT; i++)
+  {
+    mode = (mode + MODE_AMOUNT + step) % MODE_AMOUNT;
+    if (!favoritesOnly || FavoritesManager::FavoriteModes[mode])
+    {
+      break;
+    }
+  }
+  if (mode == currentMode)                                  // в Цикле ничего не отмечено - соседний эффект
+  {
+    mode = (mode + MODE_AMOUNT + step) % MODE_AMOUNT;
+  }
+  lampSetEffect(mode);
+}
+
+// включить лампу и взвести таймер выключения на последнее заданное время
+void lampQuickSleepTimer()
+{
+  showWarning(CRGB::Blue, 2000U, 500U);                     // до включения, иначе сперва мелькнут кадры эффекта
+  lampSetPower(true);
+  lampSetSleepTimer(button_sleep_time);
+}
+
+void lampShowIp()
+{
+  IPAddress ip = espMode == 1U ? WiFi.localIP() : WiFi.softAPIP();
+  serviceTextStart(ip.toString().c_str(), CRGB::White, modes[currentMode].Brightness);
+}
+
+void lampShowTime()
+{
+  printTime(thisTime, true, ONflag);
+}
+
+// перевести лампу в режим обновления по воздуху; эффект Матрица - признак этого режима
+void lampStartOta()
+{
+  #ifdef OTA
+  if (otaManager.RequestOtaUpdate())
+  {
+    ONflag = true;
+    currentMode = EFF_MATRIX;
+    changePower();
+  }
+  #endif
+}
+
+// сменить режим WiFi (точка доступа или клиент) и перезагрузиться
+void lampToggleWifiMode()
+{
+  #ifdef RESET_WIFI_ON_ESP_MODE_CHANGE
+  if (espMode)
+  {
+    resetWifiSettings();                                    // сброс сохранённых SSID и пароля роутера
+  }
+  #endif
+  espMode = espMode == 0U ? 1U : 0U;
+  Storage::SaveEspMode(&espMode);
+  showWarning(CRGB::Red, 3000U, 500U);                      // мигание красным 3 секунды перед перезагрузкой
+  db.update();
+  ESP.restart();
+}
+
+// шаг регулировки удержанием кнопки; состояние в MQTT публикуется, когда кнопку отпустят
+void lampNudge(uint8_t action, bool up)
+{
+  ModeType& mode = modes[currentMode];
+  if (action == BTN_BRIGHTNESS)
+  {
+    uint8_t delta = mode.Brightness < 10U ? 1U : 5U;
+    mode.Brightness = constrain(up ? mode.Brightness + delta : mode.Brightness - delta, 1, 255);
+    FastLED.setBrightness(mode.Brightness);
+  }
+  else if (action == BTN_SPEED)
+  {
+    mode.Speed = constrain(up ? mode.Speed + 1 : mode.Speed - 1, 1, 255);
+    loadingFlag = true;
+  }
+  else if (action == BTN_SCALE)
+  {
+    mode.Scale = constrain(up ? mode.Scale + 1 : mode.Scale - 1, 1, 100);
+    loadingFlag = true;
+  }
+  settChanged = true;
+  eepromTimeout = millis();
+}
+
+// однократное действие жеста кнопки (ButtonAction в Types.h); регулировки идут через lampNudge
+void lampDoAction(uint8_t action)
+{
+  switch (action)
+  {
+    case BTN_POWER:
+      lampSetPower(!ONflag);                                // во время рассвета гасит рассвет
+      break;
+    case BTN_NEXT:
+    case BTN_PREV:
+      lampStepEffect(action == BTN_NEXT ? 1 : -1);
+      lampSetPower(true);
+      break;
+    case BTN_WHITE:
+      lampSetEffect(EFF_WHITE_COLOR);
+      lampSetPower(true);
+      break;
+    case BTN_SLEEP:
+      lampQuickSleepTimer();
+      break;
+    case BTN_CYCLE:
+      lampSetFavoritesRunning(!FavoritesManager::FavoritesRunning);
+      break;
+    case BTN_IP:
+      lampShowIp();
+      break;
+    case BTN_TIME:
+      lampShowTime();
+      break;
+    case BTN_DICE:
+      diceRoll((uint8_t)db[kk::dice_last]);
+      break;
+    case BTN_COUNTDOWN:
+      if (countdownActive() && !countdownPaused())
+      {
+        countdownPause();
+      }
+      else
+      {
+        countdownStart();
+      }
+      break;
+    case BTN_OTA:
+      lampStartOta();
+      break;
+    case BTN_WIFI:
+      lampToggleWifiMode();
+      break;
+  }
 }
 
 // отложенные действия, запрошенные из веб-интерфейса (нельзя выполнять из контекста асинхронного вебсервера)

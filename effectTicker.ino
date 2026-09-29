@@ -6,19 +6,8 @@ void effectsTick()
 {
   if (!dawnFlag)
   {
-    if (serviceTextActive())                                // служебная строка (IP, время) идёт поверх всего, в том числе на выключенной лампе (runningText.ino)
+    if (overlayTick())                                      // служебная строка, обратный отсчёт или кубики вместо эффекта
     {
-      serviceTextTick();
-      return;
-    }
-    if (countdownActive())                                  // обратный отсчёт рисуется вместо эффекта (countdown.ino)
-    {
-      countdownTick();
-      return;
-    }
-    if (diceActive())                                       // кубик тоже рисуется вместо эффекта (dice.ino)
-    {
-      diceTick();
       return;
     }
 

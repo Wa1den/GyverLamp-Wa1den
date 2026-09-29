@@ -74,9 +74,7 @@ void lampSetSleepTimer(uint16_t minutes);
 void lampClearSleepTimer();
 void mqttRequestPublish();
 bool wolWake(const char* macStr);
-#if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
 extern uint8_t button_sleep_time;
-#endif
 void getFormattedTime(char *buf);
 
 static const char MqttTopicBase[]      PROGMEM = "LedLamp"; // базовая часть топиков
@@ -445,10 +443,8 @@ class MqttManager
         if (timerOn && seconds > 0UL)
         {
           TimerManager::TimerOption = (uint8_t)atoi(cmd + 10);
-          #if defined(BUTTON_CAN_SET_SLEEP_TIMER) && defined(ESP_USE_BUTTON)
           button_sleep_time = constrain(seconds / 60UL, 1, 255);
           Storage::Save_button_sleep_time(&button_sleep_time);
-          #endif
           TimerManager::TimeToFire = millis() + seconds * 1000UL;
           TimerManager::TimerRunning = true;
           TimerManager::TimerHasFired = false;

@@ -77,16 +77,10 @@ class FavoritesManager
 #endif
     }
 
-    static bool HandleFavorites(                            // функция, обрабатывающая циклическое переключение избранных эффектов; возвращает true, если эффект был переключен
+    static bool HandleFavorites(                            // true - пора переключить эффект, следующий - getNextFavoriteMode
       bool* ONflag,
       uint8_t* currentMode,
-      bool* loadingFlag
-      , bool* dawnFlag
-      #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-      , uint8_t* random_on
-      , uint8_t* selectedSettings
-      #endif
-    )
+      bool* dawnFlag)
     {
       if (FavoritesRunning == 0 ||
           !*ONflag                                          // лампа не переключается на следующий эффект при выключенной матрице
@@ -105,19 +99,7 @@ class FavoritesManager
 
       if ((int32_t)(millis() - nextModeAt) >= 0)          // знаковая разность переживает переполнение millis()
       {
-        *currentMode = getNextFavoriteMode(currentMode);
-        *loadingFlag = true;
         nextModeAt = getNextTime();
-
-        #ifdef RANDOM_SETTINGS_IN_CYCLE_MODE
-          if (*random_on) *selectedSettings = 1U;
-        #endif //RANDOM_SETTINGS_IN_CYCLE_MODE
-
-        #ifdef GENERAL_DEBUG
-        LOG.printf_P(PSTR("Переключение на следующий избранный режим: %d\n\n"), (*currentMode));
-        #endif
-        
-      
         return true;
       }
 
@@ -269,6 +251,7 @@ class FavoritesManager
       return NULL;
     }
 
+  public:
 #ifdef USE_SHUFFLE_FAVORITES
     static uint8_t getNextFavoriteMode(uint8_t* currentMode)  // возвращает следующий (случайный) включенный в избранные эффект
     {
@@ -315,6 +298,7 @@ class FavoritesManager
     }
 #endif
 
+  private:
     static uint32_t getNextTime()                           // определяет время следующего переключения на следующий избранный эффект
     {
       uint32_t at = millis() + Interval * 1000UL + random(0, Dispersion + 1) * 1000UL;
