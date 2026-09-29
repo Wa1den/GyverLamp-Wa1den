@@ -191,7 +191,7 @@ void countdownTick()
   }
   else if (cdState == CD_RUNNING && seconds <= COUNTDOWN_WARN_SECONDS)
   {
-    uint8_t peak = 255U * (COUNTDOWN_WARN_SECONDS + 1U - seconds) / COUNTDOWN_WARN_SECONDS; // от пятой части полной яркости на 5 с до полной на 1 с
+    uint8_t peak = 128U + 127U * (COUNTDOWN_WARN_SECONDS - seconds) / (COUNTDOWN_WARN_SECONDS - 1U); // от половины на 5 с до полной на 1 с: слабее первая вспышка не видна
     flash = countdownFlash(seconds * 1000UL - remain, peak);
   }
 
