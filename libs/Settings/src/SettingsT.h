@@ -10,6 +10,10 @@
 #include "./core/ota.h"
 #include "./web/settings.h"
 
+#ifndef SETS_UPLOAD_TOUT
+#define SETS_UPLOAD_TOUT 5000  // GyverLamp-Wa1den: ожидание данных при загрузке файла и прошивки, мс
+#endif
+
 template <typename server_t, typename client_t>
 class SettingsT : public sets::SettingsBase {
    public:
@@ -55,9 +59,13 @@ class SettingsT : public sets::SettingsBase {
                         String path = req.param("path").decodeUrl();
                         File f = fs.openWrite(path.c_str());
                         if (f) {
-                            req.body().writeTo(f);
-                            server.send(200);
-                            if (upload_cb) upload_cb(path);
+                            // GyverLamp-Wa1den: ожидание данных - не GS_CLIENT_TOUT, а SETS_UPLOAD_TOUT, и файл принимается только целиком
+                            size_t expected = req.body().length();
+                            req.body().setTimeout(SETS_UPLOAD_TOUT);
+                            if (req.body().writeTo(f) == expected) {
+                                server.send(200);
+                                if (upload_cb) upload_cb(path);
+                            } else server.send(500);
                         } else server.send(500);
                     } else {
                         server.send(401);
@@ -66,7 +74,17 @@ class SettingsT : public sets::SettingsBase {
 
                 case SH("/ota"):
                     if (authenticate(req.param("auth").toInt32HEX())) {
-                        if (sets::beginOta() && req.body().writeTo(Update) && Update.end(true) && !Update.hasError()) {
+                        // GyverLamp-Wa1den: при паузе в приёме дольше тайм-аута потока writeTo возвращал часть файла, а
+                        // Update.end(true) принимал обрезанный образ - лампа перезагружалась в нерабочую прошивку.
+                        // Ожидание данных - SETS_UPLOAD_TOUT, и образ принимается, только если записан целиком
+                        size_t expected = req.body().length();
+                        req.body().setTimeout(SETS_UPLOAD_TOUT);
+                        bool ok = false;
+                        if (expected && sets::beginOta()) {
+                            if (req.body().writeTo(Update) == expected) ok = Update.end(true) && !Update.hasError();
+                            else Update.end(false);  // запись не завершена - образ не будет установлен
+                        }
+                        if (ok) {
                             server.send(200);
                             restart();
                         } else server.send(500);
