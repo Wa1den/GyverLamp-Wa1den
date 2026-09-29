@@ -27,9 +27,17 @@ class GyverDBFile : public GyverDB {
     }
 
     // прочитать данные
+    // Патч Wa1den: файл пишется через временный (см. update), поэтому основной файл всегда целый.
+    // Временный остаётся, только если запись оборвалась: до переименования он неполный и удаляется,
+    // а если основного файла нет - запись дошла до переименования, и временный становится основным.
     bool begin() {
         bool res = false;
         if (_fs) {
+            String tmp = String(_path) + ".tmp";
+            if (_fs->exists(tmp)) {
+                if (_fs->exists(_path)) _fs->remove(tmp);
+                else _fs->rename(tmp, _path);
+            }
             if (_fs->exists(_path)) {
                 File file = _fs->open(_path, "r");
                 if (file) res = readFrom(file, file.size());
@@ -47,8 +55,18 @@ class GyverDBFile : public GyverDB {
         _tmr = 0;
         if (!_update) return false;
         _update = false;
-        File file = _fs->open(_path, "w");
-        return file ? writeTo(file) : 0;
+        // Патч Wa1den: запись во временный файл и атомарная подмена основного. Прямая запись
+        // обрезает файл до нуля, и перезагрузка посреди неё стирала все настройки
+        String tmp = String(_path) + ".tmp";
+        File file = _fs->open(tmp, "w");
+        if (!file) return 0;
+        bool res = writeTo(file);
+        file.close();
+        if (!res) {
+            _fs->remove(tmp);
+            return 0;
+        }
+        return _fs->rename(tmp, _path);
     }
 
     // тикер, вызывать в loop. Сам обновит данные при изменении и выходе таймаута, вернёт true
