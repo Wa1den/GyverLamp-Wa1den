@@ -173,16 +173,23 @@ void lampSetDawnMode(uint8_t mode)
 // взвести таймер выключения лампы через указанное количество минут (0 - отключить таймер)
 void lampSetSleepTimer(uint16_t minutes)
 {
-  if (minutes == 0U)
+  lampSetSleepTimerSeconds(minutes * 60UL);
+}
+
+// то же с точностью до секунды (MQTT); не больше суток: момент срабатывания сравнивается знаковой разностью millis()
+void lampSetSleepTimerSeconds(uint32_t seconds)
+{
+  if (seconds == 0U)
   {
     lampClearSleepTimer();
     return;
   }
+  seconds = min(seconds, (uint32_t)86400U);
 
-  button_sleep_time = constrain(minutes, 1, 255);           // последнее время - для жеста кнопки и поля на странице
+  button_sleep_time = constrain(seconds / 60UL, 1, 255);    // последнее время в минутах - для жеста кнопки и поля на странице
   Storage::Save_button_sleep_time(&button_sleep_time);
 
-  TimerManager::TimeToFire = millis() + minutes * 60UL * 1000UL;
+  TimerManager::TimeToFire = millis() + seconds * 1000UL;
   TimerManager::TimerRunning = true;
   TimerManager::TimerHasFired = false;
   mqttRequestPublish();

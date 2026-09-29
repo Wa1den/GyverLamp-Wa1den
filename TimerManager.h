@@ -6,7 +6,6 @@ class TimerManager
   public:
     static bool TimerRunning;                               // флаг "таймер взведён"
     static bool TimerHasFired;                              // флаг "таймер отработал"
-    static uint8_t TimerOption;                             // индекс элемента в списке List Picker'а
     static uint32_t TimeToFire;                             // millis() срабатывания; сравнивается знаковой разностью, поэтому переживает переполнение millis() раз в 49,7 суток
 
     static bool HandleTimer()                               // true - таймер только что сработал

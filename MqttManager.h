@@ -70,11 +70,10 @@ void lampSetButtonEnabled(bool enabled);
 void lampSetRunningText(const char* text);
 void lampSetAlarm(uint8_t day, bool state, uint16_t minutes);
 void lampSetDawnMode(uint8_t mode);
-void lampSetSleepTimer(uint16_t minutes);
+void lampSetSleepTimerSeconds(uint32_t seconds);
 void lampClearSleepTimer();
 void mqttRequestPublish();
 bool wolWake(const char* macStr);
-extern uint8_t button_sleep_time;
 void getFormattedTime(char *buf);
 
 static const char MqttTopicBase[]      PROGMEM = "LedLamp"; // базовая часть топиков
@@ -439,16 +438,10 @@ class MqttManager
       else if (!strncmp_P(cmd, PSTR("TMR_SET"), 7))         // формат: "TMR_SET 1 3 300" (вкл/выкл, номер опции в списке, секунды до выключения)
       {
         bool timerOn = atoi(cmd + 8) != 0;
-        uint32_t seconds = (strlen(cmd) > 12U) ? min(strtoul(cmd + 12, NULL, 10), 86400UL) : 0UL; // не больше суток: момент срабатывания сравнивается знаковой разностью millis()
+        uint32_t seconds = (strlen(cmd) > 12U) ? strtoul(cmd + 12, NULL, 10) : 0UL; // номер опции списка (cmd + 10) не используется
         if (timerOn && seconds > 0UL)
         {
-          TimerManager::TimerOption = (uint8_t)atoi(cmd + 10);
-          button_sleep_time = constrain(seconds / 60UL, 1, 255);
-          Storage::Save_button_sleep_time(&button_sleep_time);
-          TimerManager::TimeToFire = millis() + seconds * 1000UL;
-          TimerManager::TimerRunning = true;
-          TimerManager::TimerHasFired = false;
-          mqttRequestPublish();
+          lampSetSleepTimerSeconds(seconds);
         }
         else
         {

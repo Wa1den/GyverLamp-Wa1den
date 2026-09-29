@@ -290,7 +290,6 @@ unsigned char matrixValue[8][16];                           // буфер эфф
 
 bool TimerManager::TimerRunning = false;
 bool TimerManager::TimerHasFired = false;
-uint8_t TimerManager::TimerOption = 1U;
 uint32_t TimerManager::TimeToFire = 0U;
 
 uint8_t FavoritesManager::FavoritesRunning = 0;
