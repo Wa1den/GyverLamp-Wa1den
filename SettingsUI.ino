@@ -11,6 +11,8 @@
 // пакетом сборки и переключается на стороне браузера; лампе уходит только уведомление
 // об открытии раздела (b.enterMenu()), на нём построена ленивая сборка списка эффектов:
 //
+// Вкладки «Лампа» и «Настройки» собираются на лампе по отдельности: в браузер приходит только открытая.
+//
 //   Лампа              группа, всё что трогают каждый день
 //   Цикл эффектов      меню > Эффекты в цикле (ленивое, см. favListVisible)
 //   Будильник          меню
@@ -18,8 +20,9 @@
 //   Кубики             меню
 //   Бегущая строка     группа без заголовка
 //   Таймер выключения  группа
-//   Настройки          меню: сведения, время, сбросы; разделы Сеть (WiFi, точка доступа, Wake-on-LAN),
-//                      MQTT, Автояркость, Оборудование, Журнал
+//
+//   Настройки          сведения, время, сбросы; разделы Сеть (WiFi, точка доступа, Wake-on-LAN),
+//                      MQTT, Автояркость, Оборудование, Кнопка, Журнал
 
 SettingsGyverWS sett("GyverLamp", &db);
 
@@ -69,6 +72,7 @@ static css = `
 #define UI_ID_TEXT         ("ui_text"_h)
 #define UI_ID_TEXT_IP      ("ui_text_ip"_h)
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
+#define UI_ID_TABS         ("ui_tabs"_h)
 #define UI_ID_BTN_HOLD(i)  (0xB7B000UL + (i))
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_AP_APPLY     ("ui_ap_app"_h)
@@ -164,7 +168,7 @@ static uint32_t uiManualTimeValue()
   return timeSynched ? (uint32_t)getCurrentUtcTime() : 0U;
 }
 
-void settingsBuild(sets::Builder& b)
+static void uiBuildLamp(sets::Builder& b)
 {
   // --- ЛАМПА ---------------------------------
   {
@@ -422,297 +426,316 @@ void settingsBuild(sets::Builder& b)
       }
     }
   }
+}
 
-  // --- НАСТРОЙКИ -----------------------------
+// сведения о лампе, время, сбросы и разделы настроек
+static void uiBuildSettings(sets::Builder& b)
+{
+  b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
+
+  b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
+  b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
+
+  char timeBuf[9];
+  getFormattedTime(timeBuf);
+  b.Label(UI_ID_LAMP_TIME, "Время лампы", timeBuf);      // поля времени обновляются на открытой странице, см. settingsSyncTick
+  b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", clockSyncState());
+
+  uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
+  if (b.Select(UI_ID_TZ_OFFSET, "Часовой пояс", timezoneList(), &tzIndex))
   {
-    sets::Menu page(b, "Настройки");                        // отдельная страница: сведения о лампе, время, сбросы, разделы настроек и Журнал
+    lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
+    uiTimeRefresh = true;
+  }
+  uint8_t tzDst = db[kk::tz_dst];
+  if (b.Select(UI_ID_TZ_DST, "Переход на летнее время", "нет;Европа;США и Канада", &tzDst))
+  {
+    lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
+    uiTimeRefresh = true;
+  }
+  b.Input(kk::ntp_host, "NTP сервер");
+  if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))
+  {
+    clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
+  }
 
-    b.Label("Прошивка", FIRMWARE_TITLE);                      // см. Version.h
-
-    b.Label("IP адрес", WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
-    b.LabelNum("Свободная память, байт", ESP.getFreeHeap());
-
-    char timeBuf[9];
-    getFormattedTime(timeBuf);
-    b.Label(UI_ID_LAMP_TIME, "Время лампы", timeBuf);      // поля времени обновляются на открытой странице, см. settingsSyncTick
-    b.Label(UI_ID_SYNC_STATE, "Синхронизация времени", clockSyncState());
-
-    uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
-    if (b.Select(UI_ID_TZ_OFFSET, "Часовой пояс", timezoneList(), &tzIndex))
+  uint32_t unixTime = uiManualTimeValue();
+  if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
+  {
+    if (unixTime > 0)
     {
-      lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
-      uiTimeRefresh = true;
+      lampSetManualTime(unixTime);
     }
-    uint8_t tzDst = db[kk::tz_dst];
-    if (b.Select(UI_ID_TZ_DST, "Переход на летнее время", "нет;Европа;США и Канада", &tzDst))
-    {
-      lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
-      uiTimeRefresh = true;
-    }
-    b.Input(kk::ntp_host, "NTP сервер");
-    if (b.Button(UI_ID_NTP_SYNC, "Синхронизировать время"))
-    {
-      clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
-    }
+  }
 
-    uint32_t unixTime = uiManualTimeValue();
-    if (b.DateTime(UI_ID_SET_TIME, "Установить время вручную", &unixTime))
+  {
+    sets::Buttons btns(b);
+    if (b.Button(UI_ID_FX_RESET, "Сброс эффектов"))
     {
-      if (unixTime > 0)
+      uiConfirmPending = UI_ID_FX_RESET_OK;               // окно подтверждения открывается из settingsTick
+    }
+    if (b.Button(UI_ID_WIFI_RESET, "Сброс WiFi"))
+    {
+      uiConfirmPending = UI_ID_WIFI_RESET_OK;
+    }
+    if (b.Button(UI_ID_REBOOT, "Перезагрузка"))
+    {
+      pendingRestart = true;
+    }
+  }
+
+  bool confirmed = false;
+  if (b.Confirm(UI_ID_FX_RESET_OK, "Вернуть настройки всех эффектов к значениям по умолчанию?", &confirmed) && confirmed)
+  {
+    restoreSettings();
+    updateSets();
+    b.reload();                                           // ползунки должны подтянуть новые значения
+  }
+  if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера и вернуть имя и пароль точки доступа к начальным?", &confirmed) && confirmed)
+  {
+    pendingWifiReset = true;
+  }
+
+  // --- СЕТЬ ----------------------------------
+  {
+    sets::Menu page(b, "Сеть");                             // WiFi, точка доступа, Wake-on-LAN
+
+    // --- WIFI ----------------------------------
+    {
+      sets::Group g(b, "WiFi");
+      b.Input(kk::wifi_ssid, "Имя сети (SSID)");
+      b.Pass(kk::wifi_pass, "Пароль");
+
+      if (b.Button(kk::wifi_connect, "Подключить"))
       {
-        lampSetManualTime(unixTime);
+        pendingWifiConnect = true;                          // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
+      }
+
+      uint8_t mode = espMode;
+      if (b.Select(UI_ID_ESP_MODE, "Режим работы", "Точка доступа;Клиент (через роутер)", &mode))
+      {
+        if (mode != espMode)
+        {
+          espMode = mode;
+          Storage::SaveEspMode(&espMode);
+          pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
+        }
+      }
+
+      bool showIp = (bool)db[kk::run_text_ip];               // бегущая строка показывает адрес лампы; её текст при этом не затирается
+      if (b.Switch(UI_ID_TEXT_IP, "Бегущая строка показывает IP", &showIp))
+      {
+        lampSetRunningTextShowIp(showIp);
+      }
+
+      b.Input(kk::host_name, "Имя лампы в сети");
+
+      String hostAddress = F("http://");                    // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
+      hostAddress += hostName();                            // который лампа получит после перезагрузки, а не введённое в поле
+      hostAddress += F(".local");
+
+      // строка собирается вручную из классов библиотеки: готовый виджет ссылки показывает только
+      // стрелку, а HTML-виджет с подписью уводит содержимое на строку ниже. Классы widget_row и
+      // value дают тот же вид, что у соседних строк, а flex-wrap переносит адрес, если он не влез
+      String hostLink = F("<div class=\"widget_row\" style=\"flex-wrap:wrap;height:unset;margin:-5px 0\">"
+                          "<label class=\"widget_label\">Адрес лампы</label>"
+                          "<a class=\"value\" style=\"color:var(--accent);flex-shrink:0\" target=\"_blank\" href=\"");
+      hostLink += hostAddress;
+      hostLink += F("\">");
+      hostLink += hostAddress;
+      hostLink += F("</a></div>");
+      b.HTML("", hostLink);
+
+      if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
+      {
+        pendingRestart = true;                              // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
       }
     }
 
+    // --- ТОЧКА ДОСТУПА -------------------------
+    {
+      sets::Group g(b, "Точка доступа");
+      b.Input(kk::ap_name, "Имя сети (SSID)");
+      b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
+
+      if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
+      {
+        String apPassword = (String)db[kk::ap_pass];
+        if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
+        {
+          uiLog.println(F("Точка доступа: пароль короче 8 символов, изменения не применены"));
+        }
+        else
+        {
+          pendingRestart = true;                            // новое имя и пароль применяются при старте (текущее подключение к точке доступа в любом случае разрывается)
+        }
+      }
+    }
+
+    // --- WAKE-ON-LAN ---------------------------
+    {
+      sets::Group g(b, "Wake-on-LAN");
+      b.Input(kk::wol_mac, "MAC компьютера");
+
+      if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
+      {
+        pendingWolWake = true;                              // отправка выполнится в loop, результат - в Журнале
+      }
+
+      #if (USE_MQTT)
+      if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
+      {
+        pendingWolResub = true;                             // подписка обновится в loop
+      }
+      if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
+      {
+        pendingWolResub = true;
+      }
+      #endif //USE_MQTT
+    }
+
+  }
+
+  // --- MQTT ----------------------------------
+  #if (USE_MQTT)
+  {
+    sets::Menu page(b, "MQTT");                           // брокер, топики
+    b.Switch(kk::mqtt_enabled, "Включен");
+    b.Input(kk::mqtt_host, "Адрес брокера");
+    b.Number(kk::mqtt_port, "Порт");
+    b.Input(kk::mqtt_user, "Пользователь");
+    b.Pass(kk::mqtt_pass, "Пароль");
+
+    if (MqttManager::getTopicInput().length())
+    {
+      // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
+      b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
+                            String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
+    }
+
+    if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
+    {
+      pendingRestart = true;                              // новые параметры брокера применяются при старте
+    }
+  }
+  #endif //USE_MQTT
+
+  // --- АВТОЯРКОСТЬ ---------------------------
+  #ifdef USE_AUTO_BRIGHTNESS
+  {
+    sets::Menu page(b, "Автояркость");                      // отдельная страница: настраивается один раз при калибровке
+    b.Switch(kk::ab_on, "Использовать датчик освещённости");
+    b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
+
+    // двухточечная калибровка под конкретный датчик: рабочий диапазон дешёвых модулей
+    // занимает малую часть шкалы 0-1023, поэтому крайние точки запоминаются по факту
     {
       sets::Buttons btns(b);
-      if (b.Button(UI_ID_FX_RESET, "Сброс эффектов"))
+      if (b.Button(UI_ID_AB_SET_DARK, "Запомнить темноту"))   // нажать, накрыв датчик
       {
-        uiConfirmPending = UI_ID_FX_RESET_OK;               // окно подтверждения открывается из settingsTick
+        db.set(kk::ab_dark, autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка темноты = %u\n"), autoLightRaw);
+        b.reload();
       }
-      if (b.Button(UI_ID_WIFI_RESET, "Сброс WiFi"))
+      if (b.Button(UI_ID_AB_SET_LIGHT, "Запомнить свет"))     // нажать при обычном дневном освещении (не с фонариком)
       {
-        uiConfirmPending = UI_ID_WIFI_RESET_OK;
-      }
-      if (b.Button(UI_ID_REBOOT, "Перезагрузка"))
-      {
-        pendingRestart = true;
+        db.set(kk::ab_light, autoLightRaw);
+        uiLog.printf_P(PSTR("Автояркость: точка света = %u\n"), autoLightRaw);
+        b.reload();
       }
     }
+    b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
 
-    bool confirmed = false;
-    if (b.Confirm(UI_ID_FX_RESET_OK, "Вернуть настройки всех эффектов к значениям по умолчанию?", &confirmed) && confirmed)
+    b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // опрашивается только при включённой автояркости; накройте датчик рукой - число должно меняться
+    b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
+  }
+  #endif //USE_AUTO_BRIGHTNESS
+
+  {
+    sets::Menu m(b, "Оборудование");                      // задаётся один раз после прошивки, применяется сразу
+    if (b.Select(kk::hw_matrix_conn, "Начало ленты",
+                 F("левый нижний угол, вправо;левый нижний угол, вверх;левый верхний угол, вправо;левый верхний угол, вниз;"
+                   "правый верхний угол, влево;правый верхний угол, вниз;правый нижний угол, влево;правый нижний угол, вверх")))
     {
-      restoreSettings();
-      updateSets();
-      b.reload();                                           // ползунки должны подтянуть новые значения
+      hwApply();
     }
-    if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера и вернуть имя и пароль точки доступа к начальным?", &confirmed) && confirmed)
+    if (b.Select(kk::hw_matrix_parallel, "Ряды ленты", "зигзагом;параллельно"))
     {
-      pendingWifiReset = true;
+      hwApply();
     }
-
-    // --- СЕТЬ ----------------------------------
+    if (b.Select(kk::hw_color_order, "Порядок цветов", "RGB;RBG;GRB;GBR;BRG;BGR"))
     {
-      sets::Menu page(b, "Сеть");                             // WiFi, точка доступа, Wake-on-LAN
-
-      // --- WIFI ----------------------------------
-      {
-        sets::Group g(b, "WiFi");
-        b.Input(kk::wifi_ssid, "Имя сети (SSID)");
-        b.Pass(kk::wifi_pass, "Пароль");
-
-        if (b.Button(kk::wifi_connect, "Подключить"))
-        {
-          pendingWifiConnect = true;                          // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
-        }
-
-        uint8_t mode = espMode;
-        if (b.Select(UI_ID_ESP_MODE, "Режим работы", "Точка доступа;Клиент (через роутер)", &mode))
-        {
-          if (mode != espMode)
-          {
-            espMode = mode;
-            Storage::SaveEspMode(&espMode);
-            pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
-          }
-        }
-
-        bool showIp = (bool)db[kk::run_text_ip];               // бегущая строка показывает адрес лампы; её текст при этом не затирается
-        if (b.Switch(UI_ID_TEXT_IP, "Бегущая строка показывает IP", &showIp))
-        {
-          lampSetRunningTextShowIp(showIp);
-        }
-
-        b.Input(kk::host_name, "Имя лампы в сети");
-
-        String hostAddress = F("http://");                    // hostName() отбрасывает недопустимые символы, поэтому в ссылке виден адрес,
-        hostAddress += hostName();                            // который лампа получит после перезагрузки, а не введённое в поле
-        hostAddress += F(".local");
-
-        // строка собирается вручную из классов библиотеки: готовый виджет ссылки показывает только
-        // стрелку, а HTML-виджет с подписью уводит содержимое на строку ниже. Классы widget_row и
-        // value дают тот же вид, что у соседних строк, а flex-wrap переносит адрес, если он не влез
-        String hostLink = F("<div class=\"widget_row\" style=\"flex-wrap:wrap;height:unset;margin:-5px 0\">"
-                            "<label class=\"widget_label\">Адрес лампы</label>"
-                            "<a class=\"value\" style=\"color:var(--accent);flex-shrink:0\" target=\"_blank\" href=\"");
-        hostLink += hostAddress;
-        hostLink += F("\">");
-        hostLink += hostAddress;
-        hostLink += F("</a></div>");
-        b.HTML("", hostLink);
-
-        if (b.Button(UI_ID_HOST_APPLY, "Применить (перезагрузка)"))
-        {
-          pendingRestart = true;                              // имя уходит роутеру в DHCP-запросе при подключении, поэтому применяется при старте
-        }
-      }
-
-      // --- ТОЧКА ДОСТУПА -------------------------
-      {
-        sets::Group g(b, "Точка доступа");
-        b.Input(kk::ap_name, "Имя сети (SSID)");
-        b.Pass(kk::ap_pass, "Пароль (8-63 символа, пусто - без пароля)");
-
-        if (b.Button(UI_ID_AP_APPLY, "Применить (перезагрузка)"))
-        {
-          String apPassword = (String)db[kk::ap_pass];
-          if (apPassword.length() && apPassword.length() < AP_PASS_MIN_LENGTH)  // с таким паролем точка доступа не поднимется, поэтому перезагружаться нельзя: лампа останется без сети
-          {
-            uiLog.println(F("Точка доступа: пароль короче 8 символов, изменения не применены"));
-          }
-          else
-          {
-            pendingRestart = true;                            // новое имя и пароль применяются при старте (текущее подключение к точке доступа в любом случае разрывается)
-          }
-        }
-      }
-
-      // --- WAKE-ON-LAN ---------------------------
-      {
-        sets::Group g(b, "Wake-on-LAN");
-        b.Input(kk::wol_mac, "MAC компьютера");
-
-        if (b.Button(UI_ID_WOL_WAKE, "Разбудить"))
-        {
-          pendingWolWake = true;                              // отправка выполнится в loop, результат - в Журнале
-        }
-
-        #if (USE_MQTT)
-        if (b.Switch(kk::wol_ext_on, "Использовать дополнительный топик"))
-        {
-          pendingWolResub = true;                             // подписка обновится в loop
-        }
-        if (b.Input(kk::wol_ext_topic, "Дополнительный топик"))
-        {
-          pendingWolResub = true;
-        }
-        #endif //USE_MQTT
-      }
-
+      hwApply();
     }
-
-    // --- MQTT ----------------------------------
-    #if (USE_MQTT)
+    if (b.Spinner(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", 0, 10000, 100))
     {
-      sets::Menu page(b, "MQTT");                           // брокер, топики
-      b.Switch(kk::mqtt_enabled, "Включен");
-      b.Input(kk::mqtt_host, "Адрес брокера");
-      b.Number(kk::mqtt_port, "Порт");
-      b.Input(kk::mqtt_user, "Пользователь");
-      b.Pass(kk::mqtt_pass, "Пароль");
-
-      if (MqttManager::getTopicInput().length())
-      {
-        // Paragraph вместо Label: топики длинные, в однострочный Label не влезают
-        b.Paragraph("Топики", String(F("Команды: ")) + MqttManager::getTopicInput() +
-                              String(F("\nСостояние: ")) + MqttManager::getTopicOutput());
-      }
-
-      if (b.Button(UI_ID_MQTT_APPLY, "Применить (перезагрузка)"))
-      {
-        pendingRestart = true;                              // новые параметры брокера применяются при старте
-      }
+      hwApply();
     }
-    #endif //USE_MQTT
+    b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
+  }
 
-    // --- АВТОЯРКОСТЬ ---------------------------
-    #ifdef USE_AUTO_BRIGHTNESS
+  #ifdef ESP_USE_BUTTON
+  {
+    sets::Menu m(b, "Кнопка");                            // действия жестов применяются сразу, кнопка читает их при каждом жесте
+    if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
     {
-      sets::Menu page(b, "Автояркость");                      // отдельная страница: настраивается один раз при калибровке
-      b.Switch(kk::ab_on, "Использовать датчик освещённости");
-      b.Slider(kk::ab_min_bri, "Мин. яркость в темноте, %", 5, 100, 1);
-
-      // двухточечная калибровка под конкретный датчик: рабочий диапазон дешёвых модулей
-      // занимает малую часть шкалы 0-1023, поэтому крайние точки запоминаются по факту
-      {
-        sets::Buttons btns(b);
-        if (b.Button(UI_ID_AB_SET_DARK, "Запомнить темноту"))   // нажать, накрыв датчик
-        {
-          db.set(kk::ab_dark, autoLightRaw);
-          uiLog.printf_P(PSTR("Автояркость: точка темноты = %u\n"), autoLightRaw);
-          b.reload();
-        }
-        if (b.Button(UI_ID_AB_SET_LIGHT, "Запомнить свет"))     // нажать при обычном дневном освещении (не с фонариком)
-        {
-          db.set(kk::ab_light, autoLightRaw);
-          uiLog.printf_P(PSTR("Автояркость: точка света = %u\n"), autoLightRaw);
-          b.reload();
-        }
-      }
-      b.Label("Точки калибровки (темнота/свет)", String((uint16_t)db[kk::ab_dark]) + " / " + String((uint16_t)db[kk::ab_light]));
-
-      b.LabelNum(UI_ID_AB_RAW, "Датчик A0 (0-1023)", autoLightRaw);              // опрашивается только при включённой автояркости; накройте датчик рукой - число должно меняться
-      b.LabelNum(UI_ID_AB_FACTOR, "Текущий коэффициент, %", (uint16_t)autoBriFactor * 100U / 255U);
+      buttonApply();
     }
-    #endif //USE_AUTO_BRIGHTNESS
+    bool enabled = buttonEnabled;
+    if (b.Switch(UI_ID_BTN_ENABLED, "Кнопка разблокирована", &enabled))
+    {
+      lampSetButtonEnabled(enabled);
+    }
+    b.Switch(kk::btn_fav_only, "Листать только эффекты Цикла");
+
+    for (uint8_t lampOff = 0U; lampOff < 2U; lampOff++)
+    {
+      sets::Group g(b, lampOff ? "Клики на выключенной лампе" : "Клики на включённой лампе");
+      for (uint8_t i = 0U; i < 7U; i++)
+      {
+        b.Select(buttonClickKeys[lampOff][i], uiClicksLabel(i + 1U, false), FPSTR(uiButtonClickActions));
+      }
+    }
 
     {
-      sets::Menu m(b, "Оборудование");                      // задаётся один раз после прошивки, применяется сразу
-      if (b.Select(kk::hw_matrix_conn, "Начало ленты",
-                   F("левый нижний угол, вправо;левый нижний угол, вверх;левый верхний угол, вправо;левый верхний угол, вниз;"
-                     "правый верхний угол, влево;правый верхний угол, вниз;правый нижний угол, влево;правый нижний угол, вверх")))
+      sets::Group g(b, "Удержание");
+      for (uint8_t i = 0U; i < 8U; i++)
       {
-        hwApply();
-      }
-      if (b.Select(kk::hw_matrix_parallel, "Ряды ленты", "зигзагом;параллельно"))
-      {
-        hwApply();
-      }
-      if (b.Select(kk::hw_color_order, "Порядок цветов", "RGB;RBG;GRB;GBR;BRG;BGR"))
-      {
-        hwApply();
-      }
-      if (b.Spinner(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", 0, 10000, 100))
-      {
-        hwApply();
-      }
-      b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
-    }
-
-    #ifdef ESP_USE_BUTTON
-    {
-      sets::Menu m(b, "Кнопка");                            // действия жестов применяются сразу, кнопка читает их при каждом жесте
-      if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
-      {
-        buttonApply();
-      }
-      bool enabled = buttonEnabled;
-      if (b.Switch(UI_ID_BTN_ENABLED, "Кнопка разблокирована", &enabled))
-      {
-        lampSetButtonEnabled(enabled);
-      }
-      b.Switch(kk::btn_fav_only, "Листать только эффекты Цикла");
-
-      for (uint8_t lampOff = 0U; lampOff < 2U; lampOff++)
-      {
-        sets::Group g(b, lampOff ? "Клики на выключенной лампе" : "Клики на включённой лампе");
-        for (uint8_t i = 0U; i < 7U; i++)
+        // в списке удержания действия идут подряд, а в настройке у действий только для удержания свои номера (Types.h)
+        uint8_t action = db[buttonHoldKeys[i]];
+        uint8_t index = action >= BTN_HOLD_ONLY ? action - BTN_HOLD_ONLY + BTN_CLICK_END : action;
+        if (b.Select(UI_ID_BTN_HOLD(i), uiClicksLabel(i, true), FPSTR(uiButtonHoldActions), &index))
         {
-          b.Select(buttonClickKeys[lampOff][i], uiClicksLabel(i + 1U, false), FPSTR(uiButtonClickActions));
-        }
-      }
-
-      {
-        sets::Group g(b, "Удержание");
-        for (uint8_t i = 0U; i < 8U; i++)
-        {
-          // в списке удержания действия идут подряд, а в настройке у действий только для удержания свои номера (Types.h)
-          uint8_t action = db[buttonHoldKeys[i]];
-          uint8_t index = action >= BTN_HOLD_ONLY ? action - BTN_HOLD_ONLY + BTN_CLICK_END : action;
-          if (b.Select(UI_ID_BTN_HOLD(i), uiClicksLabel(i, true), FPSTR(uiButtonHoldActions), &index))
-          {
-            db.set(buttonHoldKeys[i], (uint8_t)(index >= BTN_CLICK_END ? index - BTN_CLICK_END + BTN_HOLD_ONLY : index));
-          }
+          db.set(buttonHoldKeys[i], (uint8_t)(index >= BTN_CLICK_END ? index - BTN_CLICK_END + BTN_HOLD_ONLY : index));
         }
       }
     }
-    #endif
+  }
+  #endif
 
-    {
-      sets::Menu m(b, "Журнал");                            // вложенное меню - журнал скрыт, пока его не откроют
-      b.Log(UI_ID_LOG, uiLog);
-    }
+  {
+    sets::Menu m(b, "Журнал");                            // вложенное меню - журнал скрыт, пока его не откроют
+    b.Log(UI_ID_LOG, uiLog);
+  }
+}
+
+static uint8_t uiTab = 0U;                                  // открытая вкладка; библиотека не различает браузеры, поэтому она одна на лампу
+
+void settingsBuild(sets::Builder& b)
+{
+  if (b.Tabs(UI_ID_TABS, "Лампа;Настройки", &uiTab))        // вкладка собирается на лампе: при переключении страница строится заново
+  {
+    b.reload();
+    return;
+  }
+
+  if (uiTab == 0U)
+  {
+    uiBuildLamp(b);
+  }
+  else
+  {
+    uiBuildSettings(b);
   }
 }
 
