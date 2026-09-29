@@ -52,13 +52,15 @@ DB_KEYS(kk,
     // Обратный отсчёт
     cd_seconds,                                             // интервал, секунды (1-5999, до 99:59)
     cd_bri,                                                 // яркость цифр
-    cd_hue,                                                 // цвет цифр (оттенок 0-255), вспышки - противоположного оттенка
+    cd_hue,                                                 // до 4.0: оттенок цифр 0-255, переносится в cd_color
+    cd_color,                                               // цвет цифр, 0xRRGGBB; вспышки - противоположного оттенка
     cd_rot,                                                 // положение цифр по окружности лампы, колонка 0-15
 
     // Кубики
     dice_bri,                                               // яркость
     dice_speed,                                             // скорость анимации броска: от 4 с на 1 до 0.9 с на 255
-    dice_hue,                                               // цвет (оттенок 0-255)
+    dice_hue,                                               // до 4.0: оттенок 0-255, переносится в dice_color
+    dice_color,                                             // цвет, 0xRRGGBB
     dice_rot,                                               // положение результата по окружности лампы, колонка 0-15
     dice_hold,                                              // сколько секунд держится результат, 0 - пока не вернуться к эффекту
     dice_click,                                             // клик кнопкой лампы бросает кубик ещё раз, пока он на лампе
@@ -146,6 +148,13 @@ inline String hostName()
   return result.length() ? result : String(HOST_NAME);
 }
 
+// оттенок в цвет 0xRRGGBB для виджета Color
+inline uint32_t hueToRgb(uint8_t hue)
+{
+  CRGB c = CHSV(hue, 255U, 255U);
+  return ((uint32_t)c.r << 16) | ((uint32_t)c.g << 8) | c.b;
+}
+
 #define STORAGE_WRITE_DELAY   (30000UL)                     // отсрочка записи настроек эффектов после последнего изменения (чтобы не изнашивать флеш при регулировке ползунками)
 
 class Storage
@@ -200,6 +209,8 @@ class Storage
       db.init(kk::dice_bri, (uint8_t)40);
       db.init(kk::dice_speed, (uint8_t)128);
       db.init(kk::dice_hue, (uint8_t)0);
+      db.init(kk::cd_color, hueToRgb((uint8_t)db[kk::cd_hue])); // при обновлении с 3.x цвет берётся из прежнего оттенка
+      db.init(kk::dice_color, hueToRgb((uint8_t)db[kk::dice_hue]));
       db.init(kk::dice_rot, (uint8_t)0);
       db.init(kk::dice_hold, (uint16_t)10);
       db.init(kk::dice_click, false);

@@ -147,11 +147,11 @@ static void countdownBigDigit(uint8_t x, uint8_t digit, CRGB color)
 
 static void countdownDraw(uint16_t seconds, uint8_t flash)
 {
-  uint8_t hue = (uint8_t)db[kk::cd_hue];
+  CRGB color = CRGB((uint32_t)db[kk::cd_color]);
+  CHSV hsv = rgb2hsv_approximate(color);                    // вспышки - противоположного оттенка с той же насыщенностью
   uint8_t center = (uint8_t)db[kk::cd_rot] % WIDTH;
-  CRGB color = CHSV(hue, 255U, 255U);
 
-  fillAll(flash ? (CRGB)CHSV(hue + 128U, 255U, flash) : CRGB::Black);
+  fillAll(flash ? (CRGB)CHSV(hsv.hue + 128U, hsv.sat, flash) : CRGB::Black);
 
   if (seconds >= 60U)                                       // минуты над секундами, как в эффекте Часы
   {
@@ -220,17 +220,18 @@ void countdownTick()
 
   // лента обновляется, только когда картинка изменилась: во время вспышки каждый кадр, иначе раз в секунду
   static uint16_t lastSeconds = 0xFFFFU;
-  static uint8_t lastFlash, lastHue, lastRot, lastBri;
-  uint8_t hue = (uint8_t)db[kk::cd_hue];
+  static uint8_t lastFlash, lastRot, lastBri;
+  static uint32_t lastColor;
+  uint32_t colorRgb = (uint32_t)db[kk::cd_color];
   uint8_t rot = (uint8_t)db[kk::cd_rot];
   uint8_t bri = (uint8_t)db[kk::cd_bri];
-  if (!loadingFlag && seconds == lastSeconds && flash == lastFlash && hue == lastHue && rot == lastRot && bri == lastBri)
+  if (!loadingFlag && seconds == lastSeconds && flash == lastFlash && colorRgb == lastColor && rot == lastRot && bri == lastBri)
   {
     return;
   }
   lastSeconds = seconds;
   lastFlash = flash;
-  lastHue = hue;
+  lastColor = colorRgb;
   lastRot = rot;
   lastBri = bri;
   loadingFlag = false;

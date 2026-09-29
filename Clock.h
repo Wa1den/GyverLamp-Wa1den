@@ -28,7 +28,9 @@ static volatile bool clockSetBySntp = false;
 static String clockServerName;                              // SNTP хранит указатель на имя сервера, поэтому строка живёт всё время работы
 static uint32_t clockWaitFrom = 0U;                         // с какого момента ждём ответа сервера: подключение к роутеру или синхронизация по кнопке
 static bool clockWaitReported = true;
-static uint16_t clockSetCount = 0U;                        // сколько раз устанавливались часы: по нему страница настроек обновляет поля времени
+static uint16_t clockSetCount = 0U;
+static bool clockForced = false;                            // идёт синхронизация по кнопке: о её результате сообщается на странице
+const char* clockNotice = nullptr;                          // сообщение для страницы настроек, забирает settingsTick                        // сколько раз устанавливались часы: по нему страница настроек обновляет поля времени
 
 // часовые пояса для выбора в веб-интерфейсе: смещение от UTC в минутах
 static const int16_t timezoneOffsets[] PROGMEM = {
@@ -173,6 +175,7 @@ void clockForceSync()
   uiLog.printf_P(PSTR("NTP: синхронизация с %s...\n"), clockServerName.c_str());
   clockWaitFrom = millis();
   clockWaitReported = false;
+  clockForced = true;
 }
 
 // в loop: Журнал и признак синхронизации
@@ -192,6 +195,11 @@ void clockTick()
         uiLog.println(F("NTP: время синхронизировано"));
       }
       clockSource = ClockSource::Ntp;
+      if (clockForced)
+      {
+        clockForced = false;
+        clockNotice = "Время синхронизировано";
+      }
     }
     else
     {
@@ -215,6 +223,11 @@ void clockTick()
   {
     clockWaitReported = true;
     uiLog.printf_P(PSTR("NTP: сервер %s не ответил за минуту\n"), clockServerName.c_str());
+    if (clockForced)
+    {
+      clockForced = false;
+      clockNotice = "Сервер времени не ответил за минуту";
+    }
   }
 }
 

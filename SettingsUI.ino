@@ -16,9 +16,8 @@
 //   Будильник          меню
 //   Обратный отсчёт    меню
 //   Кубики             меню
+//   Бегущая строка     группа без заголовка
 //   Таймер выключения  группа
-//   Бегущая строка     группа
-//   Кнопка             группа
 //   Автояркость        меню
 //   Сеть               меню: WiFi, точка доступа, MQTT, Wake-on-LAN
 //   Служебное          меню > Оборудование, Журнал
@@ -89,6 +88,8 @@ static css = `
 #define UI_ID_LOG          ("ui_log"_h)
 #define UI_ID_FX_RESET     ("ui_fx_rst"_h)
 #define UI_ID_WIFI_RESET   ("ui_wifi_rst"_h)
+#define UI_ID_FX_RESET_OK  ("ui_fx_rst_ok"_h)
+#define UI_ID_WIFI_RESET_OK ("ui_wifi_rst_ok"_h)
 #define UI_ID_REBOOT       ("ui_reboot"_h)
 
 static uint16_t uiSleepMinutes = 30U;                       // значение поля "минут" для таймера выключения (подставляется из button_sleep_time при старте)
@@ -126,6 +127,7 @@ static String uiTimerText()
 
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
+static size_t uiConfirmPending = 0U;                        // id окна подтверждения, которое нужно открыть на странице
 static bool uiTimeRefresh = false;                          // сменили часовой пояс: обновить поля времени в «Служебном»
 
 // значение поля ручной установки - текущее время лампы, если оно известно. Виджет показывает
@@ -290,8 +292,8 @@ void settingsBuild(sets::Builder& b)
     uint16_t intervalSec = interval % 60U;
     {
       sets::Row row(b);
-      bool changed = b.Number(UI_ID_CD_MIN, "Минуты", &intervalMin, 0, 99);
-      changed |= b.Number(UI_ID_CD_SEC, "Секунды", &intervalSec, 0, 59);
+      bool changed = b.Spinner(UI_ID_CD_MIN, "Минуты", 0, 99, 1, &intervalMin);
+      changed |= b.Spinner(UI_ID_CD_SEC, "Секунды", 0, 59, 1, &intervalSec);
       if (changed)
       {
         interval = constrain(intervalMin, 0U, 99U) * 60U + constrain(intervalSec, 0U, 59U);
@@ -300,7 +302,7 @@ void settingsBuild(sets::Builder& b)
     }
     b.Label(UI_ID_CD_LEFT, "Осталось", uiCountdownText()); // обновляется на открытой странице, см. settingsSyncTick
     b.Slider(kk::cd_bri, "Яркость", 1, 255, 1);
-    b.Slider(kk::cd_hue, "Цвет", 0, 255, 1);
+    b.Color(kk::cd_color, "Цвет");
     b.Slider(kk::cd_rot, "Поворот", 0, WIDTH - 1, 1);
 
     {
@@ -342,7 +344,7 @@ void settingsBuild(sets::Builder& b)
     b.Label(UI_ID_DICE_RESULT, "Результат", diceText());   // обновляется на открытой странице, см. settingsSyncTick
     b.Slider(kk::dice_bri, "Яркость", 1, 255, 1);
     b.Slider(kk::dice_speed, "Скорость анимации", 1, 255, 1);
-    b.Slider(kk::dice_hue, "Цвет", 0, 255, 1);
+    b.Color(kk::dice_color, "Цвет");
     b.Slider(kk::dice_rot, "Поворот", 0, WIDTH - 1, 1);
     b.Slider(kk::dice_hold, "Показ результата, с (0 - до возврата)", 0, 120, 1);
     b.Switch(kk::dice_mirror, "Дублировать на обратной стороне");
@@ -353,13 +355,24 @@ void settingsBuild(sets::Builder& b)
     }
   }
 
+  // --- БЕГУЩАЯ СТРОКА ------------------------
+  {
+    sets::Group g(b);                                       // одно поле, заголовок группы не нужен
+
+    String text = TextTicker;
+    if (b.Input(UI_ID_TEXT, "Бегущая строка", &text))
+    {
+      lampSetRunningText(text.c_str());
+    }
+  }
+
   // --- ТАЙМЕР ВЫКЛЮЧЕНИЯ ---------------------
   {
     sets::Group g(b, "Таймер выключения");
 
     b.Label(UI_ID_TIMER_STATE, "Состояние", uiTimerText()); // обновляется на открытой странице, см. settingsSyncTick
 
-    b.Number(UI_ID_TIMER_MIN, "Минут", &uiSleepMinutes, 1, 255);
+    b.Spinner(UI_ID_TIMER_MIN, "Минут", 1, 255, 1, &uiSleepMinutes);
 
     {
       sets::Buttons btns(b);
@@ -373,35 +386,6 @@ void settingsBuild(sets::Builder& b)
       }
     }
   }
-
-  // --- БЕГУЩАЯ СТРОКА ------------------------
-  {
-    sets::Group g(b, "Бегущая строка");
-
-    bool showIp = (bool)db[kk::run_text_ip];                 // включено - строка показывает адрес лампы,
-    if (b.Switch(UI_ID_TEXT_IP, "Писать текущий IP", &showIp)) // поле "Текст" при этом не используется и не затирается
-    {
-      lampSetRunningTextShowIp(showIp);
-    }
-
-    String text = TextTicker;
-    if (b.Input(UI_ID_TEXT, "Текст", &text))
-    {
-      lampSetRunningText(text.c_str());
-    }
-  }
-
-  // --- КНОПКА --------------------------------
-  #ifdef ESP_USE_BUTTON
-  {
-    sets::Group g(b, "Кнопка");
-    bool enabled = buttonEnabled;
-    if (b.Switch(UI_ID_BTN_ENABLED, "Разблокирована", &enabled))
-    {
-      lampSetButtonEnabled(enabled);
-    }
-  }
-  #endif //ESP_USE_BUTTON
 
   // --- АВТОЯРКОСТЬ ---------------------------
   #ifdef USE_AUTO_BRIGHTNESS
@@ -458,6 +442,12 @@ void settingsBuild(sets::Builder& b)
           Storage::SaveEspMode(&espMode);
           pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
         }
+      }
+
+      bool showIp = (bool)db[kk::run_text_ip];               // бегущая строка показывает адрес лампы; её текст при этом не затирается
+      if (b.Switch(UI_ID_TEXT_IP, "Бегущая строка показывает IP", &showIp))
+      {
+        lampSetRunningTextShowIp(showIp);
       }
 
       b.Input(kk::host_name, "Имя лампы в сети");
@@ -597,18 +587,28 @@ void settingsBuild(sets::Builder& b)
       sets::Buttons btns(b);
       if (b.Button(UI_ID_FX_RESET, "Сброс эффектов"))
       {
-        restoreSettings();                                  // настройки всех эффектов на значения по умолчанию
-        updateSets();
-        b.reload();                                         // ползунки должны подтянуть новые значения
+        uiConfirmPending = UI_ID_FX_RESET_OK;               // окно подтверждения открывается из settingsTick
       }
       if (b.Button(UI_ID_WIFI_RESET, "Сброс WiFi"))
       {
-        pendingWifiReset = true;
+        uiConfirmPending = UI_ID_WIFI_RESET_OK;
       }
       if (b.Button(UI_ID_REBOOT, "Перезагрузка"))
       {
         pendingRestart = true;
       }
+    }
+
+    bool confirmed = false;
+    if (b.Confirm(UI_ID_FX_RESET_OK, "Вернуть настройки всех эффектов к значениям по умолчанию?", &confirmed) && confirmed)
+    {
+      restoreSettings();
+      updateSets();
+      b.reload();                                           // ползунки должны подтянуть новые значения
+    }
+    if (b.Confirm(UI_ID_WIFI_RESET_OK, "Забыть сеть роутера и вернуть имя и пароль точки доступа к начальным?", &confirmed) && confirmed)
+    {
+      pendingWifiReset = true;
     }
 
     {
@@ -627,7 +627,7 @@ void settingsBuild(sets::Builder& b)
       {
         hwApply();
       }
-      if (b.Number(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", nullptr, 0, 10000))
+      if (b.Spinner(kk::hw_current_limit, "Лимит тока, мА (0 - без лимита)", 0, 10000, 100))
       {
         hwApply();
       }
@@ -635,6 +635,11 @@ void settingsBuild(sets::Builder& b)
       if (b.Select(kk::hw_button, "Кнопка", "нет;сенсорная;механическая"))
       {
         buttonApply();
+      }
+      bool enabled = buttonEnabled;
+      if (b.Switch(UI_ID_BTN_ENABLED, "Кнопка разблокирована", &enabled))
+      {
+        lampSetButtonEnabled(enabled);
       }
       #endif
       b.Switch(kk::hw_power_restore, "Включаться после подачи питания");
@@ -762,6 +767,17 @@ void settingsTick()
   if (favListVisible && !sett.focused())
   {
     favListVisible = false;                                 // страницу закрыли - следующее её открытие снова будет лёгким
+  }
+
+  if (uiConfirmPending)
+  {
+    sett.updater().confirm(uiConfirmPending);
+    uiConfirmPending = 0U;
+  }
+  if (clockNotice)                                          // результат синхронизации по кнопке - всплывающим сообщением
+  {
+    sett.updater().notice(clockNotice);
+    clockNotice = nullptr;
   }
 
   settingsSyncTick();

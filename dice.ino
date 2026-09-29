@@ -62,7 +62,8 @@ static uint32_t diceDurationMs = 0U;
 static uint32_t diceResultAt = 0U;
 static bool diceWasOn = false;                              // лампа была включена до броска
 static uint8_t diceMode = 0U;                               // эффект, поверх которого показан кубик
-static bool diceShown = false;                              // был хотя бы один бросок - поле «Результат» показывает его
+static bool diceShown = false;
+static uint8_t diceSat = 255U;                              // насыщенность выбранного цвета: белый цвет даёт белые фигуры                              // был хотя бы один бросок - поле «Результат» показывает его
 
 bool diceActive()
 {
@@ -285,7 +286,7 @@ static void diceHexagon(float cx, float cy, float angle, uint8_t hue)
       {
         value = value * coverage;
       }
-      dicePixel(x, y, CHSV(hue + sector * 21U, 255U, value));
+      dicePixel(x, y, CHSV(hue + sector * 21U, diceSat, value));
     }
   }
 }
@@ -316,7 +317,7 @@ static void diceHexNumber(float t, uint8_t center, uint8_t hue)
 static void diceFace(int16_t left, uint8_t width, uint8_t value, uint8_t hue)
 {
   uint16_t pips = pgm_read_word(&dicePips[value - 1U]);
-  CRGB face = CHSV(hue, 255U, 30U + width * 6U);
+  CRGB face = CHSV(hue, diceSat, 30U + width * 6U);
   CRGB pip = CHSV(hue, 60U, 255U);
   for (uint8_t c = 0U; c < width; c++)
   {
@@ -366,7 +367,7 @@ static void diceCoin(float t, uint8_t center, uint8_t hue)
   int16_t bottom = DICE_FACE_Y + (int16_t)(16.0F * t * (1.0F - t)) + (8 - height) / 2;
 
   static const uint8_t discWidth[8] = {4U, 6U, 8U, 8U, 8U, 8U, 6U, 4U};
-  CRGB color = side ? (CRGB)CHSV(hue, 150U, 200U) : (CRGB)CHSV(hue, 255U, 255U);
+  CRGB color = side ? (CRGB)CHSV(hue, scale8(diceSat, 150U), 200U) : (CRGB)CHSV(hue, diceSat, 255U);
   for (uint8_t r = 0U; r < height; r++)
   {
     uint8_t sy = r * 8U / height;                           // строка исходной картинки монетки, 0 - нижняя
@@ -406,7 +407,10 @@ void diceTick()
 
   uint8_t sides = diceSidesOf(diceType);
   uint8_t result = diceSeq[DICE_SEQ_LENGTH - 1U];
-  uint8_t hue = (uint8_t)db[kk::dice_hue];
+  uint32_t colorRgb = (uint32_t)db[kk::dice_color];
+  CHSV hsv = rgb2hsv_approximate(CRGB(colorRgb));           // анимации строятся от оттенка выбранного цвета
+  uint8_t hue = hsv.hue;
+  diceSat = hsv.sat;
   uint8_t center = (uint8_t)db[kk::dice_rot] % WIDTH;
   uint8_t bri = (uint8_t)db[kk::dice_bri];
 
@@ -437,12 +441,13 @@ void diceTick()
     }
 
     critical = sides == 20U && (result == 20U || result == 1U);
-    static uint8_t lastHue, lastCenter, lastBri;             // без фона картинка результата неподвижна - лента обновляется только при смене настроек
-    if (!critical && !loadingFlag && hue == lastHue && center == lastCenter && bri == lastBri)
+    static uint8_t lastCenter, lastBri;
+    static uint32_t lastColor;             // без фона картинка результата неподвижна - лента обновляется только при смене настроек
+    if (!critical && !loadingFlag && colorRgb == lastColor && center == lastCenter && bri == lastBri)
     {
       return;
     }
-    lastHue = hue;
+    lastColor = colorRgb;
     lastCenter = center;
     lastBri = bri;
   }
