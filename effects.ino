@@ -3192,20 +3192,7 @@ void text_running() {
     char ipBuf[16];                                         // хватает на "255.255.255.255"
     const char* text = runningTextSource(ipBuf, sizeof(ipBuf)); // текст из настроек либо текущий IP лампы
 
-    while (!fillString(text, CHSV(modes[EFF_TEXT].Scale * 2.55, 255U, 255U), true) && currentMode == EFF_TEXT) {
-      // цикл прокрутки строки блокирующий, поэтому внутри обслуживаются каналы управления,
-      // чтобы лампа реагировала на команды (смена эффекта командой прервёт прокрутку)
-      wifiTick();
-      settingsTick();
-      #if USE_MQTT
-      MqttManager::tick();
-      #endif
-      #ifdef ESP_USE_BUTTON
-      //if (buttonEnabled) в процедуре ведь есть эта проверка
-        buttonTick();
-      #endif
-      ESP.wdtFeed();
-    }
+    fillString(text, CHSV(modes[EFF_TEXT].Scale * 2.55, 255U, 255U), 0U); // шаг за кадр, период кадра - 256 - Скорость (реестр)
 }
 
 // ============= ЭФФЕКТ СТАЯ ===============

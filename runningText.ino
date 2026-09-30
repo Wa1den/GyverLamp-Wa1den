@@ -34,15 +34,17 @@ const char* runningTextSource(char* ipBuf, size_t ipBufSize)
   return ipBuf;
 }
 
-boolean fillString(const char* text, CRGB letterColor, boolean itsText)
+// шаг прокрутки строки; stepMs - пауза между шагами, 0 - шаг на каждый вызов (темп задаёт вызывающий).
+// true - строка убежала за край
+boolean fillString(const char* text, CRGB letterColor, uint16_t stepMs)
 {
   if (!text || !strlen(text)) { return true; }
-  if (loadingFlag && !itsText) {
+  if (loadingFlag) {
     offset = WIDTH;                                         // перемотка в правый край
     loadingFlag = false;
   }
 
-  if (millis() - scrollTimer >= modes[EFF_TEXT].Speed)
+  if (!stepMs || millis() - scrollTimer >= stepMs)
   {
     scrollTimer = millis();
     ledsClear();
@@ -126,7 +128,7 @@ void serviceTextStop()
 void serviceTextTick()
 {
   FastLED.setBrightness(serviceBrightness);
-  if (fillString(serviceText, serviceColor, false))
+  if (fillString(serviceText, serviceColor, 256U - modes[EFF_TEXT].Speed)) // темп - ползунок Скорость бегущей строки
   {
     serviceTextStop();
   }
