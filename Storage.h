@@ -24,12 +24,16 @@ DB_KEYS(kk,
     // WiFi
     wifi_ssid,                                              // имя WiFi сети роутера
     wifi_pass,                                              // пароль WiFi сети роутера
+    wifi_ssid2, wifi_ssid3, wifi_ssid4, wifi_ssid5,         // запасные сети: лампа подключается к видимой сохранённой сети с лучшим сигналом
+    wifi_pass2, wifi_pass3, wifi_pass4, wifi_pass5,
+    wifi_count,                                             // сколько сетей показано на странице, 1-5
     wifi_connect,                                           // id кнопки "Подключить" в веб-интерфейсе (в БД не хранится)
     wifi_last_ssid,                                         // SSID последней успешно подключённой сети (для показа IP бегущей строкой при смене сети)
     ap_name,                                                // имя собственной точки доступа лампы (пусто - AP_NAME из Config.h)
     ap_pass,                                                // пароль собственной точки доступа (пусто - открытая сеть)
     host_name,                                              // имя лампы в локальной сети (пусто - HOST_NAME из Config.h)
     ui_pass,                                                // пароль вкладки «Настройки» и обновления прошивки со страницы; пусто - без пароля
+    upd_check,                                              // страница проверяет новые релизы на GitHub не чаще раза в сутки
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -106,6 +110,10 @@ DB_KEYS(kk,
     mqtt_user,                                              // пользователь MQTT брокера
     mqtt_pass                                               // пароль пользователя MQTT брокера
 );
+
+#define WIFI_NETWORKS (5U)                                  // сохраняемых сетей WiFi, считая основную
+static const size_t wifiSsidKeys[WIFI_NETWORKS] = {kk::wifi_ssid, kk::wifi_ssid2, kk::wifi_ssid3, kk::wifi_ssid4, kk::wifi_ssid5};
+static const size_t wifiPassKeys[WIFI_NETWORKS] = {kk::wifi_pass, kk::wifi_pass2, kk::wifi_pass3, kk::wifi_pass4, kk::wifi_pass5};
 
 // ключи действий жестов кнопки: клики на включённой и выключенной лампе, удержание после 0-7 кликов
 static const size_t buttonClickKeys[2][7] = {
@@ -199,6 +207,13 @@ class Storage
       db.init(kk::ap_pass, AP_PASS);
       db.init(kk::host_name, HOST_NAME);
       db.init(kk::ui_pass, "");
+      db.init(kk::upd_check, true);
+      for (uint8_t i = 1U; i < WIFI_NETWORKS; i++)
+      {
+        db.init(wifiSsidKeys[i], "");
+        db.init(wifiPassKeys[i], "");
+      }
+      db.init(kk::wifi_count, (uint8_t)1);
       db.init(kk::esp_mode, (uint8_t)ESP_MODE);
       db.init(kk::lamp_on, false);
       db.init(kk::dawn_mode, (uint8_t)0);

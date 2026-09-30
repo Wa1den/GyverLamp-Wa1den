@@ -26,20 +26,7 @@
 
 SettingsGyverWS sett("GyverLamp", &db);
 
-// Правка вёрстки страницы. Библиотека добавляет на страницу поле css у каждого класса из custom.js.
-// В исходной вёрстке подпись виджета не переносится, и на узком экране или при увеличенном масштабе
-// длинная подпись выталкивает переключатель или значение за край строки. Здесь подпись и значение
-// переносятся по словам, а правая часть строки не сжимается и занимает не больше 60% ширины.
-// Вкладки делят ширину поровну, а не прижимаются к краям
-static const char uiCustomJs[] PROGMEM = R"js(class LampLayout {
-static css = `
-.widget_row{height:unset;min-height:32px}
-.widget_row label{white-space:normal}
-.widget_row>:last-child:not(:first-child){flex-shrink:0;max-width:60%}
-.widget_row .value{white-space:normal;overflow-wrap:break-word;text-align:right}
-.tab{flex:1 1 0;text-align:center}
-`;
-})js";
+#include "SettingsCustom.h"                                 // custom.js страницы: правка вёрстки и проверка обновлений
 
 // стабильные id виджетов, не привязанных к базе настроек (0xFA00xx - зона id избранных эффектов)
 #define UI_ID_POWER        ("ui_pwr"_h)
@@ -75,6 +62,9 @@ static css = `
 #define UI_ID_TEXT_IP      ("ui_text_ip"_h)
 #define UI_ID_BTN_ENABLED  ("ui_btn_en"_h)
 #define UI_ID_TABS         ("ui_tabs"_h)
+#define UI_ID_WIFI_ADD     ("ui_wifi_add"_h)
+#define UI_ID_WIFI_DEL(i)  (0xD1F000UL + (i))
+#define UI_ID_UPDATE       ("ui_update"_h)
 #define UI_ID_BTN_HOLD(i)  (0xB7B000UL + (i))
 #define UI_ID_ESP_MODE     ("ui_espmode"_h)
 #define UI_ID_AP_APPLY     ("ui_ap_app"_h)
@@ -433,7 +423,8 @@ static void uiBuildLamp(sets::Builder& b)
 // сведения о лампе, время, сбросы и разделы настроек
 static void uiBuildSettings(sets::Builder& b)
 {
-  b.Label(F("Прошивка"), FIRMWARE_TITLE);                   // см. Version.h
+  b.Label(F("Прошивка"), FIRMWARE_TITLE);
+  b.Switch(kk::upd_check, F("Проверять обновления при открытии"));                   // см. Version.h
 
   b.Label(F("IP адрес"), WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
   b.LabelNum(F("Свободная память, байт"), ESP.getFreeHeap());
@@ -514,9 +505,37 @@ static void uiBuildSettings(sets::Builder& b)
       b.Input(kk::wifi_ssid, F("Имя сети (SSID)"));
       b.Pass(kk::wifi_pass, F("Пароль"));
 
-      if (b.Button(kk::wifi_connect, F("Подключить")))
+      uint8_t networks = constrain((uint8_t)db[kk::wifi_count], 1, WIFI_NETWORKS);
+      for (uint8_t i = 1U; i < networks; i++)               // запасные сети; лампа выбирает видимую с лучшим сигналом (WifiSetup.ino)
       {
-        pendingWifiConnect = true;                          // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
+        String n(i + 1U);
+        b.Input(wifiSsidKeys[i], String(F("Сеть ")) + n);
+        b.Pass(wifiPassKeys[i], String(F("Пароль сети ")) + n);
+        if (b.Button(UI_ID_WIFI_DEL(i), String(F("Удалить сеть ")) + n))
+        {
+          for (uint8_t k = i; k + 1U < networks; k++)       // следующие сети сдвигаются на место удалённой
+          {
+            db.set(wifiSsidKeys[k], (String)db[wifiSsidKeys[k + 1U]]);
+            db.set(wifiPassKeys[k], (String)db[wifiPassKeys[k + 1U]]);
+          }
+          db.set(wifiSsidKeys[networks - 1U], "");
+          db.set(wifiPassKeys[networks - 1U], "");
+          db.set(kk::wifi_count, (uint8_t)(networks - 1U));
+          b.reload();
+        }
+      }
+
+      {
+        sets::Buttons btns(b);
+        if (networks < WIFI_NETWORKS && b.Button(UI_ID_WIFI_ADD, F("Добавить сеть")))
+        {
+          db.set(kk::wifi_count, (uint8_t)(networks + 1U));
+          b.reload();
+        }
+        if (b.Button(kk::wifi_connect, F("Подключить")))
+        {
+          pendingWifiConnect = true;                        // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
+        }
       }
 
       uint8_t mode = espMode;
@@ -746,6 +765,12 @@ void settingsBuild(sets::Builder& b)
     b.endGuest();
     return;
   }
+
+  BSON update;                                              // проверка новых релизов - в браузере, см. LampUpdate в uiCustomJs
+  update["ver"] = FIRMWARE_VERSION;
+  update["repo"] = FIRMWARE_REPO;
+  update["check"] = (bool)db[kk::upd_check];
+  b.Custom(F("LampUpdate"), UI_ID_UPDATE, update);
 
   if (b.Tabs(UI_ID_TABS, F("Лампа;Настройки"), &uiTab))     // вкладка собирается на лампе: при переключении страница строится заново
   {

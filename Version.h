@@ -18,9 +18,11 @@
 // ==================================================================
 
 #define FIRMWARE_NAME     "GyverLamp-Wa1den"
-#define FIRMWARE_VERSION  "4.0.0"                     // МАЖОР.МИНОР.ПАТЧ:
+#define FIRMWARE_VERSION  "4.1.0-dev"                 // МАЖОР.МИНОР.ПАТЧ:
                                                   //   МАЖОР — несовместимые изменения (сброс настроек, смена протокола/железа)
                                                   //   МИНОР — новые эффекты и функции, настройки переживают обновление
                                                   //   ПАТЧ  — только исправления багов
+
+#define FIRMWARE_REPO     "Wa1den/GyverLamp-Wa1den"      // репозиторий на GitHub: страница настроек проверяет в нём новые релизы
 
 #define FIRMWARE_TITLE    FIRMWARE_NAME " " FIRMWARE_VERSION
