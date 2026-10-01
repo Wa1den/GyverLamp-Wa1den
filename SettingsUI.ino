@@ -537,9 +537,12 @@ static void uiBuildSettings(sets::Builder& b)
           pendingWifiConnect = true;                        // подключение выполнится в loop (wifiTick), а не в контексте асинхронного вебсервера
         }
       }
+    }
 
+    {
+      sets::Group g(b, F("Режим работы"));
       uint8_t mode = espMode;
-      if (b.Select(UI_ID_ESP_MODE, F("Режим работы"), F("Точка доступа;Клиент (через роутер)"), &mode))
+      if (b.Select(UI_ID_ESP_MODE, F("Режим"), F("Точка доступа;Клиент (через роутер)"), &mode))
       {
         if (mode != espMode)
         {
@@ -548,7 +551,10 @@ static void uiBuildSettings(sets::Builder& b)
           pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
         }
       }
+    }
 
+    {
+      sets::Group g(b, F("Имя в сети"));
       bool showIp = (bool)db[kk::run_text_ip];               // бегущая строка показывает адрес лампы; её текст при этом не затирается
       if (b.Switch(UI_ID_TEXT_IP, F("Бегущая строка показывает IP"), &showIp))
       {
