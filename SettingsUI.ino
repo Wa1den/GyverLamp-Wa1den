@@ -79,6 +79,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_NTP_SYNC     ("ui_ntp_sync"_h)
 #define UI_ID_LAMP_TIME    ("ui_lamp_time"_h)
 #define UI_ID_SYNC_STATE   ("ui_sync_state"_h)
+#define UI_ID_DDP_STATE    ("ui_ddp_state"_h)
 #define UI_ID_TZ_OFFSET    ("ui_tz"_h)
 #define UI_ID_TZ_DST       ("ui_tz_dst"_h)
 #define UI_ID_LOG          ("ui_log"_h)
@@ -217,6 +218,11 @@ static void uiBuildLamp(sets::Builder& b)
       {
         lampSetScale(scale);
       }
+    }
+
+    if (currentMode == EFF_DDP)
+    {
+      b.Label(UI_ID_DDP_STATE, F("Кадры"), ddpStateText()); // обновляется на открытой странице, см. settingsSyncTick
     }
   }
 
@@ -991,6 +997,17 @@ void settingsSyncTick()
   {
     lastTimerText = timerText;
     sett.updater().update(UI_ID_TIMER_STATE, timerText);
+  }
+
+  if (currentMode == EFF_DDP)                               // поле "Кадры": сколько кадров в секунду и откуда
+  {
+    static String lastDdpText;
+    String ddpText = ddpStateText();
+    if (ddpText != lastDdpText)
+    {
+      lastDdpText = ddpText;
+      sett.updater().update(UI_ID_DDP_STATE, ddpText);
+    }
   }
 
   static String lastDiceText;                               // поле "Результат" кубиков: бросок идёт или его итог

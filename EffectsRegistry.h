@@ -104,7 +104,8 @@
   X(EFF_SNAKE_GAME,      snakeGameRoutine(),                "87. Змейка",  14, 190,  30,  0, "Скорость", "Цвет") \
   X(EFF_EARTH,           earthRoutine(),                    "88. Земля",  14, 150,  60, 40, "Скорость вращения", "Яркость ночной стороны") \
   X(EFF_MARIO,           marioRoutine(),                    "89. Марио",  14, 150,  50, 40, "Скорость", "Положение героя") \
-  X(EFF_PINGPONG,        pingPongRoutine(),                 "90. Пинг-понг",  14, 120,  30, 20, "Скорость", "Цвет")
+  X(EFF_PINGPONG,        pingPongRoutine(),                 "90. Пинг-понг",  14, 120,  30, 20, "Скорость", "Цвет") \
+  X(EFF_DDP,             ddpRoutine(),                      "91. Кадры с компьютера", 255, 128, 50,  1, "", "")
 
 #define EFFECT_ENUM(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel)     id,
 #define EFFECT_DEFAULTS(id, call, name, bri, spd, sca, frame, spdLabel, scaLabel) {bri, spd, sca},

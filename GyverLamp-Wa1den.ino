@@ -468,6 +468,7 @@ void loop()
   autoBrightnessTick();                                     // автояркость по датчику освещённости
   LOOP_STAGE("датчик света");
 
+  ddpTick();                                                // кадры с компьютера по сети
   effectsTick();
   LOOP_STAGE("эффект");
 
