@@ -2,6 +2,8 @@
 #include "Storage.h"
 #include "Constants.h"
 
+bool effectAvailable(uint8_t effectId);                      // ddp.ino: эффект не скрыт настройкой
+
 #define DEFAULT_FAVORITES_INTERVAL           (300U)         // значение по умолчанию для интервала переключения избранных эффектов в секундах
 #define DEFAULT_FAVORITES_DISPERSION         (0U)           // значение по умолчанию для разброса интервала переключения избранных эффектов в секундах
 
@@ -272,7 +274,8 @@ class FavoritesManager
           }
           shuffleCurrentIndex = 0;
         }
-      } while ((FavoriteModes[shuffleFavoriteModes[shuffleCurrentIndex]] == 0U || shuffleFavoriteModes[shuffleCurrentIndex] == *currentMode) && count > 1U);
+      } while ((FavoriteModes[shuffleFavoriteModes[shuffleCurrentIndex]] == 0U || !effectAvailable(shuffleFavoriteModes[shuffleCurrentIndex]) ||
+                shuffleFavoriteModes[shuffleCurrentIndex] == *currentMode) && count > 1U);
       if (count > 1U)
         result = shuffleFavoriteModes[shuffleCurrentIndex];
       else
@@ -287,7 +290,7 @@ class FavoritesManager
       {
         for (uint8_t i = (result + 1); i <= (result + MODE_AMOUNT); i++)
         {
-          if (FavoriteModes[i < MODE_AMOUNT ? i : i - MODE_AMOUNT] > 0)
+          if (FavoriteModes[i < MODE_AMOUNT ? i : i - MODE_AMOUNT] > 0 && effectAvailable(i < MODE_AMOUNT ? i : i - MODE_AMOUNT))
           {
             result = i < MODE_AMOUNT ? i : i - MODE_AMOUNT;
             break;

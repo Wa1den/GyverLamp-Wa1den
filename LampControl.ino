@@ -51,6 +51,10 @@ void lampSetEffect(uint8_t effectId)
   {
     effectId = MODE_AMOUNT - 1U;
   }
+  if (!effectAvailable(effectId))                           // эффект скрыт настройкой: команда по MQTT или из старой вкладки
+  {
+    return;
+  }
 
   Storage::SaveModesSettings(&currentMode, modes);          // сохранение настроек эффектов перед переключением
   lampShowEffect(effectId);
@@ -61,6 +65,10 @@ void lampSetEffect(uint8_t effectId)
 // переключить эффект без записи номера в настройки: так переключает Цикл, чтобы не изнашивать флеш
 void lampShowEffect(uint8_t effectId)
 {
+  if (!effectAvailable(effectId))
+  {
+    return;
+  }
   currentMode = min(effectId, (uint8_t)(MODE_AMOUNT - 1U));
   loadingFlag = true;
 
@@ -269,7 +277,7 @@ void lampStepEffect(int8_t step)
   uint8_t mode = currentMode;
   for (uint8_t i = 0U; i < MODE_AMOUNT; i++)
   {
-    mode = (mode + MODE_AMOUNT + step) % MODE_AMOUNT;
+    mode = effectNeighbour(mode, step);
     if (!favoritesOnly || FavoritesManager::FavoriteModes[mode])
     {
       break;
@@ -277,9 +285,20 @@ void lampStepEffect(int8_t step)
   }
   if (mode == currentMode)                                  // в Цикле ничего не отмечено - соседний эффект
   {
-    mode = (mode + MODE_AMOUNT + step) % MODE_AMOUNT;
+    mode = effectNeighbour(mode, step);
   }
   lampSetEffect(mode);
+}
+
+// соседний эффект по кругу, мимо скрытых настройкой
+uint8_t effectNeighbour(uint8_t mode, int8_t step)
+{
+  do
+  {
+    mode = (mode + MODE_AMOUNT + step) % MODE_AMOUNT;
+  }
+  while (!effectAvailable(mode));
+  return mode;
 }
 
 // включить лампу и взвести таймер выключения на последнее заданное время
