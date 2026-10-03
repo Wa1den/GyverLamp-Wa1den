@@ -80,6 +80,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_LAMP_TIME    ("ui_lamp_time"_h)
 #define UI_ID_SYNC_STATE   ("ui_sync_state"_h)
 #define UI_ID_DDP_STATE    ("ui_ddp_state"_h)
+#define UI_ID_DDP_ON       ("ui_ddp_on"_h)
 #define UI_ID_TZ_OFFSET    ("ui_tz"_h)
 #define UI_ID_TZ_DST       ("ui_tz_dst"_h)
 #define UI_ID_LOG          ("ui_log"_h)
@@ -171,12 +172,12 @@ static void uiBuildLamp(sets::Builder& b)
       sets::Buttons btns(b);                                // переключение по кругу, как двойной и тройной клик кнопкой
       if (b.Button(UI_ID_EFF_PREV, F("Предыдущий")))
       {
-        lampSetEffect((currentMode + MODE_AMOUNT - 1U) % MODE_AMOUNT);
+        lampSetEffect(effectNeighbour(currentMode, -1));
         b.reload();                                         // список и ползунки должны подтянуть новый эффект
       }
       if (b.Button(UI_ID_EFF_NEXT, F("Следующий")))
       {
-        lampSetEffect((currentMode + 1U) % MODE_AMOUNT);
+        lampSetEffect(effectNeighbour(currentMode, 1));
         b.reload();
       }
     }
@@ -188,7 +189,7 @@ static void uiBuildLamp(sets::Builder& b)
     }
 
     uint8_t effect = currentMode;
-    if (b.Select(UI_ID_EFFECT, F("Эффект"), FPSTR(effectNamesList), &effect))
+    if (b.Select(UI_ID_EFFECT, F("Эффект"), Text(FPSTR(effectNamesList), effectListLength()), &effect))
     {
       lampSetEffect(effect);
       b.reload();                                           // перестроить страницу, чтобы ползунки подтянули яркость/скорость/масштаб нового эффекта
@@ -279,6 +280,10 @@ static void uiBuildLamp(sets::Builder& b)
       {
         for (uint8_t i = 0; i < MODE_AMOUNT; i++)
         {
+          if (!effectAvailable(i))
+          {
+            continue;
+          }
           bool selected = FavoritesManager::FavoriteModes[i] != 0;
           if (b.Switch(UI_ID_FAV_MODE(i), getEffectName(i), &selected))
           {
@@ -557,6 +562,19 @@ static void uiBuildSettings(sets::Builder& b)
           pendingRestart = true;                            // смена режима применяется перезагрузкой (как семикратный клик кнопкой)
         }
       }
+    }
+
+    {
+      sets::Group g(b, F("Кадры с компьютера"));
+      bool ddpOn = effectAvailable(EFF_DDP);
+      if (b.Switch(UI_ID_DDP_ON, F("Приём кадров по сети"), &ddpOn))
+      {
+        ddpSetEnabled(ddpOn);
+        b.reload();                                         // эффект появляется в списке или пропадает из него
+      }
+      b.Paragraph("", F("Добавляет эффект «Кадры с компьютера»: матрицей управляет программа на компьютере "
+                    "(CaseLight, Hyperion, LedFx) по протоколу DDP, UDP-порт 4048. Выключенный приём "
+                    "не отвечает и программам, которые ищут лампу в сети."));
     }
 
     {

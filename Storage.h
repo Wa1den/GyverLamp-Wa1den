@@ -34,6 +34,7 @@ DB_KEYS(kk,
     host_name,                                              // имя лампы в локальной сети (пусто - HOST_NAME из Config.h)
     ui_pass,                                                // пароль вкладки «Настройки» и обновления прошивки со страницы; пусто - без пароля
     upd_check,                                              // страница проверяет новые релизы на GitHub не чаще раза в сутки
+    ddp_on,                                                 // приём кадров с компьютера по сети: эффект «Кадры с компьютера» и порт DDP
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -208,6 +209,7 @@ class Storage
       db.init(kk::host_name, HOST_NAME);
       db.init(kk::ui_pass, "");
       db.init(kk::upd_check, true);
+      db.init(kk::ddp_on, false);
       for (uint8_t i = 1U; i < WIFI_NETWORKS; i++)
       {
         db.init(wifiSsidKeys[i], "");

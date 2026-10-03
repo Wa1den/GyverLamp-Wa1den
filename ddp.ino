@@ -1,6 +1,7 @@
 // Кадры с компьютера по протоколу DDP (Distributed Display Protocol, порт 4048): так лампу
 // подключают CaseLight, Hyperion, LedFx, xLights. Кадры показывает эффект «Кадры с компьютера»,
 // в остальных эффектах они не принимаются. Без кадров дольше DDP_TIMEOUT_MS лампа гаснет.
+// Приём включается в разделе «Сеть»; выключенный, он скрывает эффект и закрывает порт.
 //
 // Пиксели идут построчно сверху вниз, в строке слева направо, по 3 байта RGB: отправителю не
 // нужно знать подключение матрицы, его учитывает XY(). На запрос статуса (флаг QUERY, адресат
@@ -22,8 +23,13 @@
 #define DDP_ID_ALL             (255U)
 #define DDP_TYPE_RGBW          (4U)     // поле типа данных, биты 3-5
 
+static_assert(EFF_DDP == MODE_AMOUNT - 1U, "Кадры с компьютера скрываются укорачиванием списка эффектов с конца: новый эффект ставится перед ними");
+
+static bool ddpEnabled = false;                             // приём включён в настройках; читается из базы при первом обращении
+static bool ddpEnabledLoaded = false;
 static WiFiUDP ddpUdp;
 static bool ddpListening = false;
+static bool ddpNoSleep = false;                             // сон WiFi выключен на время эффекта
 static uint8_t ddpFrame[NUM_LEDS * 3U];                     // кадр в порядке отправителя, до выдачи на ленту
 static bool ddpNewFrame = false;                            // пришёл PUSH, кадр ещё не выведен
 static bool ddpHaveFrame = false;                           // был хотя бы один кадр с момента включения режима
@@ -124,9 +130,63 @@ static bool ddpReadPacket(int size)
   return true;
 }
 
+static bool ddpEnabledSetting()
+{
+  if (!ddpEnabledLoaded)                                    // база открывается в setup, а первым спросить может и страница, и MQTT
+  {
+    ddpEnabledLoaded = true;
+    ddpEnabled = (bool)db[kk::ddp_on];
+  }
+  return ddpEnabled;
+}
+
+// эффект не скрыт настройкой
+bool effectAvailable(uint8_t effectId)
+{
+  ddpEnabledSetting();
+  return effectId < MODE_AMOUNT && (effectId != EFF_DDP || ddpEnabled);
+}
+
+// длина списка названий для выбора эффекта: без последнего пункта, если он скрыт
+uint16_t effectListLength()
+{
+  uint16_t length = strlen_P(effectNamesList);
+  if (!ddpEnabledSetting())
+  {
+    length -= getEffectName(EFF_DDP).length() + 1U;         // название и разделитель перед ним
+  }
+  return length;
+}
+
+void ddpSetEnabled(bool on)
+{
+  ddpEnabledLoaded = true;
+  ddpEnabled = on;
+  db.set(kk::ddp_on, on);
+}
+
 // приём пакетов: вызывается в каждом цикле, до effectsTick, чтобы кадр ушёл на ленту в том же проходе
 void ddpTick()
 {
+  if (!ddpEnabledSetting())
+  {
+    if (currentMode == EFF_DDP)                             // приём выключили, пока эффект был выбран, или так сохранилось до обновления
+    {
+      lampSetEffect(effectNeighbour(EFF_DDP, -1));
+    }
+    if (ddpListening)
+    {
+      ddpUdp.stop();
+      ddpListening = false;
+    }
+    if (ddpNoSleep)
+    {
+      ddpNoSleep = false;
+      WiFi.setSleepMode(WIFI_MODEM_SLEEP);
+    }
+    return;
+  }
+
   if (!ddpListening)
   {
     ddpListening = ddpUdp.begin(DDP_PORT);
@@ -138,11 +198,10 @@ void ddpTick()
 
   // Без этого ESP8266 в простое уходит в modem sleep и принимает пакеты пачками по маяку
   // точки доступа, раз в ~100 мс: картинка дёргается. В других эффектах сон остаётся.
-  static bool noSleep = false;
-  if (noSleep != ddpModeActive())
+  if (ddpNoSleep != ddpModeActive())
   {
-    noSleep = ddpModeActive();
-    WiFi.setSleepMode(noSleep ? WIFI_NONE_SLEEP : WIFI_MODEM_SLEEP);
+    ddpNoSleep = ddpModeActive();
+    WiFi.setSleepMode(ddpNoSleep ? WIFI_NONE_SLEEP : WIFI_MODEM_SLEEP);
   }
 
   for (uint8_t i = 0U; i < 8U; i++)                         // накопившиеся пакеты разбираются разом, на ленту идёт последний кадр
@@ -169,26 +228,31 @@ void ddpTick()
   }
 }
 
-// эффект «Кадры с компьютера»: выводит принятый кадр, без кадров гасит ленту
+// эффект «Кадры с компьютера»: выводит принятый кадр, без кадров гасит ленту.
+// Масштаб поворачивает картинку вокруг лампы: 1 - без поворота, 100 - почти полный оборот
 void ddpRoutine()
 {
+  static uint8_t shownScale = 0U;
   bool fresh = ddpFresh();
-  if (!loadingFlag && !ddpNewFrame && ddpLit == fresh)
+  uint8_t scale = modes[currentMode].Scale;
+  if (!loadingFlag && !ddpNewFrame && ddpLit == fresh && shownScale == scale)
   {
     return;
   }
+  shownScale = scale;
   loadingFlag = false;
   ddpNewFrame = false;
   ddpLit = fresh;
 
   if (fresh)
   {
+    uint8_t shift = (uint16_t)(constrain(scale, 1U, 100U) - 1U) * WIDTH / 100U;
     const uint8_t* p = ddpFrame;
     for (uint8_t row = 0U; row < HEIGHT; row++)             // первая строка кадра - верх лампы
     {
       for (uint8_t x = 0U; x < WIDTH; x++, p += 3)
       {
-        leds[XY(x, HEIGHT - 1U - row)] = CRGB(p[0], p[1], p[2]);
+        leds[XY((x + shift) % WIDTH, HEIGHT - 1U - row)] = CRGB(p[0], p[1], p[2]);
       }
     }
   }
