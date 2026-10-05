@@ -33,9 +33,17 @@ void effectsTick()
       if ((currentMode != EFF_WHITE_COLOR && currentMode != EFF_COLOR && currentMode != EFF_DDP) || frameRedrawn ||
           lastShownBrightness != FastLED.getBrightness() || millis() - lastShowTime >= 1000U)
       {
+        bool heal = millis() - lastShowTime >= 1000U;       // неизменный кадр ledsShow не передаёт, самолечению нужна принудительная передача
         lastShownBrightness = FastLED.getBrightness();
         lastShowTime = millis();
-        ledsShow();
+        if (heal)
+        {
+          ledsRefresh();
+        }
+        else
+        {
+          ledsShow();
+        }
       }
     }
     #ifdef WARNING_IF_NO_TIME
@@ -64,7 +72,7 @@ void changePower()
   else
   {
     effectsTick();
-    for (uint8_t i = modes[currentMode].Brightness; i > 0; i = constrain(i - 8, 0, modes[currentMode].Brightness))
+    for (uint8_t i = FastLED.getBrightness(); i > 0; i = i > 8U ? i - 8U : 0U) // с текущей яркости: после картинки она не яркость эффекта
     {
       FastLED.setBrightness(i);
       delay(1);

@@ -21,7 +21,8 @@ enum OverlayKind : uint8_t
 {
   OVERLAY_NONE,
   OVERLAY_COUNTDOWN,
-  OVERLAY_DICE
+  OVERLAY_DICE,
+  OVERLAY_TIME
 };
 
 // действие жеста кнопки: номер хранится в настройках, поэтому новые действия добавляются только в конец

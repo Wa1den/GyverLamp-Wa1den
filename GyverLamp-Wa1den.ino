@@ -345,6 +345,7 @@ void setup()
 
   // ЛЕНТА/МАТРИЦА
   ledStrip.Begin();                                         // вывод на ленту через аппаратный UART1 (GPIO2); FastLED остаётся для математики эффектов
+  delay(1);                                                 // пауза защёлки ленты: иначе первый кадр склеится с выводом загрузчика на GPIO2
   FastLED.setBrightness(BRIGHTNESS);                        // глобальная яркость хранится в FastLED и применяется в ledsShow (вместе с лимитом по току CURRENT_LIMIT)
   ledsClear();
   ledsShow();
@@ -469,6 +470,7 @@ void loop()
   LOOP_STAGE("датчик света");
 
   ddpTick();                                                // кадры с компьютера по сети
+  ledsIdleRefresh();                                        // чёрный кадр на выключенной лампе - против зажжённых помехой диодов
   effectsTick();
   LOOP_STAGE("эффект");
 

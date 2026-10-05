@@ -23,7 +23,7 @@
 //
 // Кнопки «Предыдущий»/«Следующий» и все разделы, кроме первой группы, скрываются в Настройки > Главный экран.
 //
-//   Настройки          сведения, время, сбросы; разделы Главный экран, Сеть (WiFi, точка доступа, Wake-on-LAN),
+//   Настройки          сведения, пароль, сбросы; разделы Время, Главный экран, Сеть (WiFi, точка доступа, Wake-on-LAN),
 //                      MQTT, Автояркость, Оборудование, Кнопка, Журнал
 
 SettingsGyverWS sett("GyverLamp", &db);
@@ -472,38 +472,6 @@ static void uiBuildSettings(sets::Builder& b)
   b.Label(F("IP адрес"), WiFiConnector.connected() ? WiFi.localIP().toString() : WiFi.softAPIP().toString());
   b.LabelNum(F("Свободная память, байт"), ESP.getFreeHeap());
 
-  char timeBuf[9];
-  getFormattedTime(timeBuf);
-  b.Label(UI_ID_LAMP_TIME, F("Время лампы"), timeBuf);   // поля времени обновляются на открытой странице, см. settingsSyncTick
-  b.Label(UI_ID_SYNC_STATE, F("Синхронизация времени"), clockSyncState());
-
-  uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
-  if (b.Select(UI_ID_TZ_OFFSET, F("Часовой пояс"), timezoneList(), &tzIndex))
-  {
-    lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
-    uiTimeRefresh = true;
-  }
-  uint8_t tzDst = db[kk::tz_dst];
-  if (b.Select(UI_ID_TZ_DST, F("Переход на летнее время"), F("нет;Европа;США и Канада"), &tzDst))
-  {
-    lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
-    uiTimeRefresh = true;
-  }
-  b.Input(kk::ntp_host, F("NTP сервер"));
-  if (b.Button(UI_ID_NTP_SYNC, F("Синхронизировать время")))
-  {
-    clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
-  }
-
-  uint32_t unixTime = uiManualTimeValue();
-  if (b.DateTime(UI_ID_SET_TIME, F("Установить время вручную"), &unixTime))
-  {
-    if (unixTime > 0)
-    {
-      lampSetManualTime(unixTime);
-    }
-  }
-
   if (b.Pass(kk::ui_pass, F("Пароль настроек и обновления")))
   {
     uiApplyPass();
@@ -536,6 +504,45 @@ static void uiBuildSettings(sets::Builder& b)
   if (b.Confirm(UI_ID_WIFI_RESET_OK, F("Забыть сеть роутера, вернуть имя и пароль точки доступа к начальным и снять пароль настроек?"), &confirmed) && confirmed)
   {
     pendingWifiReset = true;
+  }
+
+  // --- ВРЕМЯ --------------------------------
+  {
+    sets::Menu page(b, F("Время"));                         // часы лампы, синхронизация и показ времени кнопкой
+
+    char timeBuf[9];
+    getFormattedTime(timeBuf);
+    b.Label(UI_ID_LAMP_TIME, F("Время лампы"), timeBuf);   // поля времени обновляются на открытой странице, см. settingsSyncTick
+    b.Label(UI_ID_SYNC_STATE, F("Синхронизация времени"), clockSyncState());
+
+    uint8_t tzIndex = timezoneIndex(db[kk::tz_offset].toInt());
+    if (b.Select(UI_ID_TZ_OFFSET, F("Часовой пояс"), timezoneList(), &tzIndex))
+    {
+      lampSetTimezone(timezoneOffset(tzIndex), db[kk::tz_dst]);
+      uiTimeRefresh = true;
+    }
+    uint8_t tzDst = db[kk::tz_dst];
+    if (b.Select(UI_ID_TZ_DST, F("Переход на летнее время"), F("нет;Европа;США и Канада"), &tzDst))
+    {
+      lampSetTimezone(db[kk::tz_offset].toInt(), tzDst);
+      uiTimeRefresh = true;
+    }
+    b.Input(kk::ntp_host, F("NTP сервер"));
+    if (b.Button(UI_ID_NTP_SYNC, F("Синхронизировать время")))
+    {
+      clockForceSync();                                     // применяет и новый адрес сервера; ответ приходит в фоне, результат - в Журнале
+    }
+
+    uint32_t unixTime = uiManualTimeValue();
+    if (b.DateTime(UI_ID_SET_TIME, F("Установить время вручную"), &unixTime))
+    {
+      if (unixTime > 0)
+      {
+        lampSetManualTime(unixTime);
+      }
+    }
+
+    b.Number(kk::time_show, F("Показ времени кнопкой, с"), nullptr, 1, 600); // цифрами эффекта Часы, с его положением, цветом и яркостью
   }
 
   // --- ГЛАВНЫЙ ЭКРАН -------------------------

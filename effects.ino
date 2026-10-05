@@ -4791,31 +4791,32 @@ void drawDig3x5(uint8_t x, uint8_t y, uint8_t num, CRGB color){ // uint8_t hue, 
 }
 
 #if HEIGHT > 10 // часы в столбик будут только если высота 11 пикселей и больше
+// и эффект, и показ времени кнопкой поверх другого эффекта (overlay.ino): параметры всегда из настроек Часов
 void clockRoutine(){
     if (loadingFlag)
     {
-        if (selectedSettings){
+        if (selectedSettings && currentMode == EFF_CLOCK){
           setModeSettings(random8(20) ? 7U+random8(86U) : 100U, modes[currentMode].Speed);
         }
 
       loadingFlag = false;
-      poleX = (modes[currentMode].Speed - 1U) % WIDTH; //смещение цифр по горизонтали
+      poleX = (modes[EFF_CLOCK].Speed - 1U) % WIDTH; //смещение цифр по горизонтали
       #ifdef CLOCK_BLINKING
         #if HEIGHT > 13
-          poleY = (modes[currentMode].Speed - 1U) / WIDTH % (HEIGHT - 13U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
+          poleY = (modes[EFF_CLOCK].Speed - 1U) / WIDTH % (HEIGHT - 13U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
         #else
           poleY = 0U;
         #endif
       #else
         #if HEIGHT > 12
-          poleY = (modes[currentMode].Speed - 1U) / WIDTH % (HEIGHT - 12U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
+          poleY = (modes[EFF_CLOCK].Speed - 1U) / WIDTH % (HEIGHT - 12U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
         #else // и для 12 и для 11 смещаться некуда. всё впритык
           poleY = 0U;
         #endif
       #endif
       hue2 = 255U; // количество минут в данный момент (первоначально запредельое значение)
       deltaHue2 = 0; // яркость точки в данный момент
-      deltaValue = modes[currentMode].Scale * 2.55; // выбранный оттенок цифр
+      deltaValue = modes[EFF_CLOCK].Scale * 2.55; // выбранный оттенок цифр
     }
   time_t currentLocalTime = getCurrentLocalTime();
 
@@ -4839,7 +4840,7 @@ void clockRoutine(){
   if (step > 0) // тут меняются цифры на часах
   {
     step--;
-    uint8_t sat = (modes[currentMode].Scale == 100) ? 0U : 255U;
+    uint8_t sat = (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U;
 
     ledsClear();
     // рисуем цифры
@@ -4867,8 +4868,8 @@ void clockRoutine(){
     else
       deltaHue2 = deltaHue2 + ((deltaHue2 < 240U) ? 16U : 15U);//+ ((deltaHue2 < 192U) ? 64U : 63U);
     
-    drawPixelXY((poleX + 2U) % WIDTH, poleY + 6U, CHSV(deltaValue, (modes[currentMode].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
-    drawPixelXY((poleX + 4U) % WIDTH, poleY + 6U, CHSV(deltaValue, (modes[currentMode].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
+    drawPixelXY((poleX + 2U) % WIDTH, poleY + 6U, CHSV(deltaValue, (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
+    drawPixelXY((poleX + 4U) % WIDTH, poleY + 6U, CHSV(deltaValue, (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
 #endif //#ifdef CLOCK_BLINKING
 }
 #else // для матриц и гирлянд от 6 до 10 пикселей в высоту #if HEIGHT > 10
@@ -4876,11 +4877,11 @@ void clockRoutine(){ // чтобы цифры были не в столбик, �
     if (loadingFlag)
     {
       loadingFlag = false;
-      poleX = (modes[currentMode].Speed - 1U) % WIDTH; //смещение цифр по горизонтали
-      poleY = (modes[currentMode].Speed - 1U) / WIDTH % (HEIGHT - 5U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
+      poleX = (modes[EFF_CLOCK].Speed - 1U) % WIDTH; //смещение цифр по горизонтали
+      poleY = (modes[EFF_CLOCK].Speed - 1U) / WIDTH % (HEIGHT - 5U);  //смещение цифр по вертикали (для режима CLOCK_SAVE_MODE будет меняться само)
       hue2 = 255U; // количество минут в данный момент (первоначально запредельое значение)
       deltaHue2 = 0; // яркость точки в данный момент
-      deltaValue = modes[currentMode].Scale * 2.55; // выбранный оттенок цифр
+      deltaValue = modes[EFF_CLOCK].Scale * 2.55; // выбранный оттенок цифр
     }
   time_t currentLocalTime = getCurrentLocalTime();
 
@@ -4896,7 +4897,7 @@ void clockRoutine(){ // чтобы цифры были не в столбик, �
   if (step > 0) // тут меняются цифры на часах
   {
     step--;
-    uint8_t sat = (modes[currentMode].Scale == 100) ? 0U : 255U;
+    uint8_t sat = (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U;
 
     ledsClear();
     // рисуем цифры
@@ -4913,8 +4914,8 @@ void clockRoutine(){ // чтобы цифры были не в столбик, �
     else
       deltaHue2 = deltaHue2 + ((deltaHue2 < 240U) ? 16U : 15U);//+ ((deltaHue2 < 192U) ? 64U : 63U);
   
-    drawPixelXY((poleX + 8U) % WIDTH, poleY + 1U, CHSV(deltaValue, (modes[currentMode].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
-    drawPixelXY((poleX + 8U) % WIDTH, poleY + 3U, CHSV(deltaValue, (modes[currentMode].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
+    drawPixelXY((poleX + 8U) % WIDTH, poleY + 1U, CHSV(deltaValue, (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
+    drawPixelXY((poleX + 8U) % WIDTH, poleY + 3U, CHSV(deltaValue, (modes[EFF_CLOCK].Scale == 100) ? 0U : 255U, deltaHue2)); // цвет белый для .Scale=100
 #endif //#ifdef CLOCK_BLINKING
 }
 #endif //#if HEIGHT > 10
