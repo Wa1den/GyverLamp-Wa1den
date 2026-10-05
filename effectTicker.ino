@@ -64,7 +64,7 @@ void changePower()
   else
   {
     effectsTick();
-    for (uint8_t i = modes[currentMode].Brightness; i > 0; i = constrain(i - 8, 0, modes[currentMode].Brightness))
+    for (uint8_t i = FastLED.getBrightness(); i > 0; i = i > 8U ? i - 8U : 0U) // с текущей яркости: после картинки она не яркость эффекта
     {
       FastLED.setBrightness(i);
       delay(1);

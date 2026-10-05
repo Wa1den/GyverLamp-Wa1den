@@ -317,7 +317,12 @@ void lampShowIp()
 
 void lampShowTime()
 {
-  printTime(thisTime, true, ONflag);
+  if (!timeSynched)
+  {
+    warningStart(CRGB::Red, 4000U, 500U);                   // время неизвестно: мигание красным 4 секунды
+    return;
+  }
+  timeShowStart();
 }
 
 // перевести лампу в режим обновления по воздуху; эффект Матрица - признак этого режима

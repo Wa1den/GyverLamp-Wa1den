@@ -1,4 +1,4 @@
-// Картинка поверх эффекта: обратный отсчёт или кубики. На лампе одна такая картинка, новая сменяет
+// Картинка поверх эффекта: обратный отсчёт, кубики или время цифрами Часов. На лампе одна такая картинка, новая сменяет
 // прежнюю. После неё лампа возвращается к эффекту, а если была выключена до первой из них - гаснет.
 // Выключение лампы или смена эффекта убирают картинку. Служебная строка (IP, время) идёт поверх
 // картинки, а мигание-предупреждение - поверх всего, в том числе на выключенной лампе.
@@ -89,14 +89,42 @@ void overlayEnd()
   }
 
   overlayKind = OVERLAY_NONE;
-  FastLED.setBrightness(modes[currentMode].Brightness);
   loadingFlag = true;
   if (!overlayWasOn && ONflag)
   {
     ONflag = false;
-    changePower();
+    changePower();                                          // гаснет с яркости картинки, а не эффекта: иначе перед выключением вспышка
   }
+  FastLED.setBrightness(modes[currentMode].Brightness);
   mqttRequestPublish();
+}
+
+static uint32_t timeShowAt = 0U;
+
+// время цифрами эффекта Часы, с его положением, цветом и яркостью, на kk::time_show секунд
+void timeShowStart()
+{
+  overlayBegin(OVERLAY_TIME);
+  timeShowAt = millis();
+}
+
+static void timeShowTick()
+{
+  if (millis() - timeShowAt >= max((uint16_t)db[kk::time_show], (uint16_t)1U) * 1000UL)
+  {
+    overlayEnd();
+    return;
+  }
+
+  static uint32_t lastFrame = 0U;
+  if (millis() - lastFrame < 40U)                           // шаг мигания точек часов
+  {
+    return;
+  }
+  lastFrame = millis();
+  FastLED.setBrightness(modes[EFF_CLOCK].Brightness);
+  clockRoutine();
+  ledsShow();
 }
 
 // кадр служебной строки или картинки вместо эффекта; false - кадр за эффектом
@@ -129,6 +157,10 @@ bool overlayTick()
   if (overlayKind == OVERLAY_COUNTDOWN)
   {
     countdownTick();
+  }
+  else if (overlayKind == OVERLAY_TIME)
+  {
+    timeShowTick();
   }
   else
   {
