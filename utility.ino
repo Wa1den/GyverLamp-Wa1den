@@ -120,6 +120,7 @@ void ledsShow()
 
   if (frameChanged)
   {
+    ledStrip.Dirty();                                       // NeoPixelBus пропускает передачу неизменённого буфера, а нулевой буфер чёрный кадр не меняет
     ledStrip.Show();
   }
 }
