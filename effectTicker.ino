@@ -33,9 +33,17 @@ void effectsTick()
       if ((currentMode != EFF_WHITE_COLOR && currentMode != EFF_COLOR && currentMode != EFF_DDP) || frameRedrawn ||
           lastShownBrightness != FastLED.getBrightness() || millis() - lastShowTime >= 1000U)
       {
+        bool heal = millis() - lastShowTime >= 1000U;       // неизменный кадр ledsShow не передаёт, самолечению нужна принудительная передача
         lastShownBrightness = FastLED.getBrightness();
         lastShowTime = millis();
-        ledsShow();
+        if (heal)
+        {
+          ledsRefresh();
+        }
+        else
+        {
+          ledsShow();
+        }
       }
     }
     #ifdef WARNING_IF_NO_TIME

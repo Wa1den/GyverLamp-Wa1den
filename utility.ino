@@ -127,15 +127,21 @@ void ledsShow()
 
 // на выключенной лампе чёрный кадр повторяется раз в 5 секунд: помеха в линии данных зажигает диоды,
 // а без повтора они горели бы до включения лампы. Первый диод загорается белым после подачи питания и уже
-// после первого кадра прошивки, поэтому первые 10 секунд кадр повторяется каждые 200 мс
+// после первого кадра прошивки, поэтому первые 3 секунды кадр повторяется каждые 200 мс
 void ledsIdleRefresh()
 {
   static uint32_t lastRefresh = 0U;
-  if (ONflag || dawnFlag || overlayCurrent() != OVERLAY_NONE || millis() - lastRefresh < (millis() < 10000U ? 200U : 5000U))
+  if (ONflag || dawnFlag || overlayCurrent() != OVERLAY_NONE || millis() - lastRefresh < (millis() < 3000U ? 200U : 5000U))
   {
     return;
   }
   lastRefresh = millis();
+  ledsRefresh();
+}
+
+// передать кадр на ленту, даже если он не менялся: против диодов, зажжённых помехой
+void ledsRefresh()
+{
   ledsForceShow = true;
   ledsShow();
 }
