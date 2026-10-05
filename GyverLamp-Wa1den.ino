@@ -472,8 +472,9 @@ void loop()
   effectsTick();
   LOOP_STAGE("эффект");
 
+  uint8_t savedMode = ddpSavedMode();                       // на эффекте, включённом кадрами, записывается прежний
   Storage::HandleTick(&settChanged, &eepromTimeout, &ONflag,
-    &currentMode, modes, &(FavoritesManager::SaveFavoritesToStorage));
+    &savedMode, modes, &(FavoritesManager::SaveFavoritesToStorage));
   LOOP_STAGE("сохранение настроек");
 
   timeTick();
@@ -495,6 +496,7 @@ void loop()
   }
 
   if (overlayCurrent() == OVERLAY_NONE &&                   // поверх картинки Цикл эффект не переключает, иначе она прервалась бы
+      !ddpAutoActive() &&                                   // и пока идут кадры с компьютера, включившие свой эффект
       FavoritesManager::HandleFavorites(&ONflag, &currentMode, &dawnFlag))
   {
     lampShowEffect(FavoritesManager::getNextFavoriteMode(&currentMode));

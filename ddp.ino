@@ -2,6 +2,10 @@
 // подключают CaseLight, Hyperion, LedFx, xLights. Кадры показывает эффект «Кадры с компьютера»,
 // в остальных эффектах они не принимаются. Без кадров дольше DDP_TIMEOUT_MS лампа гаснет.
 // Приём включается в разделе «Сеть»; выключенный, он скрывает эффект и закрывает порт.
+// С автоматическим переключением первый кадр переводит лампу на этот эффект без записи в настройки,
+// как Цикл, а через ddp_wait секунд без кадров возвращает прежний эффект. В режиме «выключить лампу»
+// кадры включают и выключенную лампу, а после них она гаснет. Выключенная во время кадров лампа
+// не включается, пока в кадрах не будет паузы.
 //
 // Пиксели идут построчно сверху вниз, в строке слева направо, по 3 байта RGB: отправителю не
 // нужно знать подключение матрицы, его учитывает XY(). На запрос статуса (флаг QUERY, адресат
@@ -39,6 +43,8 @@ static IPAddress ddpSender;
 static uint16_t ddpFrameCount = 0U;                         // кадры за текущую секунду, для страницы
 static uint16_t ddpFps = 0U;
 static uint32_t ddpFpsAt = 0U;
+static bool ddpAutoOn = false;                              // эффект включён приходом кадров, а не вручную
+static uint8_t ddpReturnMode = 0U;                          // эффект, к которому лампа вернётся без кадров
 
 static bool ddpModeActive()
 {
@@ -50,6 +56,50 @@ static bool ddpFresh()
   return ddpHaveFrame && millis() - ddpFrameAt < DDP_TIMEOUT_MS;
 }
 
+// пришедший кадр может включить эффект: лампа включена и не занята рассветом, картинкой или обновлением
+static bool ddpAutoCanStart()
+{
+  #ifdef OTA
+  if (OtaManager::OtaFlag != OtaPhase::None)
+  {
+    return false;
+  }
+  #endif
+  return (ONflag || (uint8_t)db[kk::ddp_end] == 1U) && !dawnFlag && overlayCurrent() == OVERLAY_NONE && (bool)db[kk::ddp_auto];
+}
+
+static void ddpAutoStart()
+{
+  ddpReturnMode = currentMode;
+  ddpAutoOn = true;
+  ddpHaveFrame = false;                                     // в буфере может лежать старый кадр, показывается следующий
+  ddpFrameAt = millis();                                    // отсчёт до возврата - с первого пакета, даже если кадр из нескольких
+  lampShowEffect(EFF_DDP);
+  lampSetPower(true);
+}
+
+static void ddpAutoReturn()
+{
+  ddpAutoOn = false;
+  lampShowEffect(ddpReturnMode);
+  if ((uint8_t)db[kk::ddp_end] == 1U)
+  {
+    lampSetPower(false);
+  }
+}
+
+// эффект для записи в настройки: после перезагрузки лампа не должна остаться на автовключённом эффекте
+uint8_t ddpSavedMode()
+{
+  return ddpAutoOn && currentMode == EFF_DDP ? ddpReturnMode : currentMode;
+}
+
+// эффект включён приходом кадров; Цикл в это время не переключает
+bool ddpAutoActive()
+{
+  return ddpAutoOn && currentMode == EFF_DDP;
+}
+
 static void ddpReplyStatus()
 {
   char json[224];
@@ -57,7 +107,7 @@ static void ddpReplyStatus()
     PSTR("{\"status\":{\"man\":\"" FIRMWARE_NAME "\",\"mod\":\"GyverLamp\",\"ver\":\"" FIRMWARE_VERSION "\","
          "\"mac\":\"%s\",\"name\":\"%s\",\"w\":%u,\"h\":%u,\"on\":%s,\"live\":%s}}"),
     WiFi.macAddress().c_str(), hostName().c_str(), (unsigned)WIDTH, (unsigned)HEIGHT,
-    ONflag ? "true" : "false", currentMode == EFF_DDP ? "true" : "false");
+    ONflag ? "true" : "false", currentMode == EFF_DDP || (bool)db[kk::ddp_auto] ? "true" : "false");
   if (len <= 0 || len >= (int)sizeof(json))
   {
     return;
@@ -109,9 +159,22 @@ static bool ddpReadPacket(int size)
   }
 
   if ((flags & DDP_FLAGS_REPLY) || (id != DDP_ID_DISPLAY && id != DDP_ID_ALL) ||
-      ((header[2] >> 3) & 0x07U) == DDP_TYPE_RGBW || !ddpModeActive())
+      ((header[2] >> 3) & 0x07U) == DDP_TYPE_RGBW)
   {
     return false;
+  }
+  if (!ddpModeActive())
+  {
+    if (ddpAutoActive())                                    // лампу выключили во время кадров: до паузы в них она не включается
+    {
+      ddpFrameAt = millis();
+      return false;
+    }
+    if (!ddpAutoCanStart())
+    {
+      return false;
+    }
+    ddpAutoStart();
   }
 
   uint32_t offset = ((uint32_t)header[4] << 24) | ((uint32_t)header[5] << 16) | ((uint32_t)header[6] << 8) | header[7];
@@ -170,7 +233,11 @@ void ddpTick()
 {
   if (!ddpEnabledSetting())
   {
-    if (currentMode == EFF_DDP)                             // приём выключили, пока эффект был выбран, или так сохранилось до обновления
+    if (ddpAutoActive())                                    // приём выключили, пока эффект был включён кадрами
+    {
+      ddpAutoReturn();
+    }
+    else if (currentMode == EFF_DDP)                        // приём выключили, пока эффект был выбран, или так сохранилось до обновления
     {
       lampSetEffect(effectNeighbour(EFF_DDP, -1));
     }
@@ -218,6 +285,15 @@ void ddpTick()
       ddpFrameAt = millis();
       ddpFrameCount++;
     }                                                       // остаток пакета отбрасывает следующий parsePacket
+  }
+
+  if (ddpAutoOn && currentMode != EFF_DDP)                  // эффект сменили вручную - возвращать некуда
+  {
+    ddpAutoOn = false;
+  }
+  if (ddpAutoActive() && millis() - ddpFrameAt >= max((uint16_t)db[kk::ddp_wait], (uint16_t)1U) * 1000UL)
+  {
+    ddpAutoReturn();
   }
 
   if (millis() - ddpFpsAt >= 1000U)
