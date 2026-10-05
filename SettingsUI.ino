@@ -101,6 +101,8 @@ static uint16_t uiSleepMinutes = 30U;                       // значение 
 // (пока страница открыта, список из меню не пропадает)
 static bool favListVisible = false;                         // строить ли список в текущей сборке страницы
 static bool pendingFavReload = false;                       // запрошено перестроение страницы, чтобы показать список
+static bool uiLampBuilt = false;                            // последней собрана вкладка «Лампа»
+static uint8_t uiBuiltMode = 0U;                            // эффект, под который собраны её ползунки
 
 // оставшееся время обратного отсчёта для поля "Осталось" - одна и та же строка в сборке страницы и в живом обновлении
 static String uiCountdownText()
@@ -246,6 +248,9 @@ static void uiBuildLamp(sets::Builder& b)
     {
       b.Label(UI_ID_DDP_STATE, F("Кадры"), ddpStateText()); // обновляется на открытой странице, см. settingsSyncTick
     }
+
+    uiLampBuilt = true;                                     // после обработчиков выше: эффект, выбранный на странице, перестроит её сам
+    uiBuiltMode = currentMode;
   }
 
   // --- ЦИКЛ (АВТОМАТИЧЕСКАЯ СМЕНА ИЗБРАННЫХ ЭФФЕКТОВ) ---
@@ -866,6 +871,7 @@ void settingsBuild(sets::Builder& b)
   }
   else
   {
+    uiLampBuilt = false;
     uiBuildSettings(b);
   }
 }
@@ -1018,6 +1024,12 @@ void settingsSyncTick()
   static uint8_t lastSpeed = 0U;
   static uint8_t lastScale = 0U;
   static bool lastFavOn = false;
+
+  if (uiLampBuilt && currentMode != uiBuiltMode && sett.focused()) // эффект сменили не со страницы: у него свои ползунки
+  {
+    uiBuiltMode = currentMode;
+    sett.reload();
+  }
 
   bool favOn = FavoritesManager::FavoritesRunning != 0;
   if (lastPower != ONflag || lastEffect != currentMode ||
