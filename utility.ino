@@ -42,6 +42,8 @@ void hwApply()
 // если итоговый кадр не отличается от уже показанного, передача пропускается.
 // сюда же подмешивается световая волна-отклик на касание кнопки (BUTTON_PRESS_FEEDBACK):
 // оверлей применяется к копии цветов и не трогает leds[] - состояние эффектов не портится
+static bool ledsForceShow = true;                           // передать кадр, даже если он совпадает с последним переданным
+
 void ledsShow()
 {
   uint8_t brightness = FastLED.getBrightness();
@@ -90,9 +92,8 @@ void ledsShow()
   }
   #endif //BUTTON_PRESS_FEEDBACK
 
-  static bool firstFrame = true;                            // после подачи питания на ленте горят случайные диоды, а буфер NeoPixelBus пуст:
-  bool frameChanged = firstFrame;                           // чёрный кадр совпал бы с буфером, и выключенная лампа так и осталась бы с ними
-  firstFrame = false;
+  bool frameChanged = ledsForceShow;                        // после подачи питания на ленте горят случайные диоды, а буфер NeoPixelBus пуст:
+  ledsForceShow = false;                                    // чёрный кадр совпал бы с буфером, и выключенная лампа так и осталась бы с ними
   for (uint8_t y = 0U; y < HEIGHT; y++)
   {
     for (uint8_t x = 0U; x < WIDTH; x++)
@@ -121,6 +122,20 @@ void ledsShow()
   {
     ledStrip.Show();
   }
+}
+
+// на выключенной лампе чёрный кадр повторяется раз в 5 секунд: помеха в линии данных (вывод загрузчика
+// на GPIO2 при старте) зажигает диоды, а без повтора они горели бы до включения лампы
+void ledsIdleRefresh()
+{
+  static uint32_t lastRefresh = 0U;
+  if (ONflag || dawnFlag || overlayCurrent() != OVERLAY_NONE || millis() - lastRefresh < 5000U)
+  {
+    return;
+  }
+  lastRefresh = millis();
+  ledsForceShow = true;
+  ledsShow();
 }
 
 // тикер анимации отклика на касание кнопки: обеспечивает кадры волны, когда эффект
