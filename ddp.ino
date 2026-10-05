@@ -3,7 +3,8 @@
 // в остальных эффектах они не принимаются. Без кадров дольше DDP_TIMEOUT_MS лампа гаснет.
 // Приём включается в разделе «Сеть»; выключенный, он скрывает эффект и закрывает порт.
 // С автоматическим переключением первый кадр переводит лампу на этот эффект без записи в настройки,
-// как Цикл, а через ddp_wait секунд без кадров возвращает прежний эффект. В режиме «выключить лампу»
+// как Цикл, а через ddp_wait секунд без кадров возвращает прежний эффект. Кадрами здесь считаются
+// только те, где что-то светится: CaseLight шлёт чёрные кадры и тогда, когда эквалайзер молчит. В режиме «выключить лампу»
 // кадры включают и выключенную лампу, а после них она гаснет. Выключенная во время кадров лампа
 // не включается, пока в кадрах не будет паузы.
 //
@@ -26,6 +27,7 @@
 #define DDP_ID_STATUS          (251U)
 #define DDP_ID_ALL             (255U)
 #define DDP_TYPE_RGBW          (4U)     // поле типа данных, биты 3-5
+#define DDP_LIT_LEVEL          (8U)     // кадр светится, если хоть один канал ярче: шум у нуля - ещё темнота
 
 static_assert(EFF_DDP == MODE_AMOUNT - 1U, "Кадры с компьютера скрываются укорачиванием списка эффектов с конца: новый эффект ставится перед ними");
 
@@ -45,6 +47,7 @@ static uint16_t ddpFps = 0U;
 static uint32_t ddpFpsAt = 0U;
 static bool ddpAutoOn = false;                              // эффект включён приходом кадров, а не вручную
 static uint8_t ddpReturnMode = 0U;                          // эффект, к которому лампа вернётся без кадров
+static uint32_t ddpLitAt = 0U;                              // последний кадр, в котором что-то светилось
 
 static bool ddpModeActive()
 {
@@ -72,8 +75,6 @@ static void ddpAutoStart()
 {
   ddpReturnMode = currentMode;
   ddpAutoOn = true;
-  ddpHaveFrame = false;                                     // в буфере может лежать старый кадр, показывается следующий
-  ddpFrameAt = millis();                                    // отсчёт до возврата - с первого пакета, даже если кадр из нескольких
   lampShowEffect(EFF_DDP);
   lampSetPower(true);
 }
@@ -163,18 +164,9 @@ static bool ddpReadPacket(int size)
   {
     return false;
   }
-  if (!ddpModeActive())
+  if (!ddpModeActive() && !ddpAutoActive() && !ddpAutoCanStart()) // кадр не покажут и он не включит эффект
   {
-    if (ddpAutoActive())                                    // лампу выключили во время кадров: до паузы в них она не включается
-    {
-      ddpFrameAt = millis();
-      return false;
-    }
-    if (!ddpAutoCanStart())
-    {
-      return false;
-    }
-    ddpAutoStart();
+    return false;
   }
 
   uint32_t offset = ((uint32_t)header[4] << 24) | ((uint32_t)header[5] << 16) | ((uint32_t)header[6] << 8) | header[7];
@@ -201,6 +193,19 @@ static bool ddpEnabledSetting()
     ddpEnabled = (bool)db[kk::ddp_on];
   }
   return ddpEnabled;
+}
+
+// в принятом кадре что-то светится
+static bool ddpFrameLit()
+{
+  for (uint16_t i = 0U; i < sizeof(ddpFrame); i++)
+  {
+    if (ddpFrame[i] >= DDP_LIT_LEVEL)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 // эффект не скрыт настройкой
@@ -280,6 +285,22 @@ void ddpTick()
     }
     if (ddpReadPacket(size))
     {
+      bool lit = ddpFrameLit();
+      if (lit)
+      {
+        ddpLitAt = millis();
+      }
+      if (!ddpModeActive())
+      {
+        if (lit && !ddpAutoActive() && ddpAutoCanStart())   // выключенная во время кадров лампа ждёт паузы в них
+        {
+          ddpAutoStart();
+        }
+        if (!ddpModeActive())
+        {
+          continue;
+        }
+      }
       ddpNewFrame = true;
       ddpHaveFrame = true;
       ddpFrameAt = millis();
@@ -291,7 +312,7 @@ void ddpTick()
   {
     ddpAutoOn = false;
   }
-  if (ddpAutoActive() && millis() - ddpFrameAt >= max((uint16_t)db[kk::ddp_wait], (uint16_t)1U) * 1000UL)
+  if (ddpAutoActive() && millis() - ddpLitAt >= max((uint16_t)db[kk::ddp_wait], (uint16_t)1U) * 1000UL)
   {
     ddpAutoReturn();
   }
