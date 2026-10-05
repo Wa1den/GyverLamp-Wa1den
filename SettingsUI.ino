@@ -21,7 +21,9 @@
 //   Бегущая строка     группа без заголовка
 //   Таймер выключения  группа
 //
-//   Настройки          сведения, время, сбросы; разделы Сеть (WiFi, точка доступа, Wake-on-LAN),
+// Кнопки «Предыдущий»/«Следующий» и все разделы, кроме первой группы, скрываются в Настройки > Главный экран.
+//
+//   Настройки          сведения, время, сбросы; разделы Главный экран, Сеть (WiFi, точка доступа, Wake-on-LAN),
 //                      MQTT, Автояркость, Оборудование, Кнопка, Журнал
 
 SettingsGyverWS sett("GyverLamp", &db);
@@ -52,6 +54,7 @@ SettingsGyverWS sett("GyverLamp", &db);
 #define UI_ID_CD_PAUSE     ("ui_cd_pause"_h)
 #define UI_ID_CD_STOP      ("ui_cd_stop"_h)
 #define UI_ID_DICE(i)      (0xD1CE00UL + (i))
+#define UI_ID_SHOW(i)      (0x5E0000UL + (i))
 #define UI_ID_DICE_RESULT  ("ui_dice_res"_h)
 #define UI_ID_DICE_EXIT    ("ui_dice_exit"_h)
 #define UI_ID_TIMER_STATE  ("ui_tmr_state"_h)
@@ -127,6 +130,23 @@ static String uiTimerText()
   return String(F("осталось ")) + (left / 60000L + 1) + F(" мин");
 }
 
+// разделы вкладки «Лампа», которые скрываются в Настройки > Главный экран; номер - бит в kk::ui_hidden
+#define UI_SEC_EFF_BUTTONS (0U)
+#define UI_SEC_CYCLE       (1U)
+#define UI_SEC_ALARM       (2U)
+#define UI_SEC_COUNTDOWN   (3U)
+#define UI_SEC_DICE        (4U)
+#define UI_SEC_TEXT        (5U)
+#define UI_SEC_TIMER       (6U)
+#define UI_SEC_COUNT       (7U)
+static const char* const uiSectionNames[UI_SEC_COUNT] = {"Кнопки «Предыдущий» и «Следующий»", "Цикл эффектов", "Будильник (рассвет)",
+                                                         "Обратный отсчёт", "Кубики", "Бегущая строка", "Таймер выключения"};
+
+static bool uiShown(uint8_t section)
+{
+  return !((uint16_t)db[kk::ui_hidden] & (1U << section));
+}
+
 static const char* const uiDayNames[7] = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
 // действия жестов кнопки по порядку ButtonAction (Types.h); удержанию доступны ещё регулировки и служебные действия
@@ -168,6 +188,7 @@ static void uiBuildLamp(sets::Builder& b)
   {
     sets::Group g(b);
 
+    if (uiShown(UI_SEC_EFF_BUTTONS))
     {
       sets::Buttons btns(b);                                // переключение по кругу, как двойной и тройной клик кнопкой
       if (b.Button(UI_ID_EFF_PREV, F("Предыдущий")))
@@ -228,6 +249,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- ЦИКЛ (АВТОМАТИЧЕСКАЯ СМЕНА ИЗБРАННЫХ ЭФФЕКТОВ) ---
+  if (uiShown(UI_SEC_CYCLE))
   {
     sets::Menu page(b, F("Цикл эффектов"));                 // отдельная страница: настройки цикла нужны редко
 
@@ -299,6 +321,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- БУДИЛЬНИК (РАССВЕТ) -------------------
+  if (uiShown(UI_SEC_ALARM))
   {
     sets::Menu page(b, F("Будильник (рассвет)"));
 
@@ -326,6 +349,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- ОБРАТНЫЙ ОТСЧЁТ ----------------------
+  if (uiShown(UI_SEC_COUNTDOWN))
   {
     sets::Menu page(b, F("Обратный отсчёт"));
 
@@ -366,6 +390,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- КУБИКИ -------------------------------
+  if (uiShown(UI_SEC_DICE))
   {
     sets::Menu page(b, F("Кубики"));
 
@@ -399,6 +424,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- БЕГУЩАЯ СТРОКА ------------------------
+  if (uiShown(UI_SEC_TEXT))
   {
     sets::Group g(b);                                       // одно поле, заголовок группы не нужен
 
@@ -410,6 +436,7 @@ static void uiBuildLamp(sets::Builder& b)
   }
 
   // --- ТАЙМЕР ВЫКЛЮЧЕНИЯ ---------------------
+  if (uiShown(UI_SEC_TIMER))
   {
     sets::Group g(b, F("Таймер выключения"));
 
@@ -504,6 +531,25 @@ static void uiBuildSettings(sets::Builder& b)
   if (b.Confirm(UI_ID_WIFI_RESET_OK, F("Забыть сеть роутера, вернуть имя и пароль точки доступа к начальным и снять пароль настроек?"), &confirmed) && confirmed)
   {
     pendingWifiReset = true;
+  }
+
+  // --- ГЛАВНЫЙ ЭКРАН -------------------------
+  {
+    sets::Menu page(b, F("Главный экран"));                 // что показывать на вкладке «Лампа»; она перестраивается при переключении вкладок
+
+    uint16_t hidden = db[kk::ui_hidden];
+    for (uint8_t i = 0U; i < UI_SEC_COUNT; i++)
+    {
+      bool shown = !(hidden & (1U << i));
+      if (b.Switch(UI_ID_SHOW(i), uiSectionNames[i], &shown))
+      {
+        hidden = shown ? (hidden & ~(1U << i)) : (hidden | (1U << i));
+        db.set(kk::ui_hidden, hidden);
+      }
+    }
+    b.Paragraph("", F("Скрытые разделы продолжают работать: будильник срабатывает, Цикл переключает эффекты, "
+                  "таймер выключает лампу, кнопка лампы и MQTT действуют как прежде. Выбор действует "
+                  "и на страницу, открытую без пароля."));
   }
 
   // --- СЕТЬ ----------------------------------
@@ -1001,9 +1047,10 @@ void settingsSyncTick()
   }
 
   // поле "Осталось" обратного отсчёта: оставшееся время, пауза или выбранный интервал
+  uint16_t hidden = db[kk::ui_hidden];                      // поля скрытых разделов на странице отсутствуют
   static String lastCountdownText;
   String countdownLeft = uiCountdownText();
-  if (countdownLeft != lastCountdownText)
+  if (!(hidden & (1U << UI_SEC_COUNTDOWN)) && countdownLeft != lastCountdownText)
   {
     lastCountdownText = countdownLeft;
     sett.updater().update(UI_ID_CD_LEFT, countdownLeft);
@@ -1011,7 +1058,7 @@ void settingsSyncTick()
 
   static String lastTimerText;                              // таймер выключения: запуск, отключение, оставшиеся минуты
   String timerText = uiTimerText();
-  if (timerText != lastTimerText)
+  if (!(hidden & (1U << UI_SEC_TIMER)) && timerText != lastTimerText)
   {
     lastTimerText = timerText;
     sett.updater().update(UI_ID_TIMER_STATE, timerText);
@@ -1030,7 +1077,7 @@ void settingsSyncTick()
 
   static String lastDiceText;                               // поле "Результат" кубиков: бросок идёт или его итог
   String diceResult = diceText();
-  if (diceResult != lastDiceText)
+  if (!(hidden & (1U << UI_SEC_DICE)) && diceResult != lastDiceText)
   {
     lastDiceText = diceResult;
     sett.updater().update(UI_ID_DICE_RESULT, diceResult);

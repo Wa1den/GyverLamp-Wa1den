@@ -35,6 +35,7 @@ DB_KEYS(kk,
     ui_pass,                                                // пароль вкладки «Настройки» и обновления прошивки со страницы; пусто - без пароля
     upd_check,                                              // страница проверяет новые релизы на GitHub не чаще раза в сутки
     ddp_on,                                                 // приём кадров с компьютера по сети: эффект «Кадры с компьютера» и порт DDP
+    ui_hidden,                                              // скрытые разделы вкладки «Лампа»: бит на раздел, см. UI_SEC_* в SettingsUI.ino
     esp_mode,                                               // режим работы лампы: 0 - точка доступа, 1 - клиент WiFi (подключение к роутеру)
 
     // Лампа
@@ -210,6 +211,7 @@ class Storage
       db.init(kk::ui_pass, "");
       db.init(kk::upd_check, true);
       db.init(kk::ddp_on, false);
+      db.init(kk::ui_hidden, (uint16_t)0);                  // ноль - показано всё, и разделы из новых версий тоже
       for (uint8_t i = 1U; i < WIFI_NETWORKS; i++)
       {
         db.init(wifiSsidKeys[i], "");
